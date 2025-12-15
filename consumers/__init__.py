@@ -4,6 +4,14 @@ Consumers implement business logic using the service layer.
 All processing uses dataclasses - no dict conversion layers.
 """
 
+from consumers.event_epg import (
+    EventChannelInfo,
+    EventEPGGenerator,
+    EventEPGOptions,
+    EventTemplateConfig,
+    MatchedStream,
+)
+from consumers.event_matcher import EventMatcher, has_game_indicator
 from consumers.orchestrator import (
     GenerationResult,
     Orchestrator,
@@ -24,4 +32,13 @@ __all__ = [
     "TeamEPGGenerator",
     "TeamEPGOptions",
     "TemplateConfig",
+    # Event EPG
+    "EventChannelInfo",
+    "EventEPGGenerator",
+    "EventEPGOptions",
+    "EventTemplateConfig",
+    "MatchedStream",
+    # Event Matcher
+    "EventMatcher",
+    "has_game_indicator",
 ]
