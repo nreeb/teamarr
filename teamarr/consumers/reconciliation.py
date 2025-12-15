@@ -237,7 +237,7 @@ class ChannelReconciler:
 
             # Check if channel exists in Dispatcharr
             with self._dispatcharr_lock:
-                dispatcharr_channel = self._channel_manager.get(
+                dispatcharr_channel = self._channel_manager.get_channel(
                     channel.dispatcharr_channel_id
                 )
 
@@ -455,7 +455,7 @@ class ChannelReconciler:
 
             # Get current state from Dispatcharr
             with self._dispatcharr_lock:
-                dispatcharr_channel = self._channel_manager.get(
+                dispatcharr_channel = self._channel_manager.get_channel(
                     channel.dispatcharr_channel_id
                 )
 
@@ -662,7 +662,7 @@ class ChannelReconciler:
 
             # Check if exists in Dispatcharr
             with self._dispatcharr_lock:
-                dispatcharr_channel = self._channel_manager.get(
+                dispatcharr_channel = self._channel_manager.get_channel(
                     channel.dispatcharr_channel_id
                 )
 

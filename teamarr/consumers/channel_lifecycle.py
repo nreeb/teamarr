@@ -650,7 +650,7 @@ class ChannelLifecycleService:
                 # Add to Dispatcharr
                 if self._channel_manager:
                     with self._dispatcharr_lock:
-                        current = self._channel_manager.get(existing.dispatcharr_channel_id)
+                        current = self._channel_manager.get_channel(existing.dispatcharr_channel_id)
                         if current:
                             current_streams = [s.id for s in current.streams]
                             if stream_id not in current_streams:
@@ -892,7 +892,7 @@ class ChannelLifecycleService:
 
         try:
             with self._dispatcharr_lock:
-                current_channel = self._channel_manager.get(existing.dispatcharr_channel_id)
+                current_channel = self._channel_manager.get_channel(existing.dispatcharr_channel_id)
                 if not current_channel:
                     return result
 
