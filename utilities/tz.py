@@ -5,12 +5,14 @@ All datetime display, formatting, and conversion should use these functions.
 """
 
 from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
 
 from config import get_user_timezone, get_user_timezone_str
 
 __all__ = [
     "get_user_timezone",
     "get_user_timezone_str",
+    "get_user_tz",
     "now_user",
     "now_utc",
     "to_user_tz",
@@ -21,6 +23,24 @@ __all__ = [
     "format_datetime_xmltv",
     "get_timezone_abbrev",
 ]
+
+
+def get_user_tz(tz_name: str | None = None) -> ZoneInfo:
+    """Get timezone from string, falling back to config/default.
+
+    Args:
+        tz_name: IANA timezone name (e.g., 'America/New_York')
+                 If None, uses config timezone
+
+    Returns:
+        ZoneInfo for the timezone
+    """
+    if tz_name:
+        try:
+            return ZoneInfo(tz_name)
+        except Exception:
+            pass
+    return get_user_timezone()
 
 
 def now_user() -> datetime:
