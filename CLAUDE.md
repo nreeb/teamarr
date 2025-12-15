@@ -5,8 +5,9 @@
 ## Quick Start
 
 ```bash
-python3 app.py              # Start server (port 9195)
-open http://localhost:9195/docs  # Swagger API docs
+source .venv/bin/activate
+PORT=9198 python3 app.py    # Dev server (9195 is prod V1)
+open http://localhost:9198/docs  # Swagger API docs
 ```
 
 **Stack**: Python 3.11+, FastAPI, SQLite, httpx
@@ -242,45 +243,49 @@ events = service.get_events('ohl', date.today())  # → TSDB
 
 ```
 GET  /health                    # Health check
-GET  /api/v1/teams              # List teams
-POST /api/v1/teams              # Create team
-GET  /api/v1/templates          # List templates
+GET  /api/v1/teams              # List/create teams
+GET  /api/v1/templates          # List/create templates
 POST /api/v1/epg/generate       # Generate EPG
-GET  /api/v1/cache/stats        # Cache statistics
-POST /api/v1/cache/clear        # Clear cache
-GET  /api/v1/matching/preview   # Preview matches
+GET  /api/v1/epg/xmltv          # Get XMLTV output
+GET  /api/v1/cache/status       # Cache statistics
+POST /api/v1/cache/refresh      # Refresh league/team cache
+GET  /api/v1/cache/teams/search # Search teams
+GET  /api/v1/matching/events    # Preview stream matches
 ```
 
-Full docs: http://localhost:9195/docs
+Full docs: http://localhost:9198/docs
 
 ---
 
-## Next Session: V2 Completion
+## Current Status
 
-**Plan file**: `/root/.claude/plans/nifty-leaping-porcupine.md`
+### Backend Validated (Dec 15, 2025)
 
-### Session Summary (Dec 14, 2025)
+All core endpoints working:
+- `/health` - ✅
+- `/api/v1/teams` - ✅ CRUD
+- `/api/v1/templates` - ✅
+- `/api/v1/cache/status` - ✅
+- `/api/v1/cache/refresh` - ✅ (283 leagues, 7017 teams)
+- `/api/v1/cache/teams/search` - ✅
+- `/api/v1/epg/generate` - ✅
+- `/api/v1/epg/xmltv` - ✅
 
-Completed:
-1. Trashed V1/V2 hybrid codebase
-2. Restored clean V2 from archive (90% complete)
-3. Audited for V1 hackiness (confirmed clean)
-4. Cleaned up documentation
-5. Created completion plan
+### Next: Build UI
 
-### Next Steps (In Order)
+React + TypeScript + Tailwind CSS, bundled and served by FastAPI.
 
-1. **Validate backend works**
-   - Run `python3 app.py`
-   - Test `/health`, `/api/v1/teams`, `/api/v1/cache/stats`
-   - Fix any import errors
-
-2. **Build React + TypeScript + Tailwind UI**
-   - Dashboard, Teams, Event Groups, Templates, Channels, Settings
-   - Bundled static files served by FastAPI
+Pages needed:
+- Dashboard (overview, cache status)
+- Teams (list, add, edit team channels)
+- Event Groups (event-based EPG)
+- Templates (title/description templates)
+- Channels (managed channels)
+- Settings (global config)
 
 ### Decisions Made
 
 - UI: React + TypeScript + Tailwind CSS
+- Dev port: 9198 (9195 is prod V1)
 - Deployment: Single container (bundled static files)
 - No backward compatibility with V1

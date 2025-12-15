@@ -26,6 +26,16 @@ Usage:
 
 from teamarr.dispatcharr.auth import TokenManager
 from teamarr.dispatcharr.client import DispatcharrClient
+from teamarr.dispatcharr.factory import (
+    ConnectionTestResult,
+    DispatcharrConnection,
+    DispatcharrFactory,
+    close_dispatcharr,
+    get_dispatcharr_client,
+    get_dispatcharr_connection,
+    get_factory,
+    test_dispatcharr_connection,
+)
 from teamarr.dispatcharr.managers import (
     ChannelCache,
     ChannelManager,
@@ -50,6 +60,15 @@ __all__ = [
     # Client
     "DispatcharrClient",
     "TokenManager",
+    # Factory
+    "ConnectionTestResult",
+    "DispatcharrConnection",
+    "DispatcharrFactory",
+    "close_dispatcharr",
+    "get_dispatcharr_client",
+    "get_dispatcharr_connection",
+    "get_factory",
+    "test_dispatcharr_connection",
     # Managers
     "ChannelCache",
     "ChannelManager",

@@ -233,6 +233,7 @@ def delete_managed_channel(channel_id: int):
     """
     from teamarr.consumers import create_lifecycle_service
     from teamarr.database.channels import get_managed_channel
+    from teamarr.dispatcharr import get_dispatcharr_client
 
     with get_db() as conn:
         channel = get_managed_channel(conn, channel_id)
@@ -242,9 +243,13 @@ def delete_managed_channel(channel_id: int):
                 detail=f"Channel {channel_id} not found",
             )
 
-    # Create lifecycle service without Dispatcharr client
-    # (just marks as deleted in DB - no live Dispatcharr connection)
-    service = create_lifecycle_service(get_db)
+    # Get Dispatcharr client (may be None if not configured)
+    try:
+        client = get_dispatcharr_client(get_db)
+    except Exception:
+        client = None
+
+    service = create_lifecycle_service(get_db, client)
 
     with get_db() as conn:
         success = service.delete_managed_channel(conn, channel_id, reason="manual")
@@ -270,19 +275,34 @@ def sync_lifecycle():
     Requires Dispatcharr to be configured.
     """
     from teamarr.consumers import create_lifecycle_service
-    from teamarr.database.channels import get_dispatcharr_settings
+    from teamarr.database.settings import get_dispatcharr_settings
+    from teamarr.dispatcharr import get_dispatcharr_client
 
     with get_db() as conn:
         settings = get_dispatcharr_settings(conn)
 
-    if not settings.get("enabled"):
+    if not settings.enabled:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Dispatcharr not configured",
         )
 
-    # Create lifecycle service (without live Dispatcharr client for now)
-    service = create_lifecycle_service(get_db)
+    # Get Dispatcharr client
+    try:
+        client = get_dispatcharr_client(get_db)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to connect to Dispatcharr: {e}",
+        ) from e
+
+    if not client:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Dispatcharr connection not available",
+        )
+
+    service = create_lifecycle_service(get_db, client)
 
     # Process scheduled deletions
     result = service.process_scheduled_deletions()
@@ -303,12 +323,13 @@ def get_reconciliation_status(
     Checks for issues without making any changes.
     """
     from teamarr.consumers import create_reconciler
-    from teamarr.database.channels import get_dispatcharr_settings
+    from teamarr.database.settings import get_dispatcharr_settings
+    from teamarr.dispatcharr import get_dispatcharr_client
 
     with get_db() as conn:
         settings = get_dispatcharr_settings(conn)
 
-    if not settings.get("enabled"):
+    if not settings.enabled:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Dispatcharr not configured",
@@ -325,8 +346,13 @@ def get_reconciliation_status(
                 detail="group_ids must be comma-separated integers",
             ) from None
 
-    # Create reconciler (without live Dispatcharr client for now)
-    reconciler = create_reconciler(get_db)
+    # Get Dispatcharr client
+    try:
+        client = get_dispatcharr_client(get_db)
+    except Exception:
+        client = None
+
+    reconciler = create_reconciler(get_db, client)
 
     # Run detect-only
     result = reconciler.reconcile(auto_fix=False, group_ids=parsed_group_ids)
@@ -362,19 +388,30 @@ def fix_reconciliation(request: ReconciliationRequest):
     Detects issues and optionally fixes them based on settings.
     """
     from teamarr.consumers import create_reconciler
-    from teamarr.database.channels import get_dispatcharr_settings
+    from teamarr.database.settings import get_dispatcharr_settings
+    from teamarr.dispatcharr import get_dispatcharr_client
 
     with get_db() as conn:
         settings = get_dispatcharr_settings(conn)
 
-    if not settings.get("enabled"):
+    if not settings.enabled:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Dispatcharr not configured",
         )
 
-    # Create reconciler (without live Dispatcharr client for now)
-    reconciler = create_reconciler(get_db)
+    # Get Dispatcharr client
+    try:
+        client = get_dispatcharr_client(get_db)
+    except Exception as e:
+        if request.auto_fix:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Cannot auto-fix without Dispatcharr connection: {e}",
+            ) from e
+        client = None
+
+    reconciler = create_reconciler(get_db, client)
 
     # Run reconciliation
     result = reconciler.reconcile(
