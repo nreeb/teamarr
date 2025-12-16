@@ -1,0 +1,129 @@
+import { Link, NavLink, Outlet } from "react-router-dom"
+import { Moon, Sun } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Toaster } from "sonner"
+
+const NAV_ITEMS = [
+  { to: "/", label: "Dashboard" },
+  { to: "/templates", label: "Templates" },
+  { to: "/teams", label: "Teams" },
+  { to: "/events", label: "Events" },
+  { to: "/epg", label: "EPG" },
+  { to: "/channels", label: "Channels" },
+  { to: "/settings", label: "Settings" },
+]
+
+export function MainLayout() {
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    const saved = localStorage.getItem("theme")
+    return (saved as "dark" | "light") || "dark"
+  })
+
+  useEffect(() => {
+    document.documentElement.classList.remove("light", "dark")
+    document.documentElement.classList.add(theme)
+    localStorage.setItem("theme", theme)
+  }, [theme])
+
+  const toggleTheme = () => {
+    setTheme((t) => (t === "dark" ? "light" : "dark"))
+  }
+
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Navbar */}
+      <nav className="border-b border-border bg-secondary/50 backdrop-blur-sm sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex items-center justify-between h-14">
+            {/* Brand */}
+            <Link to="/" className="flex items-center gap-3">
+              <img
+                src="/logo.svg"
+                alt="Teamarr"
+                className="h-8 w-8"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none"
+                }}
+              />
+              <div className="flex flex-col">
+                <span className="font-semibold text-lg leading-tight">
+                  Teamarr
+                </span>
+                <span className="text-xs text-muted-foreground leading-tight hidden sm:block">
+                  Dynamic EPG Generator
+                </span>
+              </div>
+            </Link>
+
+            {/* Nav Links */}
+            <div className="flex items-center gap-1">
+              {NAV_ITEMS.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                      isActive
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                    }`
+                  }
+                >
+                  {item.label}
+                </NavLink>
+              ))}
+            </div>
+
+            {/* Right side */}
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                v2.0.0
+              </span>
+              <button
+                onClick={toggleTheme}
+                className="p-2 rounded-md hover:bg-accent transition-colors"
+                title="Toggle theme"
+              >
+                {theme === "dark" ? (
+                  <Moon className="h-4 w-4" />
+                ) : (
+                  <Sun className="h-4 w-4" />
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 py-6">
+        <Outlet />
+      </main>
+
+      {/* Footer */}
+      <footer className="border-t border-border mt-auto">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <img
+              src="/logo.svg"
+              alt=""
+              className="h-4 w-4 opacity-50"
+              onError={(e) => {
+                e.currentTarget.style.display = "none"
+              }}
+            />
+            <span>Teamarr - Dynamic EPG Generator for Sports Channels</span>
+          </div>
+        </div>
+      </footer>
+
+      {/* Toast notifications */}
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          className: "bg-card border border-border text-foreground",
+        }}
+      />
+    </div>
+  )
+}
