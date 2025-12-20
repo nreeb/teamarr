@@ -439,12 +439,15 @@ class LifecycleScheduler:
             Dict with association stats
         """
         from teamarr.consumers import create_lifecycle_service
+        from teamarr.services import create_default_service
 
         if not self._dispatcharr_client:
             return {"skipped": True, "reason": "No Dispatcharr client"}
 
+        sports_service = create_default_service()
         service = create_lifecycle_service(
             self._db_factory,
+            sports_service,
             dispatcharr_client=self._dispatcharr_client,
         )
 
@@ -458,9 +461,12 @@ class LifecycleScheduler:
     def _task_process_deletions(self) -> dict:
         """Process channels past their scheduled delete time."""
         from teamarr.consumers import create_lifecycle_service
+        from teamarr.services import create_default_service
 
+        sports_service = create_default_service()
         service = create_lifecycle_service(
             self._db_factory,
+            sports_service,
             self._dispatcharr_client,
         )
 
