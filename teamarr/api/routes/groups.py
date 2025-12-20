@@ -40,6 +40,14 @@ class GroupCreate(BaseModel):
     m3u_group_name: str | None = None
     m3u_account_id: int | None = None
     m3u_account_name: str | None = None
+    # Stream filtering
+    stream_include_regex: str | None = None
+    stream_include_regex_enabled: bool = False
+    stream_exclude_regex: str | None = None
+    stream_exclude_regex_enabled: bool = False
+    custom_regex_teams: str | None = None
+    custom_regex_teams_enabled: bool = False
+    skip_builtin_filter: bool = False
     enabled: bool = True
 
 
@@ -63,6 +71,14 @@ class GroupUpdate(BaseModel):
     m3u_group_name: str | None = None
     m3u_account_id: int | None = None
     m3u_account_name: str | None = None
+    # Stream filtering
+    stream_include_regex: str | None = None
+    stream_include_regex_enabled: bool | None = None
+    stream_exclude_regex: str | None = None
+    stream_exclude_regex_enabled: bool | None = None
+    custom_regex_teams: str | None = None
+    custom_regex_teams_enabled: bool | None = None
+    skip_builtin_filter: bool | None = None
     enabled: bool | None = None
 
     # Clear flags for nullable fields
@@ -75,6 +91,9 @@ class GroupUpdate(BaseModel):
     clear_m3u_group_name: bool = False
     clear_m3u_account_id: bool = False
     clear_m3u_account_name: bool = False
+    clear_stream_include_regex: bool = False
+    clear_stream_exclude_regex: bool = False
+    clear_custom_regex_teams: bool = False
 
 
 class GroupResponse(BaseModel):
@@ -98,10 +117,22 @@ class GroupResponse(BaseModel):
     m3u_group_name: str | None = None
     m3u_account_id: int | None = None
     m3u_account_name: str | None = None
+    # Stream filtering
+    stream_include_regex: str | None = None
+    stream_include_regex_enabled: bool = False
+    stream_exclude_regex: str | None = None
+    stream_exclude_regex_enabled: bool = False
+    custom_regex_teams: str | None = None
+    custom_regex_teams_enabled: bool = False
+    skip_builtin_filter: bool = False
     # Processing stats
     last_refresh: str | None = None
     stream_count: int = 0
     matched_count: int = 0
+    # Filtering stats
+    filtered_include_regex: int = 0
+    filtered_exclude_regex: int = 0
+    filtered_no_match: int = 0
     enabled: bool = True
     created_at: str | None = None
     updated_at: str | None = None
@@ -238,9 +269,19 @@ def list_groups(
                 m3u_group_name=g.m3u_group_name,
                 m3u_account_id=g.m3u_account_id,
                 m3u_account_name=g.m3u_account_name,
+                stream_include_regex=g.stream_include_regex,
+                stream_include_regex_enabled=g.stream_include_regex_enabled,
+                stream_exclude_regex=g.stream_exclude_regex,
+                stream_exclude_regex_enabled=g.stream_exclude_regex_enabled,
+                custom_regex_teams=g.custom_regex_teams,
+                custom_regex_teams_enabled=g.custom_regex_teams_enabled,
+                skip_builtin_filter=g.skip_builtin_filter,
                 last_refresh=g.last_refresh.isoformat() if g.last_refresh else None,
                 stream_count=g.stream_count,
                 matched_count=g.matched_count,
+                filtered_include_regex=g.filtered_include_regex,
+                filtered_exclude_regex=g.filtered_exclude_regex,
+                filtered_no_match=g.filtered_no_match,
                 enabled=g.enabled,
                 created_at=g.created_at.isoformat() if g.created_at else None,
                 updated_at=g.updated_at.isoformat() if g.updated_at else None,
@@ -292,6 +333,13 @@ def create_group(request: GroupCreate):
             m3u_group_name=request.m3u_group_name,
             m3u_account_id=request.m3u_account_id,
             m3u_account_name=request.m3u_account_name,
+            stream_include_regex=request.stream_include_regex,
+            stream_include_regex_enabled=request.stream_include_regex_enabled,
+            stream_exclude_regex=request.stream_exclude_regex,
+            stream_exclude_regex_enabled=request.stream_exclude_regex_enabled,
+            custom_regex_teams=request.custom_regex_teams,
+            custom_regex_teams_enabled=request.custom_regex_teams_enabled,
+            skip_builtin_filter=request.skip_builtin_filter,
             enabled=request.enabled,
         )
 
@@ -316,9 +364,19 @@ def create_group(request: GroupCreate):
         m3u_group_name=group.m3u_group_name,
         m3u_account_id=group.m3u_account_id,
         m3u_account_name=group.m3u_account_name,
+        stream_include_regex=group.stream_include_regex,
+        stream_include_regex_enabled=group.stream_include_regex_enabled,
+        stream_exclude_regex=group.stream_exclude_regex,
+        stream_exclude_regex_enabled=group.stream_exclude_regex_enabled,
+        custom_regex_teams=group.custom_regex_teams,
+        custom_regex_teams_enabled=group.custom_regex_teams_enabled,
+        skip_builtin_filter=group.skip_builtin_filter,
         last_refresh=group.last_refresh.isoformat() if group.last_refresh else None,
         stream_count=group.stream_count,
         matched_count=group.matched_count,
+        filtered_include_regex=group.filtered_include_regex,
+        filtered_exclude_regex=group.filtered_exclude_regex,
+        filtered_no_match=group.filtered_no_match,
         enabled=group.enabled,
         created_at=group.created_at.isoformat() if group.created_at else None,
         updated_at=group.updated_at.isoformat() if group.updated_at else None,
@@ -359,9 +417,19 @@ def get_group_by_id(group_id: int):
         m3u_group_name=group.m3u_group_name,
         m3u_account_id=group.m3u_account_id,
         m3u_account_name=group.m3u_account_name,
+        stream_include_regex=group.stream_include_regex,
+        stream_include_regex_enabled=group.stream_include_regex_enabled,
+        stream_exclude_regex=group.stream_exclude_regex,
+        stream_exclude_regex_enabled=group.stream_exclude_regex_enabled,
+        custom_regex_teams=group.custom_regex_teams,
+        custom_regex_teams_enabled=group.custom_regex_teams_enabled,
+        skip_builtin_filter=group.skip_builtin_filter,
         last_refresh=group.last_refresh.isoformat() if group.last_refresh else None,
         stream_count=group.stream_count,
         matched_count=group.matched_count,
+        filtered_include_regex=group.filtered_include_regex,
+        filtered_exclude_regex=group.filtered_exclude_regex,
+        filtered_no_match=group.filtered_no_match,
         enabled=group.enabled,
         created_at=group.created_at.isoformat() if group.created_at else None,
         updated_at=group.updated_at.isoformat() if group.updated_at else None,
@@ -423,6 +491,13 @@ def update_group_by_id(group_id: int, request: GroupUpdate):
             m3u_group_name=request.m3u_group_name,
             m3u_account_id=request.m3u_account_id,
             m3u_account_name=request.m3u_account_name,
+            stream_include_regex=request.stream_include_regex,
+            stream_include_regex_enabled=request.stream_include_regex_enabled,
+            stream_exclude_regex=request.stream_exclude_regex,
+            stream_exclude_regex_enabled=request.stream_exclude_regex_enabled,
+            custom_regex_teams=request.custom_regex_teams,
+            custom_regex_teams_enabled=request.custom_regex_teams_enabled,
+            skip_builtin_filter=request.skip_builtin_filter,
             enabled=request.enabled,
             clear_template=request.clear_template,
             clear_channel_start_number=request.clear_channel_start_number,
@@ -433,6 +508,9 @@ def update_group_by_id(group_id: int, request: GroupUpdate):
             clear_m3u_group_name=request.clear_m3u_group_name,
             clear_m3u_account_id=request.clear_m3u_account_id,
             clear_m3u_account_name=request.clear_m3u_account_name,
+            clear_stream_include_regex=request.clear_stream_include_regex,
+            clear_stream_exclude_regex=request.clear_stream_exclude_regex,
+            clear_custom_regex_teams=request.clear_custom_regex_teams,
         )
 
         group = get_group(conn, group_id)
@@ -457,9 +535,19 @@ def update_group_by_id(group_id: int, request: GroupUpdate):
         m3u_group_name=group.m3u_group_name,
         m3u_account_id=group.m3u_account_id,
         m3u_account_name=group.m3u_account_name,
+        stream_include_regex=group.stream_include_regex,
+        stream_include_regex_enabled=group.stream_include_regex_enabled,
+        stream_exclude_regex=group.stream_exclude_regex,
+        stream_exclude_regex_enabled=group.stream_exclude_regex_enabled,
+        custom_regex_teams=group.custom_regex_teams,
+        custom_regex_teams_enabled=group.custom_regex_teams_enabled,
+        skip_builtin_filter=group.skip_builtin_filter,
         last_refresh=group.last_refresh.isoformat() if group.last_refresh else None,
         stream_count=group.stream_count,
         matched_count=group.matched_count,
+        filtered_include_regex=group.filtered_include_regex,
+        filtered_exclude_regex=group.filtered_exclude_regex,
+        filtered_no_match=group.filtered_no_match,
         enabled=group.enabled,
         created_at=group.created_at.isoformat() if group.created_at else None,
         updated_at=group.updated_at.isoformat() if group.updated_at else None,

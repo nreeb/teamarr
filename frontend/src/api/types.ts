@@ -19,10 +19,22 @@ export interface EventGroup {
   m3u_group_name: string | null
   m3u_account_id: number | null
   m3u_account_name: string | null
+  // Stream filtering
+  stream_include_regex: string | null
+  stream_include_regex_enabled: boolean
+  stream_exclude_regex: string | null
+  stream_exclude_regex_enabled: boolean
+  custom_regex_teams: string | null
+  custom_regex_teams_enabled: boolean
+  skip_builtin_filter: boolean
   // Processing stats
   last_refresh: string | null
   stream_count: number
   matched_count: number
+  // Filtering stats
+  filtered_include_regex: number
+  filtered_exclude_regex: number
+  filtered_no_match: number
   enabled: boolean
   created_at: string | null
   updated_at: string | null
@@ -47,6 +59,14 @@ export interface EventGroupCreate {
   m3u_group_name?: string | null
   m3u_account_id?: number | null
   m3u_account_name?: string | null
+  // Stream filtering
+  stream_include_regex?: string | null
+  stream_include_regex_enabled?: boolean
+  stream_exclude_regex?: string | null
+  stream_exclude_regex_enabled?: boolean
+  custom_regex_teams?: string | null
+  custom_regex_teams_enabled?: boolean
+  skip_builtin_filter?: boolean
   enabled?: boolean
 }
 
@@ -60,6 +80,9 @@ export interface EventGroupUpdate extends Partial<EventGroupCreate> {
   clear_m3u_group_name?: boolean
   clear_m3u_account_id?: boolean
   clear_m3u_account_name?: boolean
+  clear_stream_include_regex?: boolean
+  clear_stream_exclude_regex?: boolean
+  clear_custom_regex_teams?: boolean
 }
 
 export interface EventGroupListResponse {

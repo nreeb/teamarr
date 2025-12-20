@@ -289,17 +289,18 @@ For existing V2 users:
   - [x] API layer (all endpoints return stats)
   - [x] Frontend (EventGroups.tsx stats tiles and table column)
 
-### Phase 2: Stream Filtering
-- [ ] 2.1 Custom Regex
-  - [ ] Schema migration
-  - [ ] StreamFilter service
-  - [ ] Consumer integration
-  - [ ] API layer
-  - [ ] Frontend (Regex tab)
-- [ ] 2.2 Filtering Stats
-  - [ ] Schema migration
-  - [ ] Stats collection
-  - [ ] Frontend display
+### Phase 2: Stream Filtering - BACKEND COMPLETE (Dec 20, 2025)
+- [x] 2.1 Custom Regex
+  - [x] Schema migration (stream_include/exclude_regex, custom_regex_teams, skip_builtin_filter)
+  - [x] StreamFilter service (`teamarr/services/stream_filter.py`)
+  - [ ] Consumer integration (pending - use StreamFilter in event_group_processor)
+  - [x] API layer (Pydantic models, all CRUD endpoints)
+  - [ ] Frontend UI (Regex tab in EventGroupForm)
+- [x] 2.2 Filtering Stats
+  - [x] Schema migration (filtered_include_regex, filtered_exclude_regex, filtered_no_match)
+  - [x] Database layer (update_group_stats updated)
+  - [x] API layer (returns filtering stats)
+  - [x] Frontend types updated
 
 ### Phase 3: Multi-Sport
 - [ ] 3.1 Channel Sort Order

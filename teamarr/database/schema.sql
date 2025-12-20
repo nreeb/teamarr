@@ -304,6 +304,20 @@ CREATE TABLE IF NOT EXISTS event_epg_groups (
     stream_count INTEGER DEFAULT 0,          -- Streams after filtering
     matched_count INTEGER DEFAULT 0,         -- Successfully matched to events
 
+    -- Stream Filtering (Phase 2)
+    stream_include_regex TEXT,               -- Only include streams matching this pattern
+    stream_include_regex_enabled BOOLEAN DEFAULT 0,
+    stream_exclude_regex TEXT,               -- Exclude streams matching this pattern
+    stream_exclude_regex_enabled BOOLEAN DEFAULT 0,
+    custom_regex_teams TEXT,                 -- Custom pattern to extract team names
+    custom_regex_teams_enabled BOOLEAN DEFAULT 0,
+    skip_builtin_filter BOOLEAN DEFAULT 0,   -- Skip built-in team name extraction
+
+    -- Filtering Stats (updated by EPG generation)
+    filtered_include_regex INTEGER DEFAULT 0,   -- Streams filtered by include regex
+    filtered_exclude_regex INTEGER DEFAULT 0,   -- Streams filtered by exclude regex
+    filtered_no_match INTEGER DEFAULT 0,        -- Streams with no event match
+
     -- Status
     enabled BOOLEAN DEFAULT 1,
 

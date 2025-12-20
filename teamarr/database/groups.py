@@ -36,6 +36,18 @@ class EventEPGGroup:
     last_refresh: datetime | None = None
     stream_count: int = 0
     matched_count: int = 0
+    # Stream filtering (Phase 2)
+    stream_include_regex: str | None = None
+    stream_include_regex_enabled: bool = False
+    stream_exclude_regex: str | None = None
+    stream_exclude_regex_enabled: bool = False
+    custom_regex_teams: str | None = None
+    custom_regex_teams_enabled: bool = False
+    skip_builtin_filter: bool = False
+    # Filtering stats
+    filtered_include_regex: int = 0
+    filtered_exclude_regex: int = 0
+    filtered_no_match: int = 0
     enabled: bool = True
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -95,6 +107,18 @@ def _row_to_group(row) -> EventEPGGroup:
         last_refresh=last_refresh,
         stream_count=row["stream_count"] or 0,
         matched_count=row["matched_count"] or 0,
+        # Stream filtering
+        stream_include_regex=row["stream_include_regex"],
+        stream_include_regex_enabled=bool(row["stream_include_regex_enabled"]),
+        stream_exclude_regex=row["stream_exclude_regex"],
+        stream_exclude_regex_enabled=bool(row["stream_exclude_regex_enabled"]),
+        custom_regex_teams=row["custom_regex_teams"],
+        custom_regex_teams_enabled=bool(row["custom_regex_teams_enabled"]),
+        skip_builtin_filter=bool(row["skip_builtin_filter"]),
+        # Filtering stats
+        filtered_include_regex=row["filtered_include_regex"] or 0,
+        filtered_exclude_regex=row["filtered_exclude_regex"] or 0,
+        filtered_no_match=row["filtered_no_match"] or 0,
         enabled=bool(row["enabled"]),
         created_at=created_at,
         updated_at=updated_at,
@@ -204,6 +228,14 @@ def create_group(
     m3u_group_name: str | None = None,
     m3u_account_id: int | None = None,
     m3u_account_name: str | None = None,
+    # Stream filtering
+    stream_include_regex: str | None = None,
+    stream_include_regex_enabled: bool = False,
+    stream_exclude_regex: str | None = None,
+    stream_exclude_regex_enabled: bool = False,
+    custom_regex_teams: str | None = None,
+    custom_regex_teams_enabled: bool = False,
+    skip_builtin_filter: bool = False,
     enabled: bool = True,
 ) -> int:
     """Create a new event EPG group.
@@ -240,8 +272,12 @@ def create_group(
             create_timing, delete_timing, duplicate_event_handling,
             channel_assignment_mode, sort_order, total_stream_count,
             parent_group_id, m3u_group_id, m3u_group_name,
-            m3u_account_id, m3u_account_name, enabled
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            m3u_account_id, m3u_account_name,
+            stream_include_regex, stream_include_regex_enabled,
+            stream_exclude_regex, stream_exclude_regex_enabled,
+            custom_regex_teams, custom_regex_teams_enabled,
+            skip_builtin_filter, enabled
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             name,
             json.dumps(leagues),
@@ -261,6 +297,13 @@ def create_group(
             m3u_group_name,
             m3u_account_id,
             m3u_account_name,
+            stream_include_regex,
+            int(stream_include_regex_enabled),
+            stream_exclude_regex,
+            int(stream_exclude_regex_enabled),
+            custom_regex_teams,
+            int(custom_regex_teams_enabled),
+            int(skip_builtin_filter),
             int(enabled),
         ),
     )
@@ -293,7 +336,16 @@ def update_group(
     m3u_group_name: str | None = None,
     m3u_account_id: int | None = None,
     m3u_account_name: str | None = None,
+    # Stream filtering
+    stream_include_regex: str | None = None,
+    stream_include_regex_enabled: bool | None = None,
+    stream_exclude_regex: str | None = None,
+    stream_exclude_regex_enabled: bool | None = None,
+    custom_regex_teams: str | None = None,
+    custom_regex_teams_enabled: bool | None = None,
+    skip_builtin_filter: bool | None = None,
     enabled: bool | None = None,
+    # Clear flags
     clear_template: bool = False,
     clear_channel_start_number: bool = False,
     clear_channel_group_id: bool = False,
@@ -304,6 +356,9 @@ def update_group(
     clear_m3u_group_name: bool = False,
     clear_m3u_account_id: bool = False,
     clear_m3u_account_name: bool = False,
+    clear_stream_include_regex: bool = False,
+    clear_stream_exclude_regex: bool = False,
+    clear_custom_regex_teams: bool = False,
 ) -> bool:
     """Update an event EPG group.
 
@@ -414,6 +469,41 @@ def update_group(
     elif clear_m3u_account_name:
         updates.append("m3u_account_name = NULL")
 
+    # Stream filtering fields
+    if stream_include_regex is not None:
+        updates.append("stream_include_regex = ?")
+        values.append(stream_include_regex)
+    elif clear_stream_include_regex:
+        updates.append("stream_include_regex = NULL")
+
+    if stream_include_regex_enabled is not None:
+        updates.append("stream_include_regex_enabled = ?")
+        values.append(int(stream_include_regex_enabled))
+
+    if stream_exclude_regex is not None:
+        updates.append("stream_exclude_regex = ?")
+        values.append(stream_exclude_regex)
+    elif clear_stream_exclude_regex:
+        updates.append("stream_exclude_regex = NULL")
+
+    if stream_exclude_regex_enabled is not None:
+        updates.append("stream_exclude_regex_enabled = ?")
+        values.append(int(stream_exclude_regex_enabled))
+
+    if custom_regex_teams is not None:
+        updates.append("custom_regex_teams = ?")
+        values.append(custom_regex_teams)
+    elif clear_custom_regex_teams:
+        updates.append("custom_regex_teams = NULL")
+
+    if custom_regex_teams_enabled is not None:
+        updates.append("custom_regex_teams_enabled = ?")
+        values.append(int(custom_regex_teams_enabled))
+
+    if skip_builtin_filter is not None:
+        updates.append("skip_builtin_filter = ?")
+        values.append(int(skip_builtin_filter))
+
     if enabled is not None:
         updates.append("enabled = ?")
         values.append(int(enabled))
@@ -449,6 +539,9 @@ def update_group_stats(
     group_id: int,
     stream_count: int,
     matched_count: int,
+    filtered_include_regex: int = 0,
+    filtered_exclude_regex: int = 0,
+    filtered_no_match: int = 0,
 ) -> bool:
     """Update processing stats for a group after EPG generation.
 
@@ -457,6 +550,9 @@ def update_group_stats(
         group_id: Group ID
         stream_count: Number of streams after filtering
         matched_count: Number of streams matched to events
+        filtered_include_regex: Streams filtered by include regex
+        filtered_exclude_regex: Streams filtered by exclude regex
+        filtered_no_match: Streams with no event match
 
     Returns:
         True if updated
@@ -465,9 +561,12 @@ def update_group_stats(
         """UPDATE event_epg_groups
            SET last_refresh = datetime('now'),
                stream_count = ?,
-               matched_count = ?
+               matched_count = ?,
+               filtered_include_regex = ?,
+               filtered_exclude_regex = ?,
+               filtered_no_match = ?
            WHERE id = ?""",
-        (stream_count, matched_count, group_id),
+        (stream_count, matched_count, filtered_include_regex, filtered_exclude_regex, filtered_no_match, group_id),
     )
     return cursor.rowcount > 0
 
