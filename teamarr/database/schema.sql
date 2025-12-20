@@ -199,6 +199,11 @@ CREATE TABLE IF NOT EXISTS settings (
     api_timeout INTEGER DEFAULT 10,
     api_retry_count INTEGER DEFAULT 3,
 
+    -- TheSportsDB API (optional premium key for higher limits)
+    -- If not set, uses free API key with 30 req/min and 10 result limits
+    -- Premium key ($9/mo) gives 100 req/min and higher limits
+    tsdb_api_key TEXT,
+
     -- Channel ID Format
     channel_id_format TEXT DEFAULT '{team_name_pascal}.{league}',
 
@@ -291,6 +296,13 @@ CREATE TABLE IF NOT EXISTS event_epg_groups (
     -- M3U Group Binding (for stream discovery)
     m3u_group_id INTEGER,                    -- Dispatcharr M3U group to scan
     m3u_group_name TEXT,
+    m3u_account_id INTEGER,                  -- Dispatcharr M3U account ID
+    m3u_account_name TEXT,                   -- M3U account name for display
+
+    -- Processing Stats (updated by EPG generation)
+    last_refresh TIMESTAMP,                  -- Last successful EPG refresh
+    stream_count INTEGER DEFAULT 0,          -- Streams after filtering
+    matched_count INTEGER DEFAULT 0,         -- Successfully matched to events
 
     -- Status
     enabled BOOLEAN DEFAULT 1,

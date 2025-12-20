@@ -101,6 +101,8 @@ export function EventGroupForm() {
   // M3U group info from URL params (when coming from Import)
   const m3uGroupId = searchParams.get("m3u_group_id")
   const m3uGroupName = searchParams.get("m3u_group_name")
+  const m3uAccountId = searchParams.get("m3u_account_id")
+  const m3uAccountName = searchParams.get("m3u_account_name")
 
   // Step state
   const [currentStep, setCurrentStep] = useState<Step>(isEdit ? "settings" : "mode")
@@ -120,6 +122,8 @@ export function EventGroupForm() {
     total_stream_count: 0,
     m3u_group_id: m3uGroupId ? Number(m3uGroupId) : null,
     m3u_group_name: m3uGroupName || null,
+    m3u_account_id: m3uAccountId ? Number(m3uAccountId) : null,
+    m3u_account_name: m3uAccountName || null,
     enabled: true,
   })
 
@@ -173,6 +177,8 @@ export function EventGroupForm() {
         total_stream_count: group.total_stream_count,
         m3u_group_id: group.m3u_group_id,
         m3u_group_name: group.m3u_group_name,
+        m3u_account_id: group.m3u_account_id,
+        m3u_account_name: group.m3u_account_name,
         enabled: group.enabled,
       })
 
@@ -195,13 +201,15 @@ export function EventGroupForm() {
     if (!cachedLeagues) return {}
     const grouped: Record<string, CachedLeague[]> = {}
     for (const league of cachedLeagues) {
+      // Skip leagues without names
+      if (!league.name) continue
       const sport = league.sport || "other"
       if (!grouped[sport]) grouped[sport] = []
       grouped[sport].push(league)
     }
     // Sort leagues within each sport
     for (const sport of Object.keys(grouped)) {
-      grouped[sport].sort((a, b) => a.name.localeCompare(b.name))
+      grouped[sport].sort((a, b) => (a.name || "").localeCompare(b.name || ""))
     }
     return grouped
   }, [cachedLeagues])
@@ -824,7 +832,10 @@ export function EventGroupForm() {
                   <div>
                     <div className="font-medium">{formData.m3u_group_name}</div>
                     <div className="text-sm text-muted-foreground">
-                      M3U Group ID: {formData.m3u_group_id}
+                      {formData.m3u_account_name && (
+                        <span>Account: {formData.m3u_account_name} · </span>
+                      )}
+                      Group ID: {formData.m3u_group_id}
                     </div>
                   </div>
                 </div>

@@ -104,13 +104,14 @@ export function EventGroups() {
 
   // Calculate stats
   const stats = useMemo(() => {
-    if (!data?.groups) return { total: 0, enabled: 0, totalStreams: 0, totalChannels: 0 }
+    if (!data?.groups) return { total: 0, enabled: 0, totalStreams: 0, totalChannels: 0, totalMatched: 0 }
     const groups = data.groups
     return {
       total: groups.length,
       enabled: groups.filter((g) => g.enabled).length,
-      totalStreams: groups.reduce((sum, g) => sum + (g.total_stream_count || 0), 0),
+      totalStreams: groups.reduce((sum, g) => sum + (g.stream_count || 0), 0),
       totalChannels: groups.reduce((sum, g) => sum + (g.channel_count || 0), 0),
+      totalMatched: groups.reduce((sum, g) => sum + (g.matched_count || 0), 0),
     }
   }, [data?.groups])
 
@@ -254,8 +255,10 @@ export function EventGroups() {
             <div className="text-xs text-muted-foreground uppercase tracking-wide">Enabled</div>
           </Card>
           <Card className="p-3">
-            <div className="text-2xl font-bold">{stats.totalStreams}</div>
-            <div className="text-xs text-muted-foreground uppercase tracking-wide">Total Streams</div>
+            <div className="text-2xl font-bold">
+              {stats.totalMatched}/{stats.totalStreams}
+            </div>
+            <div className="text-xs text-muted-foreground uppercase tracking-wide">Matched</div>
           </Card>
           <Card className="p-3">
             <div className="text-2xl font-bold">{stats.totalChannels}</div>
@@ -367,7 +370,7 @@ export function EventGroups() {
                   <TableHead>Name</TableHead>
                   <TableHead>Leagues</TableHead>
                   <TableHead>Template</TableHead>
-                  <TableHead>Mode</TableHead>
+                  <TableHead className="text-center">Matched</TableHead>
                   <TableHead className="text-center">Channels</TableHead>
                   <TableHead className="w-16">Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -414,10 +417,14 @@ export function EventGroups() {
                           : "—"}
                       </span>
                     </TableCell>
-                    <TableCell>
-                      <Badge variant={group.channel_assignment_mode === "auto" ? "secondary" : "outline"}>
-                        {group.channel_assignment_mode}
-                      </Badge>
+                    <TableCell className="text-center">
+                      {group.last_refresh ? (
+                        <span title={`Last: ${new Date(group.last_refresh).toLocaleString()}`}>
+                          {group.matched_count}/{group.stream_count}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-center">{group.channel_count ?? 0}</TableCell>
                     <TableCell>

@@ -110,6 +110,7 @@ export function EventGroupImport() {
       m3u_group_id: String(group.id),
       m3u_group_name: group.name,
       m3u_account_id: String(selectedAccount!.id),
+      m3u_account_name: selectedAccount!.name,
     })
     navigate(`/event-groups/new?${params.toString()}`)
   }

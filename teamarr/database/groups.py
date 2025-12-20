@@ -30,6 +30,12 @@ class EventEPGGroup:
     parent_group_id: int | None = None
     m3u_group_id: int | None = None
     m3u_group_name: str | None = None
+    m3u_account_id: int | None = None
+    m3u_account_name: str | None = None
+    # Processing stats
+    last_refresh: datetime | None = None
+    stream_count: int = 0
+    matched_count: int = 0
     enabled: bool = True
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -59,6 +65,13 @@ def _row_to_group(row) -> EventEPGGroup:
         except (ValueError, TypeError):
             pass
 
+    last_refresh = None
+    if row["last_refresh"]:
+        try:
+            last_refresh = datetime.fromisoformat(row["last_refresh"])
+        except (ValueError, TypeError):
+            pass
+
     return EventEPGGroup(
         id=row["id"],
         name=row["name"],
@@ -77,6 +90,11 @@ def _row_to_group(row) -> EventEPGGroup:
         parent_group_id=row["parent_group_id"],
         m3u_group_id=row["m3u_group_id"],
         m3u_group_name=row["m3u_group_name"],
+        m3u_account_id=row["m3u_account_id"],
+        m3u_account_name=row["m3u_account_name"],
+        last_refresh=last_refresh,
+        stream_count=row["stream_count"] or 0,
+        matched_count=row["matched_count"] or 0,
         enabled=bool(row["enabled"]),
         created_at=created_at,
         updated_at=updated_at,
@@ -184,6 +202,8 @@ def create_group(
     parent_group_id: int | None = None,
     m3u_group_id: int | None = None,
     m3u_group_name: str | None = None,
+    m3u_account_id: int | None = None,
+    m3u_account_name: str | None = None,
     enabled: bool = True,
 ) -> int:
     """Create a new event EPG group.
@@ -206,6 +226,8 @@ def create_group(
         parent_group_id: Parent group for child relationships
         m3u_group_id: M3U group ID to scan
         m3u_group_name: M3U group name
+        m3u_account_id: M3U account ID
+        m3u_account_name: M3U account name for display
         enabled: Whether group is enabled
 
     Returns:
@@ -217,8 +239,9 @@ def create_group(
             channel_group_id, stream_profile_id, channel_profile_ids,
             create_timing, delete_timing, duplicate_event_handling,
             channel_assignment_mode, sort_order, total_stream_count,
-            parent_group_id, m3u_group_id, m3u_group_name, enabled
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            parent_group_id, m3u_group_id, m3u_group_name,
+            m3u_account_id, m3u_account_name, enabled
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             name,
             json.dumps(leagues),
@@ -236,6 +259,8 @@ def create_group(
             parent_group_id,
             m3u_group_id,
             m3u_group_name,
+            m3u_account_id,
+            m3u_account_name,
             int(enabled),
         ),
     )
@@ -266,6 +291,8 @@ def update_group(
     parent_group_id: int | None = None,
     m3u_group_id: int | None = None,
     m3u_group_name: str | None = None,
+    m3u_account_id: int | None = None,
+    m3u_account_name: str | None = None,
     enabled: bool | None = None,
     clear_template: bool = False,
     clear_channel_start_number: bool = False,
@@ -275,6 +302,8 @@ def update_group(
     clear_parent_group_id: bool = False,
     clear_m3u_group_id: bool = False,
     clear_m3u_group_name: bool = False,
+    clear_m3u_account_id: bool = False,
+    clear_m3u_account_name: bool = False,
 ) -> bool:
     """Update an event EPG group.
 
@@ -373,6 +402,18 @@ def update_group(
     elif clear_m3u_group_name:
         updates.append("m3u_group_name = NULL")
 
+    if m3u_account_id is not None:
+        updates.append("m3u_account_id = ?")
+        values.append(m3u_account_id)
+    elif clear_m3u_account_id:
+        updates.append("m3u_account_id = NULL")
+
+    if m3u_account_name is not None:
+        updates.append("m3u_account_name = ?")
+        values.append(m3u_account_name)
+    elif clear_m3u_account_name:
+        updates.append("m3u_account_name = NULL")
+
     if enabled is not None:
         updates.append("enabled = ?")
         values.append(int(enabled))
@@ -399,6 +440,34 @@ def set_group_enabled(conn: Connection, group_id: int, enabled: bool) -> bool:
     """
     cursor = conn.execute(
         "UPDATE event_epg_groups SET enabled = ? WHERE id = ?", (int(enabled), group_id)
+    )
+    return cursor.rowcount > 0
+
+
+def update_group_stats(
+    conn: Connection,
+    group_id: int,
+    stream_count: int,
+    matched_count: int,
+) -> bool:
+    """Update processing stats for a group after EPG generation.
+
+    Args:
+        conn: Database connection
+        group_id: Group ID
+        stream_count: Number of streams after filtering
+        matched_count: Number of streams matched to events
+
+    Returns:
+        True if updated
+    """
+    cursor = conn.execute(
+        """UPDATE event_epg_groups
+           SET last_refresh = datetime('now'),
+               stream_count = ?,
+               matched_count = ?
+           WHERE id = ?""",
+        (stream_count, matched_count, group_id),
     )
     return cursor.rowcount > 0
 

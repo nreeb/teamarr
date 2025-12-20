@@ -109,13 +109,17 @@ def list_group_streams(account_id: int, group_id: int) -> list[dict]:
 
     streams = conn.m3u.list_streams(group_id=group_id, account_id=account_id, limit=500)
 
-    return [
-        {
-            "id": s.id,
-            "name": s.name,
-        }
-        for s in streams
-    ]
+    # Sort alphabetically by name for consistent display
+    return sorted(
+        [
+            {
+                "id": s.id,
+                "name": s.name,
+            }
+            for s in streams
+        ],
+        key=lambda x: x["name"].lower(),
+    )
 
 
 @router.get("/channel-groups")

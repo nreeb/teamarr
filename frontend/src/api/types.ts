@@ -17,6 +17,12 @@ export interface EventGroup {
   total_stream_count: number
   m3u_group_id: number | null
   m3u_group_name: string | null
+  m3u_account_id: number | null
+  m3u_account_name: string | null
+  // Processing stats
+  last_refresh: string | null
+  stream_count: number
+  matched_count: number
   enabled: boolean
   created_at: string | null
   updated_at: string | null
@@ -39,6 +45,8 @@ export interface EventGroupCreate {
   total_stream_count?: number
   m3u_group_id?: number | null
   m3u_group_name?: string | null
+  m3u_account_id?: number | null
+  m3u_account_name?: string | null
   enabled?: boolean
 }
 
@@ -50,6 +58,8 @@ export interface EventGroupUpdate extends Partial<EventGroupCreate> {
   clear_channel_profile_ids?: boolean
   clear_m3u_group_id?: boolean
   clear_m3u_group_name?: boolean
+  clear_m3u_account_id?: boolean
+  clear_m3u_account_name?: boolean
 }
 
 export interface EventGroupListResponse {

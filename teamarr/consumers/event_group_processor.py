@@ -32,6 +32,7 @@ from teamarr.database.groups import (
     get_all_group_xmltv,
     get_all_groups,
     get_group,
+    update_group_stats,
 )
 from teamarr.database.stats import create_run, save_run
 from teamarr.services import SportsDataService, create_default_service
@@ -399,6 +400,14 @@ class EventGroupProcessor:
 
             stats_run.complete(status="completed")
 
+            # Update group's processing stats
+            update_group_stats(
+                conn,
+                group.id,
+                stream_count=result.streams_fetched,
+                matched_count=result.streams_matched,
+            )
+
         except Exception as e:
             logger.exception(f"Error processing child group {group.name}")
             result.errors.append(str(e))
@@ -534,6 +543,14 @@ class EventGroupProcessor:
 
             # Mark run as completed successfully
             stats_run.complete(status="completed")
+
+            # Update group's processing stats
+            update_group_stats(
+                conn,
+                group.id,
+                stream_count=result.streams_fetched,
+                matched_count=result.streams_matched,
+            )
 
         except Exception as e:
             logger.exception(f"Error processing group {group.name}")

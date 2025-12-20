@@ -38,6 +38,8 @@ class GroupCreate(BaseModel):
     total_stream_count: int = 0
     m3u_group_id: int | None = None
     m3u_group_name: str | None = None
+    m3u_account_id: int | None = None
+    m3u_account_name: str | None = None
     enabled: bool = True
 
 
@@ -59,6 +61,8 @@ class GroupUpdate(BaseModel):
     total_stream_count: int | None = None
     m3u_group_id: int | None = None
     m3u_group_name: str | None = None
+    m3u_account_id: int | None = None
+    m3u_account_name: str | None = None
     enabled: bool | None = None
 
     # Clear flags for nullable fields
@@ -69,6 +73,8 @@ class GroupUpdate(BaseModel):
     clear_channel_profile_ids: bool = False
     clear_m3u_group_id: bool = False
     clear_m3u_group_name: bool = False
+    clear_m3u_account_id: bool = False
+    clear_m3u_account_name: bool = False
 
 
 class GroupResponse(BaseModel):
@@ -90,6 +96,12 @@ class GroupResponse(BaseModel):
     total_stream_count: int = 0
     m3u_group_id: int | None = None
     m3u_group_name: str | None = None
+    m3u_account_id: int | None = None
+    m3u_account_name: str | None = None
+    # Processing stats
+    last_refresh: str | None = None
+    stream_count: int = 0
+    matched_count: int = 0
     enabled: bool = True
     created_at: str | None = None
     updated_at: str | None = None
@@ -224,6 +236,11 @@ def list_groups(
                 total_stream_count=g.total_stream_count,
                 m3u_group_id=g.m3u_group_id,
                 m3u_group_name=g.m3u_group_name,
+                m3u_account_id=g.m3u_account_id,
+                m3u_account_name=g.m3u_account_name,
+                last_refresh=g.last_refresh.isoformat() if g.last_refresh else None,
+                stream_count=g.stream_count,
+                matched_count=g.matched_count,
                 enabled=g.enabled,
                 created_at=g.created_at.isoformat() if g.created_at else None,
                 updated_at=g.updated_at.isoformat() if g.updated_at else None,
@@ -273,6 +290,8 @@ def create_group(request: GroupCreate):
             total_stream_count=request.total_stream_count,
             m3u_group_id=request.m3u_group_id,
             m3u_group_name=request.m3u_group_name,
+            m3u_account_id=request.m3u_account_id,
+            m3u_account_name=request.m3u_account_name,
             enabled=request.enabled,
         )
 
@@ -295,6 +314,11 @@ def create_group(request: GroupCreate):
         total_stream_count=group.total_stream_count,
         m3u_group_id=group.m3u_group_id,
         m3u_group_name=group.m3u_group_name,
+        m3u_account_id=group.m3u_account_id,
+        m3u_account_name=group.m3u_account_name,
+        last_refresh=group.last_refresh.isoformat() if group.last_refresh else None,
+        stream_count=group.stream_count,
+        matched_count=group.matched_count,
         enabled=group.enabled,
         created_at=group.created_at.isoformat() if group.created_at else None,
         updated_at=group.updated_at.isoformat() if group.updated_at else None,
@@ -333,6 +357,11 @@ def get_group_by_id(group_id: int):
         total_stream_count=group.total_stream_count,
         m3u_group_id=group.m3u_group_id,
         m3u_group_name=group.m3u_group_name,
+        m3u_account_id=group.m3u_account_id,
+        m3u_account_name=group.m3u_account_name,
+        last_refresh=group.last_refresh.isoformat() if group.last_refresh else None,
+        stream_count=group.stream_count,
+        matched_count=group.matched_count,
         enabled=group.enabled,
         created_at=group.created_at.isoformat() if group.created_at else None,
         updated_at=group.updated_at.isoformat() if group.updated_at else None,
@@ -392,6 +421,8 @@ def update_group_by_id(group_id: int, request: GroupUpdate):
             total_stream_count=request.total_stream_count,
             m3u_group_id=request.m3u_group_id,
             m3u_group_name=request.m3u_group_name,
+            m3u_account_id=request.m3u_account_id,
+            m3u_account_name=request.m3u_account_name,
             enabled=request.enabled,
             clear_template=request.clear_template,
             clear_channel_start_number=request.clear_channel_start_number,
@@ -400,6 +431,8 @@ def update_group_by_id(group_id: int, request: GroupUpdate):
             clear_channel_profile_ids=request.clear_channel_profile_ids,
             clear_m3u_group_id=request.clear_m3u_group_id,
             clear_m3u_group_name=request.clear_m3u_group_name,
+            clear_m3u_account_id=request.clear_m3u_account_id,
+            clear_m3u_account_name=request.clear_m3u_account_name,
         )
 
         group = get_group(conn, group_id)
@@ -422,6 +455,11 @@ def update_group_by_id(group_id: int, request: GroupUpdate):
         total_stream_count=group.total_stream_count,
         m3u_group_id=group.m3u_group_id,
         m3u_group_name=group.m3u_group_name,
+        m3u_account_id=group.m3u_account_id,
+        m3u_account_name=group.m3u_account_name,
+        last_refresh=group.last_refresh.isoformat() if group.last_refresh else None,
+        stream_count=group.stream_count,
+        matched_count=group.matched_count,
         enabled=group.enabled,
         created_at=group.created_at.isoformat() if group.created_at else None,
         updated_at=group.updated_at.isoformat() if group.updated_at else None,

@@ -22,10 +22,10 @@ All changes must follow these principles:
 |--------|-----|-----|--------|
 | **Identity** |
 | `id` | ✓ | ✓ | OK |
-| `dispatcharr_group_id` | ✓ (unique M3U group ID) | `m3u_group_id` | **Different naming** |
-| `dispatcharr_account_id` | ✓ (M3U account) | - | **Missing** |
+| `dispatcharr_group_id` | ✓ (unique M3U group ID) | `m3u_group_id` | OK (renamed) |
+| `dispatcharr_account_id` | ✓ (M3U account) | `m3u_account_id` | **OK (Phase 1)** |
 | `group_name` | ✓ | `name` | OK (renamed) |
-| `account_name` | ✓ (display) | - | **Missing** |
+| `account_name` | ✓ (display) | `m3u_account_name` | **OK (Phase 1)** |
 | **League Configuration** |
 | `assigned_league` | ✓ (single league) | - | **Replaced by `leagues[]`** |
 | `assigned_sport` | ✓ | - | **Missing** |
@@ -62,11 +62,11 @@ All changes must follow these principles:
 | `parent_group_id` | ✓ | ✓ | OK |
 | `sort_order` | ✓ | ✓ | OK |
 | **Stats** |
-| `last_refresh` | ✓ | - | **Missing** |
-| `refresh_interval_minutes` | ✓ | - | **Missing** |
+| `last_refresh` | ✓ | ✓ | **OK (Phase 1)** |
+| `refresh_interval_minutes` | ✓ | - | **Missing** (use scheduler instead) |
 | `total_stream_count` | ✓ | ✓ | OK |
-| `stream_count` | ✓ (after filtering) | - | **Missing** |
-| `matched_count` | ✓ | - | **Missing** |
+| `stream_count` | ✓ (after filtering) | ✓ | **OK (Phase 1)** |
+| `matched_count` | ✓ | ✓ | **OK (Phase 1)** |
 | `filtered_no_indicator` | ✓ | - | **Missing** |
 | `filtered_include_regex` | ✓ | - | **Missing** |
 | `filtered_exclude_regex` | ✓ | - | **Missing** |
@@ -276,18 +276,18 @@ For existing V2 users:
 
 ## Progress Tracking
 
-### Phase 1: Critical
-- [ ] 1.1 M3U Account Tracking
-  - [ ] Schema migration
-  - [ ] Database layer
-  - [ ] API layer
-  - [ ] Frontend
-- [ ] 1.2 Processing Stats
-  - [ ] Schema migration
-  - [ ] Database layer
-  - [ ] Consumer updates
-  - [ ] API layer
-  - [ ] Frontend
+### Phase 1: Critical - COMPLETED (Dec 20, 2025)
+- [x] 1.1 M3U Account Tracking
+  - [x] Schema migration (`m3u_account_id`, `m3u_account_name`)
+  - [x] Database layer (`EventEPGGroup` dataclass, `_row_to_group`, `create_group`, `update_group`)
+  - [x] API layer (Pydantic models, all CRUD endpoints)
+  - [x] Frontend (types, EventGroupImport, EventGroupForm)
+- [x] 1.2 Processing Stats
+  - [x] Schema migration (`last_refresh`, `stream_count`, `matched_count`)
+  - [x] Database layer (`update_group_stats()` function)
+  - [x] Consumer updates (`event_group_processor.py` calls `update_group_stats`)
+  - [x] API layer (all endpoints return stats)
+  - [x] Frontend (EventGroups.tsx stats tiles and table column)
 
 ### Phase 2: Stream Filtering
 - [ ] 2.1 Custom Regex
@@ -306,8 +306,8 @@ For existing V2 users:
 - [ ] 3.2 Overlap Handling
 
 ### Bug Fixes
-- [ ] Blank screen after import
-- [ ] Stream preview order
+- [x] Blank screen after import (null name in league sorting)
+- [x] Stream preview order (added alphabetical sorting in API endpoint)
 
 ## Notes
 
