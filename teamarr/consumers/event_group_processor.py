@@ -325,11 +325,37 @@ class EventGroupProcessor:
 
             result = PreviewResult(group_id=group_id, group_name=group.name)
 
-            # Step 1: Fetch streams from M3U group
+            # Step 0: Refresh M3U account before fetching streams (skip if recent)
             if not self._dispatcharr_client:
                 result.errors.append("Dispatcharr not configured")
                 return result
 
+            if group.m3u_account_id:
+                try:
+                    from teamarr.dispatcharr import M3UManager
+
+                    m3u_manager = M3UManager(self._dispatcharr_client)
+                    refresh_result = m3u_manager.wait_for_refresh(
+                        group.m3u_account_id,
+                        timeout=180,
+                        skip_if_recent_minutes=60,
+                    )
+                    if refresh_result.skipped:
+                        logger.debug(
+                            f"Preview: M3U account {group.m3u_account_id} recently refreshed, skipping"
+                        )
+                    elif refresh_result.success:
+                        logger.debug(
+                            f"Preview: M3U account {group.m3u_account_id} refreshed in {refresh_result.duration:.1f}s"
+                        )
+                    else:
+                        logger.warning(
+                            f"Preview: M3U refresh failed: {refresh_result.message} - continuing with potentially stale data"
+                        )
+                except Exception as e:
+                    logger.warning(f"Preview: M3U refresh error: {e} - continuing anyway")
+
+            # Step 1: Fetch streams from M3U group
             try:
                 raw_streams = self._dispatcharr_client.m3u.list_streams(
                     group_id=group.m3u_group_id,
