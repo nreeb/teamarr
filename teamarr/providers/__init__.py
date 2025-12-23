@@ -32,10 +32,32 @@ def _create_espn_provider() -> ESPNProvider:
     )
 
 
+def _get_tsdb_api_key() -> str | None:
+    """Fetch TSDB API key from database settings.
+
+    This is the boundary where database access happens before
+    passing to the provider layer (which should not access database).
+    """
+    try:
+        from teamarr.database import get_db
+
+        with get_db() as conn:
+            cursor = conn.execute("SELECT tsdb_api_key FROM settings WHERE id = 1")
+            row = cursor.fetchone()
+            if row and row["tsdb_api_key"]:
+                return row["tsdb_api_key"]
+    except Exception:
+        # Database not available or column doesn't exist yet - expected during startup
+        # No logging here to avoid noise during initialization
+        pass
+    return None
+
+
 def _create_tsdb_provider() -> TSDBProvider:
     """Factory for TSDB provider with injected dependencies."""
     return TSDBProvider(
         league_mapping_source=ProviderRegistry.get_league_mapping_source(),
+        api_key=_get_tsdb_api_key(),
     )
 
 

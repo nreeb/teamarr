@@ -41,6 +41,11 @@ class TeamEPGOptions:
     # If set, filler config is loaded from database template
     template_id: int | None = None
 
+    # Include completed (final) events in EPG output
+    # If False (default), events with status="final" that have ended are skipped
+    # If True, today's final events are included (same-day completed games)
+    include_final_events: bool = False
+
     # Backwards compatibility
     @property
     def days_ahead(self) -> int:
@@ -201,9 +206,12 @@ class TeamEPGGenerator:
 
         # Calculate output window
         now = now_user()
+        today = now.date()
         output_cutoff = now + timedelta(days=options.output_days_ahead)
 
         programmes = []
+        included_events = []  # Track events that generated programmes (for filler)
+
         for i, event in enumerate(sorted_events):
             # Determine next/last events for suffix resolution
             # (uses full schedule for accurate .next vars)
@@ -226,10 +234,18 @@ class TeamEPGGenerator:
             )
             event_end = event.start_time + timedelta(hours=duration)
 
-            # Skip events that are FINAL (completed games)
-            # Include in-progress games even if past estimated end time
+            # Skip completed (final) events - matching V1 logic:
+            # - Past day finals: ALWAYS excluded (regardless of include_final_events)
+            # - Today's finals: honor include_final_events setting
             if event.status.state == "final" and event_end < now:
-                continue
+                event_day = event.start_time.date()
+                if event_day < today:
+                    # Past day completed event - always skip
+                    continue
+                elif event_day == today and not options.include_final_events:
+                    # Today's final, but include_final_events is False - skip
+                    continue
+                # else: Today's final with include_final_events=True - include it
 
             # Skip events beyond the output window
             if event.start_time > output_cutoff:
@@ -245,11 +261,14 @@ class TeamEPGGenerator:
             )
             if programme:
                 programmes.append(programme)
+                included_events.append(event)  # Track for filler generation
 
         # Generate filler content if enabled
+        # IMPORTANT: Pass only included_events (events that have programmes)
+        # to avoid generating filler for games that were skipped
         if options.filler_enabled:
             filler_programmes = self._generate_fillers(
-                events=all_events,
+                events=included_events,
                 team_id=team_id,
                 league=league,
                 channel_id=channel_id,
@@ -404,9 +423,10 @@ class TeamEPGGenerator:
                     template = get_template(conn, options.template_id)
                     if template:
                         return template_to_filler_config(template)
-            except Exception:
-                # Fall through to default
-                pass
+            except Exception as e:
+                logger.debug(
+                    f"Failed to load filler config for template {options.template_id}: {e}"
+                )
 
         # Default filler config
         return FillerConfig(
@@ -430,8 +450,7 @@ class TeamEPGGenerator:
                 template = get_template(conn, template_id)
                 if template:
                     return template_to_programme_config(template)
-        except Exception:
-            # Fall through to None (will use default)
-            pass
+        except Exception as e:
+            logger.debug(f"Failed to load programme template {template_id}: {e}")
 
         return None

@@ -18,6 +18,29 @@ logger = logging.getLogger(__name__)
 SEED_FILE = Path(__file__).parent.parent.parent / "data" / "tsdb_seed.json"
 
 
+def load_tsdb_seed() -> dict | None:
+    """Load TSDB seed data from file.
+
+    Returns:
+        Dict with 'leagues' and 'teams' lists, or None if unavailable
+    """
+    if not SEED_FILE.exists():
+        logger.debug(f"TSDB seed file not found: {SEED_FILE}")
+        return None
+
+    try:
+        with open(SEED_FILE) as f:
+            data = json.load(f)
+        # Add provider field to teams if missing (for merge compatibility)
+        for team in data.get("teams", []):
+            if "provider" not in team:
+                team["provider"] = "tsdb"
+        return data
+    except (json.JSONDecodeError, IOError) as e:
+        logger.error(f"Failed to read TSDB seed file: {e}")
+        return None
+
+
 def seed_tsdb_cache(conn) -> dict:
     """Seed TSDB cache from distributed seed file.
 

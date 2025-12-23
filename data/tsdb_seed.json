@@ -99,6 +99,13 @@
       "provider_league_name": "MotoGP",
       "sport": "Motorsport",
       "team_count": 11
+    },
+    {
+      "code": "nrl",
+      "provider_league_id": "4416",
+      "provider_league_name": "Australian National Rugby League",
+      "sport": "Rugby",
+      "team_count": 17
     }
   ],
   "teams": [
@@ -1525,6 +1532,142 @@
       "league": "motogp",
       "sport": "Motorsport",
       "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/tda2xo1710254382.png"
+    },
+    {
+      "provider_team_id": "135191",
+      "team_name": "Brisbane Broncos",
+      "team_abbrev": "",
+      "league": "nrl",
+      "sport": "Rugby",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/dnj6uw1646347648.png"
+    },
+    {
+      "provider_team_id": "135186",
+      "team_name": "Canberra Raiders",
+      "team_abbrev": "",
+      "league": "nrl",
+      "sport": "Rugby",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/wmlzo81646347671.png"
+    },
+    {
+      "provider_team_id": "135187",
+      "team_name": "Canterbury Bankstown Bulldogs",
+      "team_abbrev": "",
+      "league": "nrl",
+      "sport": "Rugby",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/vaq0n31646347699.png"
+    },
+    {
+      "provider_team_id": "135184",
+      "team_name": "Cronulla Sharks",
+      "team_abbrev": "",
+      "league": "nrl",
+      "sport": "Rugby",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/qn3n5r1552073088.png"
+    },
+    {
+      "provider_team_id": "147022",
+      "team_name": "Dolphins",
+      "team_abbrev": "",
+      "league": "nrl",
+      "sport": "Rugby",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/tyoy421672068536.png"
+    },
+    {
+      "provider_team_id": "135194",
+      "team_name": "Gold Coast Titans",
+      "team_abbrev": "",
+      "league": "nrl",
+      "sport": "Rugby",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/4qqmp81646347724.png"
+    },
+    {
+      "provider_team_id": "135188",
+      "team_name": "Manly Sea Eagles",
+      "team_abbrev": "",
+      "league": "nrl",
+      "sport": "Rugby",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/1ok3661646347740.png"
+    },
+    {
+      "provider_team_id": "135190",
+      "team_name": "Melbourne Storm",
+      "team_abbrev": "",
+      "league": "nrl",
+      "sport": "Rugby",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/hpdn401646347751.png"
+    },
+    {
+      "provider_team_id": "135193",
+      "team_name": "New Zealand Warriors",
+      "team_abbrev": "",
+      "league": "nrl",
+      "sport": "Rugby",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/w8b9kw1646347767.png"
+    },
+    {
+      "provider_team_id": "135198",
+      "team_name": "Newcastle Knights",
+      "team_abbrev": "",
+      "league": "nrl",
+      "sport": "Rugby",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/aes2o51646347790.png"
+    },
+    {
+      "provider_team_id": "135196",
+      "team_name": "North Queensland Cowboys",
+      "team_abbrev": "",
+      "league": "nrl",
+      "sport": "Rugby",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/q6xu7c1646347820.png"
+    },
+    {
+      "provider_team_id": "135183",
+      "team_name": "Parramatta Eels",
+      "team_abbrev": "",
+      "league": "nrl",
+      "sport": "Rugby",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/5tvma21646347846.png"
+    },
+    {
+      "provider_team_id": "135197",
+      "team_name": "Penrith Panthers",
+      "team_abbrev": "",
+      "league": "nrl",
+      "sport": "Rugby",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/239jb41552073712.png"
+    },
+    {
+      "provider_team_id": "135185",
+      "team_name": "South Sydney Rabbitohs",
+      "team_abbrev": "",
+      "league": "nrl",
+      "sport": "Rugby",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/0m4unp1552072677.png"
+    },
+    {
+      "provider_team_id": "135195",
+      "team_name": "St. George Illawara Dragons",
+      "team_abbrev": "",
+      "league": "nrl",
+      "sport": "Rugby",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/2dcs6y1646347870.png"
+    },
+    {
+      "provider_team_id": "135192",
+      "team_name": "Sydney Roosters",
+      "team_abbrev": "",
+      "league": "nrl",
+      "sport": "Rugby",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/by299w1646347883.png"
+    },
+    {
+      "provider_team_id": "135189",
+      "team_name": "Wests Tigers",
+      "team_abbrev": "",
+      "league": "nrl",
+      "sport": "Rugby",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/cs6i6f1646347894.png"
     }
   ]
 }

@@ -13,14 +13,16 @@ This is more robust than parsing stream names because:
 """
 
 import logging
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from datetime import date
-from typing import Any, Callable
+from datetime import date, datetime, timedelta
+from typing import Any
 
 from teamarr.core import Event
 from teamarr.services import SportsDataService
 from teamarr.utilities.fuzzy_match import FuzzyMatcher, get_matcher
+from teamarr.utilities.sports import get_sport_duration
 
 # Number of parallel workers for event fetching
 MAX_WORKERS = 100
@@ -127,6 +129,8 @@ class MultiLeagueMatcher:
         exception_keywords: list[str] | None = None,
         fuzzy_matcher: FuzzyMatcher | None = None,
         get_connection: Callable[[], Any] | None = None,
+        include_final_events: bool = False,
+        sport_durations: dict[str, float] | None = None,
     ):
         self._service = service
         self._search_leagues = search_leagues
@@ -134,6 +138,8 @@ class MultiLeagueMatcher:
         self._exception_keywords = [kw.lower() for kw in (exception_keywords or [])]
         self._fuzzy = fuzzy_matcher or get_matcher()
         self._get_connection = get_connection
+        self._include_final_events = include_final_events
+        self._sport_durations = sport_durations or {}
 
         # Built during match_all
         self._event_patterns: list[EventPatterns] = []
@@ -192,6 +198,9 @@ class MultiLeagueMatcher:
                 try:
                     league, events = future.result()
                     for event in events:
+                        # Filter final events (matching V1 logic)
+                        if self._should_skip_final_event(event, target_date):
+                            continue
                         patterns = self._generate_patterns(event, league)
                         self._event_patterns.append(patterns)
                 except Exception as e:
@@ -199,6 +208,48 @@ class MultiLeagueMatcher:
                     logger.warning(f"Failed to fetch events for {league}: {e}")
 
         self._patterns_date = target_date
+
+    def _should_skip_final_event(self, event: Event, target_date: date) -> bool:
+        """Check if a final event should be skipped.
+
+        Matches V1 logic:
+        - Past day completed events: ALWAYS excluded
+        - Today's completed events: honor include_final_events setting
+
+        Args:
+            event: Event to check
+            target_date: The date we're matching for
+
+        Returns:
+            True if event should be skipped, False if it should be included
+        """
+        # Only filter if event is final
+        if event.status.state != "final":
+            return False
+
+        # Calculate estimated end time
+        duration = get_sport_duration(event.sport, self._sport_durations, 3.0)
+        event_end = event.start_time + timedelta(hours=duration)
+
+        # Check if event has actually ended
+        now = datetime.now(event.start_time.tzinfo) if event.start_time.tzinfo else datetime.now()
+        if event_end >= now:
+            # Event hasn't ended yet (still in progress), include it
+            return False
+
+        # Event is final AND has ended
+        event_day = event.start_time.date()
+        today = target_date
+
+        if event_day < today:
+            # Past day completed event - always skip
+            return True
+        elif event_day == today and not self._include_final_events:
+            # Today's final, but include_final_events is False - skip
+            return True
+
+        # Today's final with include_final_events=True - include it
+        return False
 
     def _generate_patterns(self, event: Event, league: str) -> EventPatterns:
         """Generate search patterns from an event using fuzzy matcher."""

@@ -31,9 +31,13 @@ class TSDBProvider(SportsProvider):
         self,
         league_mapping_source: LeagueMappingSource | None = None,
         client: TSDBClient | None = None,
+        api_key: str | None = None,
     ):
         self._league_mapping_source = league_mapping_source
-        self._client = client or TSDBClient(league_mapping_source)
+        self._client = client or TSDBClient(
+            league_mapping_source=league_mapping_source,
+            api_key=api_key,
+        )
 
     @property
     def name(self) -> str:

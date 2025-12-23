@@ -516,6 +516,8 @@ INSERT OR IGNORE INTO leagues (league_code, provider, provider_league_id, provid
     ('usa.ncaa.m.1', 'espn', 'soccer/usa.ncaa.m.1', NULL, 'NCAA Men''s Soccer', 'Soccer', 'https://www.ncaa.com/modules/custom/casablanca_core/img/sportbanners/soccer.png', 1, 'ncaas'),
     ('usa.ncaa.w.1', 'espn', 'soccer/usa.ncaa.w.1', NULL, 'NCAA Women''s Soccer', 'Soccer', 'https://www.ncaa.com/modules/custom/casablanca_core/img/sportbanners/soccer.png', 1, 'ncaaws'),
     ('eng.1', 'espn', 'soccer/eng.1', NULL, 'English Premier League', 'Soccer', 'https://a.espncdn.com/i/leaguelogos/soccer/500/23.png', 1, 'epl'),
+    ('eng.2', 'espn', 'soccer/eng.2', NULL, 'EFL Championship', 'Soccer', 'https://a.espncdn.com/i/leaguelogos/soccer/500/24.png', 1, 'championship'),
+    ('eng.3', 'espn', 'soccer/eng.3', NULL, 'EFL League One', 'Soccer', 'https://a.espncdn.com/i/leaguelogos/soccer/500/25.png', 1, 'league-one'),
     ('esp.1', 'espn', 'soccer/esp.1', NULL, 'La Liga', 'Soccer', 'https://a.espncdn.com/i/leaguelogos/soccer/500/15.png', 1, NULL),
     ('ger.1', 'espn', 'soccer/ger.1', NULL, 'Bundesliga', 'Soccer', 'https://a.espncdn.com/i/leaguelogos/soccer/500/10.png', 1, NULL),
     ('ita.1', 'espn', 'soccer/ita.1', NULL, 'Serie A', 'Soccer', 'https://a.espncdn.com/i/leaguelogos/soccer/500/12.png', 1, NULL),
@@ -542,6 +544,9 @@ INSERT OR IGNORE INTO leagues (league_code, provider, provider_league_id, provid
     ('ipl', 'tsdb', '4460', 'Indian Premier League', 'Indian Premier League', 'Cricket', 'https://r2.thesportsdb.com/images/media/league/badge/gaiti11741709844.png', 1, NULL),
     ('cpl', 'tsdb', '5176', 'Caribbean Premier League', 'Caribbean Premier League', 'Cricket', 'https://r2.thesportsdb.com/images/media/league/badge/5mjjnj1645179844.png', 1, NULL),
     ('bpl', 'tsdb', '5529', 'Bangladesh Premier League', 'Bangladesh Premier League', 'Cricket', 'https://r2.thesportsdb.com/images/media/league/badge/3smqzk1734192770.png', 1, NULL),
+
+    -- Rugby League (TSDB)
+    ('nrl', 'tsdb', '4416', 'Australian National Rugby League', 'National Rugby League', 'Rugby', 'https://r2.thesportsdb.com/images/media/league/badge/gsztcj1552071996.png', 1, NULL),
 
     -- Boxing (TSDB) - Non-team sport, import_enabled = 0
     ('boxing', 'tsdb', '4445', 'Boxing', 'Boxing', 'Boxing', NULL, 0, NULL);

@@ -94,6 +94,7 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
     Schema versions:
     - 2: Initial V2 schema
     - 3: Teams consolidated (league -> primary_league + leagues array)
+    - 4: Added eng.2 (Championship), eng.3 (League One), nrl leagues; fixed NRL logo
     """
     import logging
 
@@ -120,6 +121,57 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
             conn.execute("UPDATE settings SET schema_version = 3 WHERE id = 1")
             logger.info("Schema upgraded to version 3")
             current_version = 3
+
+    # Version 4: Add new leagues (eng.2, eng.3, nrl) and fix NRL logo
+    if current_version < 4:
+        # Add EFL Championship (eng.2)
+        conn.execute("""
+            INSERT OR IGNORE INTO leagues
+            (league_code, provider, provider_league_id, provider_league_name,
+             display_name, sport, logo_url, import_enabled, league_id_alias)
+            VALUES ('eng.2', 'espn', 'soccer/eng.2', NULL, 'EFL Championship',
+                    'Soccer', 'https://a.espncdn.com/i/leaguelogos/soccer/500/24.png',
+                    1, 'championship')
+        """)
+
+        # Add EFL League One (eng.3)
+        conn.execute("""
+            INSERT OR IGNORE INTO leagues
+            (league_code, provider, provider_league_id, provider_league_name,
+             display_name, sport, logo_url, import_enabled, league_id_alias)
+            VALUES ('eng.3', 'espn', 'soccer/eng.3', NULL, 'EFL League One',
+                    'Soccer', 'https://a.espncdn.com/i/leaguelogos/soccer/500/25.png',
+                    1, 'league-one')
+        """)
+
+        # Add NRL (National Rugby League)
+        conn.execute("""
+            INSERT OR IGNORE INTO leagues
+            (league_code, provider, provider_league_id, provider_league_name,
+             display_name, sport, logo_url, import_enabled, league_id_alias)
+            VALUES ('nrl', 'tsdb', '4416', 'Australian National Rugby League',
+                    'National Rugby League', 'Rugby',
+                    'https://r2.thesportsdb.com/images/media/league/badge/gsztcj1552071996.png',
+                    1, NULL)
+        """)
+
+        # Fix NRL logo URL if it was set to the old (404) URL
+        conn.execute("""
+            UPDATE leagues
+            SET logo_url = 'https://r2.thesportsdb.com/images/media/league/badge/gsztcj1552071996.png'
+            WHERE league_code = 'nrl'
+              AND logo_url = 'https://r2.thesportsdb.com/images/media/league/badge/89o6hc1596121022.png'
+        """)
+        conn.execute("""
+            UPDATE league_cache
+            SET logo_url = 'https://r2.thesportsdb.com/images/media/league/badge/gsztcj1552071996.png'
+            WHERE league_slug = 'nrl'
+              AND logo_url = 'https://r2.thesportsdb.com/images/media/league/badge/89o6hc1596121022.png'
+        """)
+
+        conn.execute("UPDATE settings SET schema_version = 4 WHERE id = 1")
+        logger.info("Schema upgraded to version 4 (added eng.2, eng.3, nrl leagues)")
+        current_version = 4
 
 
 def _migrate_teams_to_leagues_array(conn: sqlite3.Connection) -> bool:

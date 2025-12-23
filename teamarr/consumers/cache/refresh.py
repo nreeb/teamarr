@@ -120,6 +120,10 @@ class CacheRefresher:
                 all_leagues.extend(leagues)
                 all_teams.extend(teams)
 
+            # Merge TSDB seed data with API results before saving
+            # This fills in teams that the free tier API doesn't return
+            all_teams, all_leagues = self._merge_with_seed(all_teams, all_leagues)
+
             # Save to database (95-100%)
             report(f"Saving {len(all_teams)} teams, {len(all_leagues)} leagues...", 95)
             self._save_cache(all_teams, all_leagues)
@@ -356,8 +360,8 @@ class CacheRefresher:
                         resp = client.get(ref_url)
                         if resp.status_code == 200:
                             return resp.json().get("slug")
-                except Exception:
-                    pass
+                except (httpx.RequestError, httpx.HTTPStatusError) as e:
+                    logger.debug(f"Failed to fetch league slug from {ref_url}: {e}")
                 return None
 
             # Fetch slugs in parallel
@@ -517,3 +521,91 @@ class CacheRefresher:
                 "UPDATE cache_meta SET refresh_in_progress = ? WHERE id = 1",
                 (1 if in_progress else 0,),
             )
+
+    def _merge_with_seed(
+        self, api_teams: list[dict], api_leagues: list[dict]
+    ) -> tuple[list[dict], list[dict]]:
+        """Merge API results with TSDB seed data.
+
+        TSDB free tier only returns 10 teams per league. The seed file contains
+        complete team rosters. This merges them efficiently in memory:
+        - Seed data provides the base
+        - API data overwrites seed for matching keys (fresher data)
+
+        Args:
+            api_teams: Teams fetched from providers
+            api_leagues: Leagues fetched from providers
+
+        Returns:
+            (merged_teams, merged_leagues) tuple
+        """
+        from teamarr.database.seed import load_tsdb_seed
+
+        seed_data = load_tsdb_seed()
+        if not seed_data:
+            return api_teams, api_leagues
+
+        # Merge teams: seed first, API overwrites (API data is fresher)
+        teams_by_key: dict[tuple, dict] = {}
+
+        # Add seed teams first
+        for team in seed_data.get("teams", []):
+            key = (team["provider"], team["provider_team_id"], team["league"])
+            teams_by_key[key] = {
+                "team_name": team["team_name"],
+                "team_abbrev": team.get("team_abbrev"),
+                "team_short_name": team.get("team_short_name"),
+                "provider": team["provider"],
+                "provider_team_id": team["provider_team_id"],
+                "league": team["league"],
+                "sport": team["sport"],
+                "logo_url": team.get("logo_url"),
+            }
+
+        # API teams overwrite seed (fresher data)
+        for team in api_teams:
+            if not team.get("team_name"):
+                continue
+            key = (team["provider"], team["provider_team_id"], team["league"])
+            teams_by_key[key] = team
+
+        # Merge leagues: seed first, API overwrites
+        leagues_by_key: dict[tuple, dict] = {}
+
+        # Add seed leagues first
+        for league in seed_data.get("leagues", []):
+            key = (league["code"], "tsdb")
+            leagues_by_key[key] = {
+                "league_slug": league["code"],
+                "provider": "tsdb",
+                "sport": league["sport"],
+                "league_name": league.get("provider_league_name"),
+                "logo_url": None,  # Seed doesn't have logos
+                "team_count": league.get("team_count", 0),
+            }
+
+        # API leagues overwrite seed
+        for league in api_leagues:
+            key = (league["league_slug"], league["provider"])
+            leagues_by_key[key] = league
+
+        merged_teams = list(teams_by_key.values())
+        merged_leagues = list(leagues_by_key.values())
+
+        # Update league team counts to reflect merged totals
+        league_team_counts: dict[str, int] = {}
+        for team in merged_teams:
+            league = team.get("league")
+            if league:
+                league_team_counts[league] = league_team_counts.get(league, 0) + 1
+
+        for league in merged_leagues:
+            slug = league.get("league_slug")
+            if slug in league_team_counts:
+                league["team_count"] = league_team_counts[slug]
+
+        added_from_seed = len(merged_teams) - len(api_teams)
+        if added_from_seed > 0:
+            logger.info(f"Merged {added_from_seed} teams from TSDB seed")
+
+        return merged_teams, merged_leagues

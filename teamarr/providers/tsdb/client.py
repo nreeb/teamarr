@@ -18,7 +18,11 @@ Rate limit handling:
 - Reactive: If we get 429, wait and retry (tracks statistics)
 - All waits are tracked for UI feedback
 
-League mappings are provided via LeagueMappingSource (no direct database access).
+Dependencies are injected via constructor:
+- LeagueMappingSource: For league configuration lookup
+- api_key: From database settings (passed by factory in providers/__init__.py)
+
+This client has NO direct database access - all config is injected.
 """
 
 import logging
@@ -228,12 +232,14 @@ class TSDBClient:
         """Resolve API key from available sources.
 
         Priority order:
-        1. Explicit parameter (passed to constructor)
+        1. Explicit parameter (passed to constructor via factory)
         2. Environment variable (TSDB_API_KEY)
-        3. Database settings (tsdb_api_key)
-        4. Free API key (123)
+        3. Free API key (123)
+
+        Note: Database access is handled by the factory in providers/__init__.py,
+        which passes the API key to the constructor. This maintains layer separation.
         """
-        # 1. Explicit parameter
+        # 1. Explicit parameter (includes API key from database via factory)
         if self._explicit_key:
             return self._explicit_key
 
@@ -242,28 +248,8 @@ class TSDBClient:
         if env_key:
             return env_key
 
-        # 3. Database settings
-        db_key = self._get_db_api_key()
-        if db_key:
-            return db_key
-
-        # 4. Fall back to free key
+        # 3. Fall back to free key
         return self.FREE_API_KEY
-
-    def _get_db_api_key(self) -> str | None:
-        """Get API key from database settings."""
-        try:
-            from teamarr.database import get_db
-
-            with get_db() as conn:
-                cursor = conn.execute("SELECT tsdb_api_key FROM settings WHERE id = 1")
-                row = cursor.fetchone()
-                if row and row["tsdb_api_key"]:
-                    return row["tsdb_api_key"]
-        except Exception:
-            # Database not available or column doesn't exist yet
-            pass
-        return None
 
     @property
     def is_premium(self) -> bool:
@@ -578,10 +564,11 @@ class TSDBClient:
                 if away_id and away_id not in teams_by_id:
                     teams_by_id[away_id] = self._team_from_event(event, "Away", league)
 
+        search_teams = (search_result.get("teams") or []) if search_result else []
+        season_events = (season_result.get("events") or []) if season_result else []
         logger.info(
             f"TSDB teams for {league}: {len(teams_by_id)} total "
-            f"(search: {len(search_result.get('teams', [])) if search_result else 0}, "
-            f"events: {len(season_result.get('events', [])) if season_result else 0})"
+            f"(search: {len(search_teams)}, events: {len(season_events)})"
         )
 
         result = {"teams": list(teams_by_id.values())}

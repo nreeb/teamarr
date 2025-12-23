@@ -251,7 +251,8 @@ class FillerGenerator:
             first_game = day_events[0]
             pregame_start = skip_pregame_until
             # End filler when game programme starts (event - buffer)
-            pregame_end_utc = first_game.start_time - timedelta(minutes=options.pregame_buffer_minutes)
+            buffer = timedelta(minutes=options.pregame_buffer_minutes)
+            pregame_end_utc = first_game.start_time - buffer
             pregame_end = pregame_end_utc.astimezone(tz)
 
             if pregame_start < pregame_end:

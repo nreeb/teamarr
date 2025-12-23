@@ -86,6 +86,8 @@ class CachedMatcher:
         include_leagues: list[str] | None = None,
         exception_keywords: list[str] | None = None,
         fuzzy_matcher: FuzzyMatcher | None = None,
+        include_final_events: bool = False,
+        sport_durations: dict[str, float] | None = None,
     ):
         """Initialize cached matcher.
 
@@ -97,6 +99,8 @@ class CachedMatcher:
             include_leagues: Whitelist of leagues to include in results
             exception_keywords: Keywords that bypass matching
             fuzzy_matcher: Optional custom fuzzy matcher
+            include_final_events: Include completed same-day events in matching
+            sport_durations: Sport duration settings for event end calculation
         """
         self._service = service
         self._get_connection = get_connection
@@ -110,6 +114,8 @@ class CachedMatcher:
             exception_keywords=exception_keywords,
             fuzzy_matcher=fuzzy_matcher,
             get_connection=get_connection,  # For alias lookups
+            include_final_events=include_final_events,
+            sport_durations=sport_durations,
         )
         self._cache = StreamMatchCache(get_connection)
 

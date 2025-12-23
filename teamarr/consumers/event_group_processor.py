@@ -19,9 +19,6 @@ from datetime import date, datetime
 from sqlite3 import Connection
 from typing import Any
 
-# Number of parallel workers for event fetching
-MAX_WORKERS = 100
-
 from teamarr.consumers.cached_matcher import CachedBatchResult, CachedMatcher
 from teamarr.consumers.channel_lifecycle import (
     StreamProcessResult,
@@ -51,6 +48,9 @@ from teamarr.services.stream_filter import FilterResult
 from teamarr.utilities.xmltv import merge_xmltv_content, programmes_to_xmltv
 
 logger = logging.getLogger(__name__)
+
+# Number of parallel workers for event fetching
+MAX_WORKERS = 100
 
 
 @dataclass
@@ -346,15 +346,18 @@ class EventGroupProcessor:
                     )
                     if refresh_result.skipped:
                         logger.debug(
-                            f"Preview: M3U account {group.m3u_account_id} recently refreshed, skipping"
+                            f"Preview: M3U account {group.m3u_account_id} "
+                            "recently refreshed, skipping"
                         )
                     elif refresh_result.success:
                         logger.debug(
-                            f"Preview: M3U account {group.m3u_account_id} refreshed in {refresh_result.duration:.1f}s"
+                            f"Preview: M3U account {group.m3u_account_id} "
+                            f"refreshed in {refresh_result.duration:.1f}s"
                         )
                     else:
                         logger.warning(
-                            f"Preview: M3U refresh failed: {refresh_result.message} - continuing with potentially stale data"
+                            f"Preview: M3U refresh failed: {refresh_result.message} "
+                            "- continuing with potentially stale data"
                         )
                 except Exception as e:
                     logger.warning(f"Preview: M3U refresh error: {e} - continuing anyway")
@@ -822,7 +825,8 @@ class EventGroupProcessor:
                 result.xmltv_size = len(xmltv_content.encode("utf-8")) if xmltv_content else 0
 
                 stats_run.programmes_total = programmes_count
-                stats_run.programmes_events = programmes_count  # All event EPG programmes are events
+                # All event EPG programmes are events
+                stats_run.programmes_events = programmes_count
                 stats_run.xmltv_size_bytes = result.xmltv_size
 
                 # Step 6: Store XMLTV for this group (in database)
@@ -940,7 +944,9 @@ class EventGroupProcessor:
         result = stream_filter.filter(streams)
 
         # Log filtering results
-        filtered_total = result.filtered_include + result.filtered_exclude + result.filtered_not_event
+        filtered_total = (
+            result.filtered_include + result.filtered_exclude + result.filtered_not_event
+        )
         if filtered_total > 0:
             logger.info(
                 f"Filtered streams for group '{group.name}': "
@@ -1010,12 +1016,23 @@ class EventGroupProcessor:
         # Get all enabled leagues to search (not just the group's configured leagues)
         all_leagues = self._get_all_enabled_leagues()
 
+        # Load settings for event filtering
+        with self._db_factory() as conn:
+            row = conn.execute(
+                "SELECT include_final_events FROM settings WHERE id = 1"
+            ).fetchone()
+            include_final_events = bool(row["include_final_events"]) if row else False
+
+        sport_durations = self._load_sport_durations_cached()
+
         matcher = CachedMatcher(
             service=self._service,
             get_connection=self._db_factory,
             search_leagues=all_leagues,  # Search ALL leagues
             group_id=group_id,
             include_leagues=leagues,  # Filter to group's configured leagues
+            include_final_events=include_final_events,
+            sport_durations=sport_durations,
         )
 
         result = matcher.match_all(streams, target_date)
@@ -1024,6 +1041,13 @@ class EventGroupProcessor:
         matcher.purge_stale()
 
         return result
+
+    def _load_sport_durations_cached(self) -> dict[str, float]:
+        """Load sport durations (cached for reuse within a run)."""
+        if not hasattr(self, "_sport_durations_cache"):
+            with self._db_factory() as conn:
+                self._sport_durations_cache = self._load_sport_durations(conn)
+        return self._sport_durations_cache
 
     def _build_matched_stream_list(
         self,
@@ -1077,6 +1101,10 @@ class EventGroupProcessor:
 
             if result.matched and result.included and result.event:
                 # Successfully matched and included
+                event_date = (
+                    result.event.start_time.isoformat()
+                    if result.event.start_time else None
+                )
                 matched_list.append(
                     MatchedStream(
                         run_id=run_id,
@@ -1086,7 +1114,7 @@ class EventGroupProcessor:
                         stream_name=result.stream_name,
                         event_id=result.event.id,
                         event_name=result.event.name,
-                        event_date=result.event.start_time.isoformat() if result.event.start_time else None,
+                        event_date=event_date,
                         detected_league=result.league,
                         home_team=result.event.home_team.name if result.event.home_team else None,
                         away_team=result.event.away_team.name if result.event.away_team else None,
@@ -1132,12 +1160,6 @@ class EventGroupProcessor:
                         reason="unmatched",
                     )
                 )
-
-        # Add filtered streams if provided
-        if filter_result:
-            for stream in filter_result.passed:
-                # These passed the filter but weren't in match results (shouldn't happen)
-                pass
 
         # Save to database
         if matched_list:

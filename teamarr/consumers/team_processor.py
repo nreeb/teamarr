@@ -14,7 +14,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime
 from sqlite3 import Connection
-from typing import Any, Callable
+from typing import Any
 
 from teamarr.consumers.team_epg import TeamEPGGenerator, TeamEPGOptions
 from teamarr.core import Programme
@@ -362,6 +362,7 @@ class TeamProcessor:
             midnight_crossover_mode=settings.get("midnight_crossover_mode", "postgame"),
             template_id=team.template_id,
             filler_enabled=True,
+            include_final_events=settings.get("include_final_events", False),
         )
 
     def _get_team(self, conn: Connection, team_id: int) -> TeamConfig | None:
@@ -443,7 +444,8 @@ class TeamProcessor:
                 (team_id,),
             ).fetchone()
             return row["xmltv_content"] if row else None
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to get stored XMLTV for team {team_id}: {e}")
             return None
 
     def _generate_all_programmes(
@@ -498,7 +500,8 @@ def get_all_team_xmltv(conn: Connection, team_ids: list[int] | None = None) -> l
             cursor = conn.execute("SELECT xmltv_content FROM team_epg_xmltv")
 
         return [row["xmltv_content"] for row in cursor.fetchall()]
-    except Exception:
+    except Exception as e:
+        logger.debug(f"Failed to get team XMLTV content: {e}")
         return []
 
 

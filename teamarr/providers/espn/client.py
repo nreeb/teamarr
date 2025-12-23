@@ -274,7 +274,7 @@ class ESPNClient:
         url = f"{ESPN_UFC_ATHLETE_URL}/{fighter_id}/records"
         return self._request(url)
 
-    def close(self):
+    def close(self) -> None:
         """Close the HTTP client."""
         if self._client:
             self._client.close()
