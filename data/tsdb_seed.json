@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-12-20T16:36:37.491373Z",
+  "generated_at": "2025-12-26T12:00:00.000000Z",
   "generated_with": "premium_key",
   "leagues": [
     {
@@ -22,6 +22,13 @@
       "provider_league_name": "Canadian QMJHL",
       "sport": "Hockey",
       "team_count": 18
+    },
+    {
+      "code": "ahl",
+      "provider_league_id": "4738",
+      "provider_league_name": "American AHL",
+      "sport": "Hockey",
+      "team_count": 32
     },
     {
       "code": "ipl",
@@ -596,6 +603,262 @@
       "league": "qmjhl",
       "sport": "Hockey",
       "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/dy7n9f1637782439.png"
+    },
+    {
+      "provider_team_id": "139135",
+      "team_name": "Abbotsford Canucks",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/dv6qs81630161032.png"
+    },
+    {
+      "provider_team_id": "139144",
+      "team_name": "Bakersfield Condors",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/y8tvvc1704880651.png"
+    },
+    {
+      "provider_team_id": "139128",
+      "team_name": "Belleville Senators",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/8cztzp1582218178.png"
+    },
+    {
+      "provider_team_id": "139119",
+      "team_name": "Bridgeport Islanders",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/y28u2r1630161958.png"
+    },
+    {
+      "provider_team_id": "147019",
+      "team_name": "Calgary Wranglers",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/j429qz1671297982.png"
+    },
+    {
+      "provider_team_id": "139120",
+      "team_name": "Charlotte Checkers",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/9jj3fk1582217754.png"
+    },
+    {
+      "provider_team_id": "139136",
+      "team_name": "Chicago Wolves",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/xszjsd1582218558.png"
+    },
+    {
+      "provider_team_id": "139130",
+      "team_name": "Cleveland Monsters",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/67iokv1704880660.png"
+    },
+    {
+      "provider_team_id": "146713",
+      "team_name": "Coachella Valley Firebirds",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/gc8t1r1659063191.png"
+    },
+    {
+      "provider_team_id": "139145",
+      "team_name": "Colorado Eagles",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/nf1kma1582218854.png"
+    },
+    {
+      "provider_team_id": "139137",
+      "team_name": "Grand Rapids Griffins",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/66cu4t1704880669.png"
+    },
+    {
+      "provider_team_id": "139121",
+      "team_name": "Hartford Wolf Pack",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/elqzdb1582217789.png"
+    },
+    {
+      "provider_team_id": "141379",
+      "team_name": "Henderson Silver Knights",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/5r7ywh1630161303.png"
+    },
+    {
+      "provider_team_id": "139122",
+      "team_name": "Hershey Bears",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/jlcx6l1582217827.png"
+    },
+    {
+      "provider_team_id": "139138",
+      "team_name": "Iowa Wild",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/5gjzks1704880679.png"
+    },
+    {
+      "provider_team_id": "139131",
+      "team_name": "Laval Rocket",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/5y42in1582218401.png"
+    },
+    {
+      "provider_team_id": "139123",
+      "team_name": "Lehigh Valley Phantoms",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/ir7q6q1582219212.png"
+    },
+    {
+      "provider_team_id": "139139",
+      "team_name": "Manitoba Moose",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/p6nrvj1582218676.png"
+    },
+    {
+      "provider_team_id": "139140",
+      "team_name": "Milwaukee Admirals",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/oegddg1582218703.png"
+    },
+    {
+      "provider_team_id": "139146",
+      "team_name": "Ontario Reign",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/517tme1582218903.png"
+    },
+    {
+      "provider_team_id": "139124",
+      "team_name": "Providence Bruins",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/kvm6b21704880697.png"
+    },
+    {
+      "provider_team_id": "139132",
+      "team_name": "Rochester Americans",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/66cn3w1582218435.png"
+    },
+    {
+      "provider_team_id": "139141",
+      "team_name": "Rockford IceHogs",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/asxymo1704880706.png"
+    },
+    {
+      "provider_team_id": "139147",
+      "team_name": "San Diego Gulls",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/0jywxi1582218933.png"
+    },
+    {
+      "provider_team_id": "139148",
+      "team_name": "San Jose Barracuda",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/dtg3wn1582218962.png"
+    },
+    {
+      "provider_team_id": "139125",
+      "team_name": "Springfield Thunderbirds",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/ifykhk1582218081.png"
+    },
+    {
+      "provider_team_id": "139133",
+      "team_name": "Syracuse Crunch",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/q9xy2a1582218468.png"
+    },
+    {
+      "provider_team_id": "139143",
+      "team_name": "Texas Stars",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/e23b9p1704880716.png"
+    },
+    {
+      "provider_team_id": "139134",
+      "team_name": "Toronto Marlies",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/tjhxa81704880725.png"
+    },
+    {
+      "provider_team_id": "139150",
+      "team_name": "Tucson Roadrunners",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/ig6a2z1582219022.png"
+    },
+    {
+      "provider_team_id": "139129",
+      "team_name": "Utica Comets",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/z7vw1f1630161596.png"
+    },
+    {
+      "provider_team_id": "139127",
+      "team_name": "Wilkes-Barre Scranton Penguins",
+      "team_abbrev": "",
+      "league": "ahl",
+      "sport": "Hockey",
+      "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/j0g7151582218145.png"
     },
     {
       "provider_team_id": "135800",
