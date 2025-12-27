@@ -118,94 +118,117 @@ def get_conditions(template_type: str = "team"):
     Event templates are positional (home/away teams), so only
     game-level conditions like is_playoff, has_odds apply.
     """
+    # Provider support:
+    # - "all": Works with all providers (ESPN, TSDB)
+    # - "espn": ESPN leagues only (NFL, NBA, NHL, MLB, MLS, college, soccer)
+    # For TSDB-only leagues (OHL, WHL, NLL, etc.), ESPN-only conditions return false
+
     # Conditions that apply to both template types
     common_conditions = [
+        # ESPN-only: requires ranking data
         {
             "name": "is_ranked_matchup",
             "description": "Both teams are ranked (college sports)",
             "requires_value": False,
+            "providers": "espn",
         },
         {
             "name": "is_top_ten_matchup",
             "description": "Both teams are ranked in top 10",
             "requires_value": False,
+            "providers": "espn",
         },
+        # ESPN-only: requires conference data
         {
             "name": "is_conference_game",
             "description": "Game is a conference matchup",
             "requires_value": False,
+            "providers": "espn",
         },
+        # ESPN-only: requires season type flags
         {
             "name": "is_playoff",
             "description": "Game is a playoff/postseason game",
             "requires_value": False,
+            "providers": "espn",
         },
         {
             "name": "is_preseason",
             "description": "Game is a preseason game",
             "requires_value": False,
+            "providers": "espn",
         },
+        # ESPN-only: requires broadcast data
         {
             "name": "is_national_broadcast",
             "description": "Game is on national TV",
             "requires_value": False,
+            "providers": "espn",
         },
+        # ESPN-only: requires odds enrichment
         {
             "name": "has_odds",
             "description": "Betting odds are available for the game",
             "requires_value": False,
-        },
-        {
-            "name": "always",
-            "description": "Always matches (use as fallback)",
-            "requires_value": False,
+            "providers": "espn",
         },
     ]
 
     # Team-only conditions (require "our team" perspective)
     team_only_conditions = [
+        # Universal: works with all providers
         {
             "name": "is_home",
             "description": "Team is playing at home",
             "requires_value": False,
+            "providers": "all",
         },
         {
             "name": "is_away",
             "description": "Team is playing away",
             "requires_value": False,
-        },
-        {
-            "name": "win_streak",
-            "description": "Team is on a win streak of N or more games",
-            "requires_value": True,
-            "value_type": "number",
-        },
-        {
-            "name": "loss_streak",
-            "description": "Team is on a loss streak of N or more games",
-            "requires_value": True,
-            "value_type": "number",
-        },
-        {
-            "name": "is_ranked",
-            "description": "Team is ranked (college sports)",
-            "requires_value": False,
-        },
-        {
-            "name": "is_ranked_opponent",
-            "description": "Opponent is ranked (college sports)",
-            "requires_value": False,
+            "providers": "all",
         },
         {
             "name": "opponent_name_contains",
             "description": "Opponent name contains specific text",
             "requires_value": True,
             "value_type": "string",
+            "providers": "all",
+        },
+        # ESPN-only: requires team stats
+        {
+            "name": "win_streak",
+            "description": "Team is on a win streak of N or more games",
+            "requires_value": True,
+            "value_type": "number",
+            "providers": "espn",
+        },
+        {
+            "name": "loss_streak",
+            "description": "Team is on a loss streak of N or more games",
+            "requires_value": True,
+            "value_type": "number",
+            "providers": "espn",
+        },
+        # ESPN-only: requires ranking data
+        {
+            "name": "is_ranked",
+            "description": "Team is ranked (college sports)",
+            "requires_value": False,
+            "providers": "espn",
+        },
+        {
+            "name": "is_ranked_opponent",
+            "description": "Opponent is ranked (college sports)",
+            "requires_value": False,
+            "providers": "espn",
         },
     ]
 
     if template_type == "event":
-        conditions = common_conditions
+        # Event templates have no conditions - they lack "our team" perspective
+        conditions = []
     else:
         # Team templates get all conditions
         conditions = team_only_conditions + common_conditions

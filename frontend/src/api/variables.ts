@@ -28,6 +28,7 @@ export interface Condition {
   description: string
   requires_value: boolean
   value_type?: "number" | "string"
+  providers?: "all" | "espn"  // "all" = universal, "espn" = ESPN leagues only
 }
 
 export interface ConditionsResponse {

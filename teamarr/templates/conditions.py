@@ -86,6 +86,10 @@ class ConditionEvaluator:
     # Home/Away conditions
     # =========================================================================
 
+    def _eval_always(self, value: str | None, ctx: TemplateContext, game_ctx: GameContext) -> bool:
+        """Always returns True. Legacy compatibility - use priority 100 defaults instead."""
+        return True
+
     def _eval_is_home(self, value: str | None, ctx: TemplateContext, game_ctx: GameContext) -> bool:
         """Check if team is playing at home."""
         return game_ctx.is_home
@@ -128,9 +132,20 @@ class ConditionEvaluator:
         except (ValueError, IndexError):
             return False
 
+    # Note: home/away streak conditions removed - can't reliably get venue-specific streak data from providers
+
     # =========================================================================
     # Ranking conditions
     # =========================================================================
+
+    def _eval_is_ranked(
+        self, value: str | None, ctx: TemplateContext, game_ctx: GameContext
+    ) -> bool:
+        """Check if team is ranked (top 25)."""
+        if not ctx.team_stats:
+            return False
+        rank = ctx.team_stats.rank
+        return rank is not None and rank <= 25
 
     def _eval_is_ranked_opponent(
         self, value: str | None, ctx: TemplateContext, game_ctx: GameContext
@@ -235,6 +250,20 @@ class ConditionEvaluator:
         if not opponent:
             return False
         return value.lower() in opponent.name.lower()
+
+    # Note: is_rematch removed - requires schedule history we can't reliably get from providers
+
+    def _eval_is_ranked_matchup(
+        self, value: str | None, ctx: TemplateContext, game_ctx: GameContext
+    ) -> bool:
+        """Check if both teams are ranked (top 25)."""
+        if not ctx.team_stats or not game_ctx.opponent_stats:
+            return False
+        our_rank = ctx.team_stats.rank
+        opp_rank = game_ctx.opponent_stats.rank
+        if our_rank is None or opp_rank is None:
+            return False
+        return our_rank <= 25 and opp_rank <= 25
 
 
 class ConditionalDescriptionSelector:

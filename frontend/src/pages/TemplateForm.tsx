@@ -410,7 +410,9 @@ export function TemplateForm() {
 
       {/* Tabs - outside grid so picker aligns with content */}
       <div className="flex gap-2 border-b border-border mb-4 flex-wrap">
-        {TABS.map((tab) => (
+        {TABS
+          .filter((tab) => tab.id !== "conditions" || isTeamTemplate) // Hide conditions tab for event templates
+          .map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
@@ -454,6 +456,7 @@ export function TemplateForm() {
               formData={formData}
               setFormData={setFormData}
               resolveTemplate={resolveTemplate}
+              isTeamTemplate={isTeamTemplate}
             />
           )}
           {activeTab === "fillers" && (
@@ -1283,7 +1286,7 @@ function ConditionsTab({ formData, setFormData, resolveTemplate, isTeamTemplate 
   const { data: conditionsData } = useQuery({
     queryKey: ["conditions", templateType],
     queryFn: () => fetchConditions(templateType),
-    staleTime: Infinity,
+    staleTime: 5 * 60 * 1000, // 5 minutes - allow refetch when conditions change
   })
   const availableConditions = conditionsData?.conditions || []
 
@@ -1296,8 +1299,10 @@ function ConditionsTab({ formData, setFormData, resolveTemplate, isTeamTemplate 
   const getFallbacks = () => (formData.conditional_descriptions || []).filter((c) => c.priority === 100)
 
   const addCondition = () => {
+    // Default to first available condition, or is_home as fallback
+    const defaultCondition = availableConditions.length > 0 ? availableConditions[0].name : "is_home"
     const newCondition: ConditionalDescription = {
-      condition: "always",
+      condition: defaultCondition,
       template: "",
       priority: 50, // Default conditional priority (not 100 which is for fallbacks)
     }
@@ -1496,6 +1501,9 @@ function ConditionsTab({ formData, setFormData, resolveTemplate, isTeamTemplate 
                       <span className="text-sm font-medium flex-1">
                         {condInfo?.description || cond.condition}
                         {cond.condition_value && ` (${cond.condition_value})`}
+                        {condInfo?.providers === "espn" && (
+                          <span className="ml-1 text-[10px] text-amber-500">(ESPN)</span>
+                        )}
                       </span>
                       {cond.template && (
                         <span className="text-xs text-muted-foreground truncate max-w-[200px]">
@@ -1526,21 +1534,25 @@ function ConditionsTab({ formData, setFormData, resolveTemplate, isTeamTemplate 
                               {availableConditions.length > 0 ? (
                                 availableConditions.map((c) => (
                                   <option key={c.name} value={c.name}>
-                                    {c.description}
+                                    {c.description}{c.providers === "espn" ? " (ESPN only)" : ""}
                                   </option>
                                 ))
                               ) : (
                                 <>
-                                  <option value="always">Always (fallback)</option>
-                                  <option value="is_home">Is Home</option>
-                                  <option value="is_away">Is Away</option>
-                                  <option value="win_streak">Win Streak ≥</option>
-                                  <option value="loss_streak">Loss Streak ≥</option>
-                                  <option value="is_ranked">Is Ranked</option>
-                                  <option value="is_ranked_matchup">Ranked Matchup</option>
-                                  <option value="is_playoff">Is Playoff</option>
-                                  <option value="is_preseason">Is Preseason</option>
-                                  <option value="has_odds">Has Odds</option>
+                                  <option value="is_home">Team is playing at home</option>
+                                  <option value="is_away">Team is playing away</option>
+                                  <option value="win_streak">Team is on a win streak of N or more games</option>
+                                  <option value="loss_streak">Team is on a loss streak of N or more games</option>
+                                  <option value="is_ranked">Team is ranked (college sports)</option>
+                                  <option value="is_ranked_opponent">Opponent is ranked (college sports)</option>
+                                  <option value="is_ranked_matchup">Both teams are ranked (college sports)</option>
+                                  <option value="is_top_ten_matchup">Both teams are ranked in top 10</option>
+                                  <option value="is_conference_game">Game is a conference matchup</option>
+                                  <option value="is_playoff">Game is a playoff/postseason game</option>
+                                  <option value="is_preseason">Game is a preseason game</option>
+                                  <option value="is_national_broadcast">Game is on national TV</option>
+                                  <option value="has_odds">Betting odds are available for the game</option>
+                                  <option value="opponent_name_contains">Opponent name contains specific text</option>
                                 </>
                               )}
                             </Select>
