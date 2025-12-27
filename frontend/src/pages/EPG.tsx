@@ -77,6 +77,14 @@ export function EPG() {
   const [showLineNumbers, setShowLineNumbers] = useState(true)
   const previewRef = useRef<HTMLPreElement>(null)
 
+  // Gap highlighting state
+  const [highlightedGap, setHighlightedGap] = useState<{
+    afterStop: string
+    beforeStart: string
+    afterProgram: string
+    beforeProgram: string
+  } | null>(null)
+
   // EPG URL for IPTV apps
   const epgUrl = `${window.location.origin}${getTeamXmltvUrl()}`
 
@@ -163,10 +171,69 @@ export function EPG() {
     scrollToMatch(prev)
   }
 
-  // Highlighted XML content
+  // Highlighted XML content (supports search and gap highlighting)
   const highlightedContent = useMemo(() => {
     if (!epgContent?.content) return ""
     const lines = epgContent.content.split("\n")
+
+    // Gap highlighting mode
+    if (highlightedGap) {
+      const result: string[] = []
+      let inProgramme = false
+      let programmeLines: number[] = []
+      let programmeType: "before" | "after" | null = null
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i]
+        const lineNum = showLineNumbers ? `${(i + 1).toString().padStart(4)} | ` : ""
+
+        // Check if this line starts a programme block we care about
+        if (line.includes("<programme")) {
+          if (line.includes(`stop="${highlightedGap.afterStop}"`)) {
+            inProgramme = true
+            programmeType = "before"
+            programmeLines = [i]
+          } else if (line.includes(`start="${highlightedGap.beforeStart}"`)) {
+            inProgramme = true
+            programmeType = "after"
+            programmeLines = [i]
+          }
+        }
+
+        // Track lines in the programme block
+        if (inProgramme) {
+          if (!programmeLines.includes(i)) {
+            programmeLines.push(i)
+          }
+        }
+
+        // Check if we're closing a programme block
+        if (inProgramme && line.includes("</programme>")) {
+          inProgramme = false
+          // Choose color based on whether this is before or after the gap
+          const bgClass = programmeType === "before"
+            ? "bg-red-400/30"   // Light red for programme ending before gap
+            : "bg-blue-400/30"  // Light blue for programme starting after gap
+
+          // Output all lines in this block with highlighting
+          for (const lineIdx of programmeLines) {
+            const ln = showLineNumbers ? `${(lineIdx + 1).toString().padStart(4)} | ` : ""
+            result.push(`<span class="${bgClass}">${ln}${escapeHtml(lines[lineIdx])}</span>`)
+          }
+          programmeLines = []
+          programmeType = null
+          continue
+        }
+
+        // If not in a highlighted programme, just output normally
+        if (!inProgramme) {
+          result.push(`${lineNum}${escapeHtml(line)}`)
+        }
+      }
+      return result.join("\n")
+    }
+
+    // Normal search highlighting mode
     return lines.map((line, idx) => {
       const lineNum = showLineNumbers ? `${(idx + 1).toString().padStart(4)} | ` : ""
       const isMatch = searchTerm && line.toLowerCase().includes(searchTerm.toLowerCase())
@@ -179,7 +246,7 @@ export function EPG() {
       }
       return `${lineNum}${escapeHtml(line)}`
     }).join("\n")
-  }, [epgContent?.content, showLineNumbers, searchTerm, currentMatch, searchMatches])
+  }, [epgContent?.content, showLineNumbers, searchTerm, currentMatch, searchMatches, highlightedGap])
 
   const hasIssues = (analysis?.unreplaced_variables?.length ?? 0) > 0 ||
                    (analysis?.coverage_gaps?.length ?? 0) > 0
@@ -392,8 +459,24 @@ export function EPG() {
                             key={idx}
                             className="text-xs bg-yellow-500/20 px-2 py-1 rounded cursor-pointer hover:bg-yellow-500/40"
                             onClick={() => {
-                              setSearchTerm(gap.channel)
+                              // Clear search and enable gap highlighting
+                              setSearchTerm("")
+                              setHighlightedGap({
+                                afterStop: gap.after_stop,
+                                beforeStart: gap.before_start,
+                                afterProgram: gap.after_program,
+                                beforeProgram: gap.before_program,
+                              })
                               setShowXmlPreview(true)
+                              // Scroll to highlighted content after render
+                              setTimeout(() => {
+                                if (previewRef.current) {
+                                  const mark = previewRef.current.querySelector(".bg-red-400\\/30, .bg-blue-400\\/30")
+                                  if (mark) {
+                                    mark.scrollIntoView({ behavior: "smooth", block: "center" })
+                                  }
+                                }
+                              }, 100)
                             }}
                           >
                             <strong>{gap.channel}</strong>: {gap.gap_minutes}min gap between "{gap.after_program}" and "{gap.before_program}"
@@ -468,11 +551,27 @@ export function EPG() {
                       onChange={(e) => {
                         setSearchTerm(e.target.value)
                         setCurrentMatch(0)
+                        setHighlightedGap(null) // Clear gap highlighting when searching
                       }}
                       className="pl-8"
                     />
                   </div>
-                  {searchMatches.length > 0 && (
+                  {highlightedGap && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-yellow-600">
+                        Gap: "{highlightedGap.afterProgram}" → "{highlightedGap.beforeProgram}"
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setHighlightedGap(null)}
+                        className="h-6 px-2 text-xs"
+                      >
+                        Clear
+                      </Button>
+                    </div>
+                  )}
+                  {searchMatches.length > 0 && !highlightedGap && (
                     <div className="flex items-center gap-1">
                       <span className="text-sm text-muted-foreground">
                         {currentMatch + 1}/{searchMatches.length}
