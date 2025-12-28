@@ -59,15 +59,38 @@ def init_db(db_path: Path | str | None = None) -> None:
 
     Args:
         db_path: Path to database file. Uses DEFAULT_DB_PATH if not specified.
+
+    Raises:
+        RuntimeError: If database file exists but is not a valid V2 database
     """
+    import logging
+
+    logger = logging.getLogger(__name__)
+    path = Path(db_path) if db_path else DEFAULT_DB_PATH
     schema_sql = SCHEMA_PATH.read_text()
 
-    with get_db(db_path) as conn:
-        conn.executescript(schema_sql)
-        # Run migrations for existing databases
-        _run_migrations(conn)
-        # Seed TSDB cache if empty or incomplete
-        _seed_tsdb_cache_if_needed(conn)
+    try:
+        with get_db(db_path) as conn:
+            conn.executescript(schema_sql)
+            # Run migrations for existing databases
+            _run_migrations(conn)
+            # Seed TSDB cache if empty or incomplete
+            _seed_tsdb_cache_if_needed(conn)
+    except sqlite3.DatabaseError as e:
+        if "file is not a database" in str(e):
+            logger.error(
+                f"Database file '{path}' exists but is not compatible with Teamarr V2. "
+                "This usually means you're trying to use a V1 database. "
+                "V2 requires a fresh database - please either:\n"
+                "  1. Use a different data directory for V2, or\n"
+                "  2. Backup and delete the existing database file"
+            )
+            raise RuntimeError(
+                f"Incompatible database file at '{path}'. "
+                "V2 is not compatible with V1 databases. "
+                "Please use a fresh data directory or delete the existing database."
+            ) from e
+        raise
 
 
 def _seed_tsdb_cache_if_needed(conn: sqlite3.Connection) -> None:
