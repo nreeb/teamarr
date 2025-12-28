@@ -5,6 +5,7 @@ No data transformation - just fetch and return JSON.
 """
 
 import logging
+import threading
 import time
 
 import httpx
@@ -39,13 +40,17 @@ class ESPNClient:
         self._retry_count = retry_count
         self._retry_delay = retry_delay
         self._client: httpx.Client | None = None
+        self._lock = threading.Lock()
 
     def _get_client(self) -> httpx.Client:
         if self._client is None:
-            self._client = httpx.Client(
-                timeout=self._timeout,
-                limits=httpx.Limits(max_connections=100, max_keepalive_connections=10),
-            )
+            with self._lock:
+                # Double-check after acquiring lock
+                if self._client is None:
+                    self._client = httpx.Client(
+                        timeout=self._timeout,
+                        limits=httpx.Limits(max_connections=100, max_keepalive_connections=10),
+                    )
         return self._client
 
     def _request(self, url: str, params: dict | None = None) -> dict | None:

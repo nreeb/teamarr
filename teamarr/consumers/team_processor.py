@@ -263,9 +263,26 @@ class TeamProcessor:
 
         # Process TSDB teams sequentially (rate limited API)
         if tsdb_teams:
-            logger.info(f"Processing {len(tsdb_teams)} TSDB teams sequentially")
-
+            # Extract unique leagues and pre-warm cache
+            tsdb_leagues = set()
             for team in tsdb_teams:
+                tsdb_leagues.add(team.primary_league)
+                tsdb_leagues.update(team.leagues)
+
+            logger.info(
+                f"Processing {len(tsdb_teams)} TSDB teams from "
+                f"{len(tsdb_leagues)} leagues sequentially"
+            )
+
+            # Pre-warm TSDB cache for all leagues (2 API calls per league)
+            # This ensures cache hits when processing individual teams
+            self._service.prewarm_tsdb_leagues(list(tsdb_leagues))
+
+            # Group teams by primary league for better cache utilization
+            # Teams in the same league share eventsday.php cache entries
+            sorted_tsdb_teams = sorted(tsdb_teams, key=lambda t: t.primary_league)
+
+            for team in sorted_tsdb_teams:
                 processed_count += 1
                 try:
                     result = self._process_team_parallel(team)

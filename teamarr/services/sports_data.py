@@ -246,3 +246,37 @@ class SportsDataService:
                 client = provider._client
                 if hasattr(client, "reset_rate_limit_stats"):
                     client.reset_rate_limit_stats()
+
+    def prewarm_tsdb_leagues(self, leagues: list[str]) -> None:
+        """Pre-warm TSDB cache for multiple leagues.
+
+        Fetches teams for each league upfront, populating the cache.
+        This reduces API calls when processing multiple teams from
+        the same league, since get_teams_in_league is called once
+        per league instead of once per team.
+
+        Args:
+            leagues: List of canonical league codes to pre-warm
+        """
+        if not leagues:
+            return
+
+        # Find TSDB provider
+        tsdb_provider = None
+        for provider in self._providers:
+            if provider.name == "tsdb":
+                tsdb_provider = provider
+                break
+
+        if not tsdb_provider:
+            logger.debug("No TSDB provider registered, skipping pre-warm")
+            return
+
+        unique_leagues = list(set(leagues))
+        logger.info(f"Pre-warming TSDB cache for {len(unique_leagues)} leagues")
+
+        for league in unique_leagues:
+            if tsdb_provider.supports_league(league):
+                # This populates the client cache (24h TTL)
+                tsdb_provider.get_teams_in_league(league)
+                logger.debug(f"Pre-warmed TSDB cache for league: {league}")

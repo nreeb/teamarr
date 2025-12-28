@@ -81,6 +81,10 @@ class TSDBProvider(SportsProvider):
 
         return events
 
+    # TSDB rate limit optimization: cap at 14 days regardless of caller request
+    # ESPN can handle 30+ days, but TSDB's 25 req/min limit makes that expensive
+    TSDB_MAX_DAYS_AHEAD = 14
+
     def get_team_schedule(
         self,
         team_id: str,
@@ -91,7 +95,13 @@ class TSDBProvider(SportsProvider):
 
         Uses eventsday.php across multiple days to get both HOME and AWAY
         games (eventsnext.php only returns HOME on free tier).
+
+        Note: days_ahead is capped at TSDB_MAX_DAYS_AHEAD (14) to reduce
+        API calls. TSDB data is sparse for far-future dates anyway.
         """
+        # Cap days_ahead for rate limit optimization
+        days_ahead = min(days_ahead, self.TSDB_MAX_DAYS_AHEAD)
+
         # First, get team name from league teams
         team_name = self._get_team_name(team_id, league)
         if not team_name:

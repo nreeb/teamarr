@@ -224,6 +224,7 @@ class TSDBClient:
         self._retry_count = retry_count
         self._retry_delay = retry_delay
         self._client: httpx.Client | None = None
+        self._client_lock = threading.Lock()
         self._rate_limiter = RateLimiter(requests_per_minute, 60.0)
         self._cache = TTLCache()
 
@@ -258,10 +259,13 @@ class TSDBClient:
 
     def _get_client(self) -> httpx.Client:
         if self._client is None:
-            self._client = httpx.Client(
-                timeout=self._timeout,
-                limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
-            )
+            with self._client_lock:
+                # Double-check after acquiring lock
+                if self._client is None:
+                    self._client = httpx.Client(
+                        timeout=self._timeout,
+                        limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
+                    )
         return self._client
 
     def _request(self, endpoint: str, params: dict | None = None) -> dict | None:
