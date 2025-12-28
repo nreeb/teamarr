@@ -117,11 +117,21 @@ class RateLimiter:
     """Sliding window rate limiter with statistics tracking.
 
     Tracks all wait events for UI feedback. Never fails - always waits and continues.
+    Premium API keys bypass rate limiting entirely.
     """
 
-    def __init__(self, max_requests: int = 8, window_seconds: float = 60.0):
+    # Cooldown duration when internal limit is hit (seconds)
+    INTERNAL_COOLDOWN = 30.0
+
+    def __init__(
+        self,
+        max_requests: int = 30,
+        window_seconds: float = 60.0,
+        is_premium: bool = False,
+    ):
         self._max_requests = max_requests
         self._window = window_seconds
+        self._is_premium = is_premium
         self._requests: deque[float] = deque()
         self._lock = threading.Lock()
         self._stats = RateLimitStats()
@@ -135,23 +145,26 @@ class RateLimiter:
         """Reset statistics (e.g., at start of new EPG generation)."""
         self._stats = RateLimitStats()
 
-    def record_reactive_wait(self, wait_seconds: float) -> None:
-        """Record a reactive wait (429 response from API).
-
-        Called by the client when it receives a 429 and has to wait.
-        """
+    def record_reactive_wait(self, wait_seconds: float, attempt: int, max_attempts: int) -> None:
+        """Record a reactive wait (429 response from API)."""
         with self._lock:
             self._stats.reactive_waits += 1
             self._stats.total_wait_seconds += wait_seconds
             self._stats.last_wait_at = datetime.now()
             self._stats.last_wait_seconds = wait_seconds
-            logger.info(
-                f"TSDB rate limit hit (429). Waiting {wait_seconds:.0f}s. "
-                f"Total waits this session: {self._stats.total_waits}"
-            )
 
     def acquire(self) -> None:
-        """Block until a request slot is available. Never fails."""
+        """Block until a request slot is available. Never fails.
+
+        Premium API keys skip rate limiting entirely.
+        Free API keys wait 30 seconds when limit is reached.
+        """
+        # Premium keys bypass rate limiting
+        if self._is_premium:
+            with self._lock:
+                self._stats.total_requests += 1
+            return
+
         with self._lock:
             self._stats.total_requests += 1
             now = time.time()
@@ -160,32 +173,31 @@ class RateLimiter:
             while self._requests and self._requests[0] < now - self._window:
                 self._requests.popleft()
 
-            # If at limit, wait (preemptive rate limiting)
+            # If at limit, wait with fixed cooldown
             if len(self._requests) >= self._max_requests:
-                wait_time = self._requests[0] + self._window - now
-                if wait_time > 0:
-                    # Track the wait
-                    self._stats.preemptive_waits += 1
-                    self._stats.total_wait_seconds += wait_time
-                    self._stats.last_wait_at = datetime.now()
-                    self._stats.last_wait_seconds = wait_time
+                # Track the wait
+                self._stats.preemptive_waits += 1
+                self._stats.total_wait_seconds += self.INTERNAL_COOLDOWN
+                self._stats.last_wait_at = datetime.now()
+                self._stats.last_wait_seconds = self.INTERNAL_COOLDOWN
 
-                    logger.info(
-                        f"TSDB rate limit approaching. Waiting {wait_time:.1f}s. "
-                        f"Total waits this session: {self._stats.total_waits}"
-                    )
+                logger.info(
+                    f"TSDB free API limit reached ({self._max_requests}/min). "
+                    f"Waiting {self.INTERNAL_COOLDOWN:.0f}s..."
+                )
 
-                    # Release lock while sleeping so other threads can check stats
-                    self._lock.release()
-                    try:
-                        time.sleep(wait_time)
-                    finally:
-                        self._lock.acquire()
+                # Release lock while sleeping so other threads can check stats
+                self._lock.release()
+                try:
+                    time.sleep(self.INTERNAL_COOLDOWN)
+                finally:
+                    self._lock.acquire()
 
-                    # Clean up again after wait
-                    now = time.time()
-                    while self._requests and self._requests[0] < now - self._window:
-                        self._requests.popleft()
+                logger.info("TSDB cooldown complete, resuming API requests")
+
+                # Clear the window after cooldown
+                now = time.time()
+                self._requests.clear()
 
             self._requests.append(time.time())
 
@@ -225,7 +237,9 @@ class TSDBClient:
         self._retry_delay = retry_delay
         self._client: httpx.Client | None = None
         self._client_lock = threading.Lock()
-        self._rate_limiter = RateLimiter(requests_per_minute, 60.0)
+        self._requests_per_minute = requests_per_minute
+        # Rate limiter initialized lazily after we can check is_premium
+        self._rate_limiter: RateLimiter | None = None
         self._cache = TTLCache()
 
     @property
@@ -257,6 +271,18 @@ class TSDBClient:
         """Check if using premium API key."""
         return self._api_key != self.FREE_API_KEY
 
+    def _get_rate_limiter(self) -> RateLimiter:
+        """Get or create rate limiter (lazy init to check is_premium)."""
+        if self._rate_limiter is None:
+            self._rate_limiter = RateLimiter(
+                max_requests=self._requests_per_minute,
+                window_seconds=60.0,
+                is_premium=self.is_premium,
+            )
+            if self.is_premium:
+                logger.info("TSDB using premium API key - rate limiting disabled")
+        return self._rate_limiter
+
     def _get_client(self) -> httpx.Client:
         if self._client is None:
             with self._client_lock:
@@ -268,30 +294,72 @@ class TSDBClient:
                     )
         return self._client
 
+    # Exponential backoff for 429 responses
+    # Starts at 5s, doubles each retry, caps at 120s
+    BACKOFF_BASE = 5.0
+    BACKOFF_MAX = 120.0
+    BACKOFF_MAX_RETRIES = 5
+
     def _request(self, endpoint: str, params: dict | None = None) -> dict | None:
         """Make HTTP request with rate limiting and retry logic.
+
+        Rate limiting strategy:
+        1. Preemptive: Internal limit (30/min for free API) with 30s cooldown
+        2. Reactive: If 429 received, exponential backoff (5s, 10s, 20s, 40s, 80s)
 
         Never fails due to rate limits - always waits and continues.
         All waits are tracked in rate_limit_stats() for UI feedback.
         """
         # Wait for rate limit slot (preemptive)
-        self._rate_limiter.acquire()
+        rate_limiter = self._get_rate_limiter()
+        rate_limiter.acquire()
 
         url = f"{TSDB_BASE_URL}/{self._api_key}/{endpoint}"
+        backoff_attempt = 0
 
-        for attempt in range(self._retry_count):
+        for attempt in range(self._retry_count + self.BACKOFF_MAX_RETRIES):
             try:
                 client = self._get_client()
                 response = client.get(url, params=params)
 
-                # Handle rate limit response (reactive)
+                # Handle rate limit response (reactive) with exponential backoff
                 if response.status_code == 429:
-                    wait_seconds = 60.0
-                    self._rate_limiter.record_reactive_wait(wait_seconds)
+                    backoff_attempt += 1
+                    if backoff_attempt > self.BACKOFF_MAX_RETRIES:
+                        logger.error(
+                            f"TSDB 429 persisted after {self.BACKOFF_MAX_RETRIES} retries. "
+                            "Check API key or try again later."
+                        )
+                        return None
+
+                    # Exponential backoff: 5s, 10s, 20s, 40s, 80s (capped at 120s)
+                    wait_seconds = min(
+                        self.BACKOFF_BASE * (2 ** (backoff_attempt - 1)),
+                        self.BACKOFF_MAX,
+                    )
+                    rate_limiter.record_reactive_wait(
+                        wait_seconds, backoff_attempt, self.BACKOFF_MAX_RETRIES
+                    )
+                    logger.info(
+                        f"TSDB 429 rate limit hit. Retry {backoff_attempt}/"
+                        f"{self.BACKOFF_MAX_RETRIES} in {wait_seconds:.0f}s..."
+                    )
                     time.sleep(wait_seconds)
+                    logger.info(
+                        f"TSDB backoff complete, retrying request "
+                        f"(attempt {backoff_attempt + 1}/{self.BACKOFF_MAX_RETRIES + 1})"
+                    )
                     continue
 
                 response.raise_for_status()
+
+                # Success after backoff - log recovery
+                if backoff_attempt > 0:
+                    logger.info(
+                        f"TSDB request succeeded after {backoff_attempt} "
+                        f"rate limit retry(ies)"
+                    )
+
                 return response.json()
 
             except httpx.HTTPStatusError as e:
@@ -632,14 +700,14 @@ class TSDBClient:
 
         Use .to_dict() on the result for JSON serialization.
         """
-        return self._rate_limiter.stats
+        return self._get_rate_limiter().stats
 
     def reset_rate_limit_stats(self) -> None:
         """Reset rate limit statistics.
 
         Call at the start of EPG generation to get clean stats for that run.
         """
-        self._rate_limiter.reset_stats()
+        self._get_rate_limiter().reset_stats()
 
     def close(self) -> None:
         """Close the HTTP client."""
