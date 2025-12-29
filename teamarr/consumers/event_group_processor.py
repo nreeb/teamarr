@@ -1364,18 +1364,14 @@ class EventGroupProcessor:
 
         for stream_match in matched_streams:
             event = stream_match.get("event")
-            stream = stream_match.get("stream")
+            stream = stream_match.get("stream", {})
 
             if not event:
                 continue
 
             # Build channel ID matching what EventEPGGenerator produces
-            # Uses stream ID for managed channels
-            stream_id = stream.get("id") if stream else None
-            if stream_id:
-                channel_id = f"teamarr-event-{stream_id}"
-            else:
-                channel_id = f"teamarr-event-{event.id}"
+            # Uses tvg_id from stream if available, otherwise event ID
+            channel_id = stream.get("tvg_id") or f"event-{event.id}"
 
             try:
                 filler_programmes = filler_generator.generate(
