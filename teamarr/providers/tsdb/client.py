@@ -369,11 +369,12 @@ class TSDBClient:
                     continue
                 return None
 
-            except (httpx.RequestError, OSError) as e:
-                # OSError includes "Bad file descriptor" from stale connections
+            except (httpx.RequestError, RuntimeError, OSError) as e:
+                # RuntimeError: "Cannot send a request, as the client has been closed"
+                # OSError: "Bad file descriptor" from stale connections
                 logger.warning(f"Request failed for {url}: {e}")
-                # Reset client on connection errors to get fresh connections
-                self._reset_client()
+                # Don't reset client here - causes race conditions in parallel processing
+                # httpx connection pool handles stale connections automatically
                 if attempt < self._retry_count - 1:
                     time.sleep(self._retry_delay * (attempt + 1))
                     continue

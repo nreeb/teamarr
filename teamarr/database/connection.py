@@ -87,8 +87,13 @@ def init_db(db_path: Path | str | None = None) -> None:
             # and querying a core table. This catches both corruption AND V1 databases.
             _verify_database_integrity(conn, path)
 
+            # Pre-migration: rename league_id_alias -> league_id before schema.sql runs
+            # (schema.sql references league_id column in INSERT OR REPLACE)
+            _rename_league_id_column_if_needed(conn)
+
+            # Apply schema (creates tables if missing, INSERT OR REPLACE updates seed data)
             conn.executescript(schema_sql)
-            # Run migrations for existing databases
+            # Run remaining migrations for existing databases
             _run_migrations(conn)
             # Seed TSDB cache if empty or incomplete
             _seed_tsdb_cache_if_needed(conn)
@@ -168,6 +173,32 @@ def _verify_database_integrity(conn: sqlite3.Connection, path: Path) -> None:
         )
 
 
+def _rename_league_id_column_if_needed(conn: sqlite3.Connection) -> None:
+    """Rename league_id_alias -> league_id if needed.
+
+    This MUST run before schema.sql because schema.sql INSERT OR REPLACE
+    statements reference the new column name.
+    """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    # Check if leagues table exists
+    cursor = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='leagues'"
+    )
+    if not cursor.fetchone():
+        return  # Fresh database, schema.sql will create table with correct column
+
+    # Check if old column exists
+    cursor = conn.execute("PRAGMA table_info(leagues)")
+    columns = {row["name"] for row in cursor.fetchall()}
+
+    if "league_id_alias" in columns and "league_id" not in columns:
+        conn.execute("ALTER TABLE leagues RENAME COLUMN league_id_alias TO league_id")
+        logger.info("Renamed leagues.league_id_alias -> league_id")
+
+
 def _seed_tsdb_cache_if_needed(conn: sqlite3.Connection) -> None:
     """Seed TSDB cache from distributed seed file if needed."""
     from teamarr.database.seed import seed_if_needed
@@ -226,7 +257,7 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
         conn.execute("""
             INSERT OR IGNORE INTO leagues
             (league_code, provider, provider_league_id, provider_league_name,
-             display_name, sport, logo_url, import_enabled, league_id_alias)
+             display_name, sport, logo_url, import_enabled, league_id)
             VALUES ('eng.2', 'espn', 'soccer/eng.2', NULL, 'EFL Championship',
                     'Soccer', 'https://a.espncdn.com/i/leaguelogos/soccer/500/24.png',
                     1, 'championship')
@@ -236,7 +267,7 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
         conn.execute("""
             INSERT OR IGNORE INTO leagues
             (league_code, provider, provider_league_id, provider_league_name,
-             display_name, sport, logo_url, import_enabled, league_id_alias)
+             display_name, sport, logo_url, import_enabled, league_id)
             VALUES ('eng.3', 'espn', 'soccer/eng.3', NULL, 'EFL League One',
                     'Soccer', 'https://a.espncdn.com/i/leaguelogos/soccer/500/25.png',
                     1, 'league-one')
@@ -246,11 +277,11 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
         conn.execute("""
             INSERT OR IGNORE INTO leagues
             (league_code, provider, provider_league_id, provider_league_name,
-             display_name, sport, logo_url, import_enabled, league_id_alias)
+             display_name, sport, logo_url, import_enabled, league_id)
             VALUES ('nrl', 'tsdb', '4416', 'Australian National Rugby League',
                     'National Rugby League', 'Rugby',
                     'https://r2.thesportsdb.com/images/media/league/badge/gsztcj1552071996.png',
-                    1, NULL)
+                    1, 'nrl')
         """)
 
         # Fix NRL logo URL if it was set to the old (404) URL
@@ -270,6 +301,12 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
         conn.execute("UPDATE settings SET schema_version = 4 WHERE id = 1")
         logger.info("Schema upgraded to version 4 (added eng.2, eng.3, nrl leagues)")
         current_version = 4
+
+    # Version 5: league_id_alias -> league_id (rename done in pre-migration)
+    if current_version < 5:
+        conn.execute("UPDATE settings SET schema_version = 5 WHERE id = 1")
+        logger.info("Schema upgraded to version 5")
+        current_version = 5
 
 
 def _migrate_teams_to_leagues_array(conn: sqlite3.Connection) -> bool:

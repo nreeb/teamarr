@@ -14,9 +14,9 @@ from teamarr.core import LeagueMapping
 
 
 def get_league_id(conn: sqlite3.Connection, league_code: str) -> str:
-    """Get the display league ID for a league.
+    """Get the URL-safe league ID for a league.
 
-    Returns league_id_alias if configured, otherwise returns league_code.
+    Returns league_id if configured, otherwise returns league_code.
     This is the SINGLE SOURCE OF TRUTH for resolving league IDs.
 
     Args:
@@ -24,15 +24,15 @@ def get_league_id(conn: sqlite3.Connection, league_code: str) -> str:
         league_code: Raw league code (e.g., 'eng.1', 'college-football')
 
     Returns:
-        Alias (e.g., 'epl', 'ncaaf') if configured, otherwise league_code
+        league_id (e.g., 'epl', 'ncaaf') if configured, otherwise league_code
     """
     cursor = conn.execute(
-        "SELECT league_id_alias FROM leagues WHERE league_code = ?",
+        "SELECT league_id FROM leagues WHERE league_code = ?",
         (league_code,),
     )
     row = cursor.fetchone()
-    if row and row["league_id_alias"]:
-        return row["league_id_alias"]
+    if row and row["league_id"]:
+        return row["league_id"]
     return league_code
 
 

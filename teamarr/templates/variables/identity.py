@@ -130,32 +130,23 @@ def extract_matchup_abbrev(ctx: TemplateContext, game_ctx: GameContext | None) -
     name="league",
     category=Category.IDENTITY,
     suffix_rules=SuffixRules.BASE_ONLY,
-    description="League display name - abbreviation (NFL, EPL) or proper name (Bundesliga, La Liga)",
+    description="League display name (e.g., 'NFL', 'NCAA Baseball', 'English Premier League')",
 )
 def extract_league(ctx: TemplateContext, game_ctx: GameContext | None) -> str:
-    """Return league display alias as stored (preserves case).
-
-    Fallback chain:
-        1. Our alias from leagues.league_id_alias (as stored - case preserved)
-        2. Full league name from display_name/league_name
+    """Return league display name.
 
     Examples:
-        nfl → NFL (alias)
-        mens-college-basketball → NCAAM (alias)
-        eng.1 → EPL (alias)
-        ger.1 → Bundesliga (alias)
-        unknown.league → "Unknown League Name" (fallback to full name)
+        nfl → NFL
+        college-baseball → NCAA Baseball
+        eng.1 → English Premier League
+        ger.1 → Bundesliga
 
     THREAD-SAFE: Uses in-memory cache, no DB access.
     """
     from teamarr.services.league_mappings import get_league_mapping_service
 
     service = get_league_mapping_service()
-    alias = service.get_league_id(ctx.team_config.league)
-    # If no alias found, get_league_id returns raw code - fall back to full name
-    if alias == ctx.team_config.league:
-        return service.get_league_display_name(ctx.team_config.league)
-    return alias
+    return service.get_league_display_name(ctx.team_config.league)
 
 
 @register_variable(
@@ -221,15 +212,17 @@ def extract_sport_lower(ctx: TemplateContext, game_ctx: GameContext | None) -> s
     name="league_id",
     category=Category.IDENTITY,
     suffix_rules=SuffixRules.BASE_ONLY,
-    description="League identifier lowercase for URLs (e.g., 'nfl', 'epl', 'bundesliga')",
+    description="League identifier for URLs (e.g., 'nfl', 'epl', 'ncaabb')",
 )
 def extract_league_id(ctx: TemplateContext, game_ctx: GameContext | None) -> str:
-    """Return league_id_alias (lowercase) if configured, otherwise league_code.
+    """Return league_id for URL construction.
 
-    Always lowercase - used for URL construction.
+    Always lowercase - stored that way in DB.
 
     Examples:
         nfl → nfl
+        college-baseball → ncaabb
+        college-softball → ncaasbw
         eng.1 → epl
         ger.1 → bundesliga
 
@@ -238,7 +231,7 @@ def extract_league_id(ctx: TemplateContext, game_ctx: GameContext | None) -> str
     from teamarr.services.league_mappings import get_league_mapping_service
 
     service = get_league_mapping_service()
-    return service.get_league_id(ctx.team_config.league).lower()
+    return service.get_league_id(ctx.team_config.league)
 
 
 @register_variable(
@@ -250,16 +243,6 @@ def extract_league_id(ctx: TemplateContext, game_ctx: GameContext | None) -> str
 def extract_league_code(ctx: TemplateContext, game_ctx: GameContext | None) -> str:
     """Return raw league_code, ignoring any alias."""
     return ctx.team_config.league
-
-
-@register_variable(
-    name="league_slug",
-    category=Category.IDENTITY,
-    suffix_rules=SuffixRules.BASE_ONLY,
-    description="League as URL slug (e.g., 'nfl', 'eng-1')",
-)
-def extract_league_slug(ctx: TemplateContext, game_ctx: GameContext | None) -> str:
-    return ctx.team_config.league.replace(".", "-").lower()
 
 
 @register_variable(

@@ -40,7 +40,7 @@ class LeagueMappingService:
         self._mappings: dict[tuple[str, str], LeagueMapping] = {}
         self._provider_leagues: dict[str, list[LeagueMapping]] = {}
         # Additional caches for template variable resolution
-        self._league_id_aliases: dict[str, str] = {}  # league_code -> alias
+        self._league_ids: dict[str, str] = {}  # league_code -> league_id
         self._league_display_names: dict[str, str] = {}  # league_code -> display_name
         self._league_cache_names: dict[str, str] = {}  # league_code -> cached league_name
         self._load_all_mappings()
@@ -49,15 +49,15 @@ class LeagueMappingService:
         """Load all league mappings into memory.
 
         Called once at initialization. After this, no DB access is needed.
-        Also loads league_id_alias and display_name for template variable resolution.
+        Also loads league_id and display_name for template variable resolution.
         """
         with self._db_getter() as conn:
-            # Load configured leagues with aliases
+            # Load configured leagues
             cursor = conn.execute(
                 """
                 SELECT league_code, provider, provider_league_id,
                        provider_league_name, sport, display_name, logo_url,
-                       league_id_alias
+                       league_id
                 FROM leagues
                 WHERE enabled = 1
                 ORDER BY provider, league_code
@@ -72,7 +72,7 @@ class LeagueMappingService:
                     sport=row["sport"],
                     display_name=row["display_name"],
                     logo_url=row["logo_url"],
-                    league_id_alias=row["league_id_alias"],
+                    league_id=row["league_id"],
                 )
                 # Index by (league_code, provider) for fast lookup
                 key = (row["league_code"].lower(), row["provider"])
@@ -83,10 +83,10 @@ class LeagueMappingService:
                     self._provider_leagues[row["provider"]] = []
                 self._provider_leagues[row["provider"]].append(mapping)
 
-                # Cache league_id_alias for template variables
+                # Cache league_id for template variables
                 league_code_lower = row["league_code"].lower()
-                if row["league_id_alias"]:
-                    self._league_id_aliases[league_code_lower] = row["league_id_alias"]
+                if row["league_id"]:
+                    self._league_ids[league_code_lower] = row["league_id"]
 
                 # Cache display_name for template variables
                 if row["display_name"]:
@@ -108,7 +108,7 @@ class LeagueMappingService:
         logger.info(
             f"Loaded {len(self._mappings)} league mappings into memory "
             f"({len(self._provider_leagues)} providers, "
-            f"{len(self._league_id_aliases)} aliases)"
+            f"{len(self._league_ids)} league_ids)"
         )
 
     def reload(self) -> None:
@@ -118,25 +118,25 @@ class LeagueMappingService:
         """
         self._mappings.clear()
         self._provider_leagues.clear()
-        self._league_id_aliases.clear()
+        self._league_ids.clear()
         self._league_display_names.clear()
         self._league_cache_names.clear()
         self._load_all_mappings()
 
     def get_league_id(self, league_code: str) -> str:
-        """Get the display league ID for a league.
+        """Get the URL-safe league ID for a league.
 
-        Returns league_id_alias if configured, otherwise returns league_code.
+        Returns league_id if configured, otherwise returns league_code.
         Thread-safe: uses in-memory cache, no DB access.
 
         Args:
             league_code: Raw league code (e.g., 'eng.1', 'college-football')
 
         Returns:
-            Alias (e.g., 'epl', 'ncaaf') if configured, otherwise league_code
+            league_id (e.g., 'epl', 'ncaaf') if configured, otherwise league_code
         """
         key = league_code.lower()
-        return self._league_id_aliases.get(key, league_code)
+        return self._league_ids.get(key, league_code)
 
     def get_league_display_name(self, league_code: str) -> str:
         """Get the full display name for a league.

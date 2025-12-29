@@ -32,13 +32,13 @@ class CacheRefresher:
         The leagues table is the single source of truth for league display data.
 
         Returns:
-            Dict with display_name, logo_url, sport, league_id_alias or None
+            Dict with display_name, logo_url, sport, league_id or None
         """
         with self._db() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                SELECT display_name, logo_url, sport, league_id_alias
+                SELECT display_name, logo_url, sport, league_id
                 FROM leagues WHERE league_code = ?
                 """,
                 (league_slug,),
@@ -49,7 +49,7 @@ class CacheRefresher:
                     "display_name": row["display_name"],
                     "logo_url": row["logo_url"],
                     "sport": row["sport"],
-                    "league_id_alias": row["league_id_alias"],
+                    "league_id": row["league_id"],
                 }
         return None
 
