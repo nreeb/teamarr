@@ -130,27 +130,32 @@ def extract_matchup_abbrev(ctx: TemplateContext, game_ctx: GameContext | None) -
     name="league",
     category=Category.IDENTITY,
     suffix_rules=SuffixRules.BASE_ONLY,
-    description="League short code uppercase (e.g., 'NFL', 'NCAAM')",
+    description="League display name - abbreviation (NFL, EPL) or proper name (Bundesliga, La Liga)",
 )
 def extract_league(ctx: TemplateContext, game_ctx: GameContext | None) -> str:
-    """Return league short code uppercase.
+    """Return league display alias as stored (preserves case).
 
     Fallback chain:
-        1. Our alias from leagues.league_id_alias (uppercase)
-        2. Raw league code (uppercase)
+        1. Our alias from leagues.league_id_alias (as stored - case preserved)
+        2. Raw league code (uppercased for fallback)
 
     Examples:
-        mens-college-basketball → NCAAM (alias)
-        eng.1 → EPL (alias)
-        nfl → NFL (code, no alias needed)
+        nfl → NFL (stored as 'NFL')
+        mens-college-basketball → NCAAM (stored as 'NCAAM')
+        eng.1 → EPL (stored as 'EPL')
+        ger.1 → Bundesliga (stored as 'Bundesliga')
+        esp.1 → La Liga (stored as 'La Liga')
 
     THREAD-SAFE: Uses in-memory cache, no DB access.
     """
     from teamarr.services.league_mappings import get_league_mapping_service
 
     service = get_league_mapping_service()
-    league_id = service.get_league_id(ctx.team_config.league)
-    return league_id.upper()
+    alias = service.get_league_id(ctx.team_config.league)
+    # If no alias found, get_league_id returns raw code - uppercase it as fallback
+    if alias == ctx.team_config.league:
+        return alias.upper()
+    return alias
 
 
 @register_variable(
