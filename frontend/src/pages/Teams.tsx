@@ -43,7 +43,7 @@ import {
 } from "@/hooks/useTeams"
 import { useTemplates } from "@/hooks/useTemplates"
 import type { Team } from "@/api/teams"
-import { statsApi, type LiveStats } from "@/api/stats"
+import { statsApi } from "@/api/stats"
 import { useQuery } from "@tanstack/react-query"
 
 // Sport emoji mapping
