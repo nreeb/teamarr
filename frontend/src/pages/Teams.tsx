@@ -62,8 +62,8 @@ function getSportEmoji(sport: string): string {
   return SPORT_EMOJIS[sport.toLowerCase()] || SPORT_EMOJIS.default
 }
 
-// Fetch leagues for logo lookup
-async function fetchLeagues(): Promise<{ slug: string; logo_url: string | null }[]> {
+// Fetch leagues for logo and alias lookup
+async function fetchLeagues(): Promise<{ slug: string; logo_url: string | null; league_alias: string | null; name: string }[]> {
   const response = await fetch("/api/v1/cache/leagues")
   if (!response.ok) return []
   const data = await response.json()
@@ -202,17 +202,20 @@ export function Teams() {
     refetchInterval: 60000, // Refresh every minute
   })
 
-  // Create league logo lookup map
-  const leagueLogos = useMemo(() => {
-    const map: Record<string, string> = {}
+  // Create league lookup maps (logo and display alias)
+  const leagueLookup = useMemo(() => {
+    const logos: Record<string, string> = {}
+    const aliases: Record<string, string> = {}  // {league} variable value
     if (cachedLeagues) {
       for (const league of cachedLeagues) {
         if (league.logo_url) {
-          map[league.slug] = league.logo_url
+          logos[league.slug] = league.logo_url
         }
+        // league_alias if set, else name (display_name), else slug uppercase
+        aliases[league.slug] = league.league_alias || league.name || league.slug.toUpperCase()
       }
     }
-    return map
+    return { logos, aliases }
   }, [cachedLeagues])
   const updateMutation = useUpdateTeam()
   const deleteMutation = useDeleteTeam()
@@ -472,10 +475,10 @@ export function Teams() {
                 </div>
                 <div className="space-y-1">
                   {Object.entries(teamStats.byLeague)
-                    .sort(([a], [b]) => a.localeCompare(b))
+                    .sort(([a], [b]) => (leagueLookup.aliases[a] || a).localeCompare(leagueLookup.aliases[b] || b))
                     .map(([league, counts]) => (
                       <div key={league} className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">{league.toUpperCase()}</span>
+                        <span className="text-muted-foreground">{leagueLookup.aliases[league] || league.toUpperCase()}</span>
                         <span className="font-medium">{counts.total}</span>
                       </div>
                     ))}
@@ -498,10 +501,10 @@ export function Teams() {
                 <div className="space-y-1">
                   {Object.entries(teamStats.byLeague)
                     .filter(([, counts]) => counts.enabled > 0)
-                    .sort(([a], [b]) => a.localeCompare(b))
+                    .sort(([a], [b]) => (leagueLookup.aliases[a] || a).localeCompare(leagueLookup.aliases[b] || b))
                     .map(([league, counts]) => (
                       <div key={league} className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">{league.toUpperCase()}</span>
+                        <span className="text-muted-foreground">{leagueLookup.aliases[league] || league.toUpperCase()}</span>
                         <span className="font-medium">{counts.enabled}</span>
                       </div>
                     ))}
@@ -541,15 +544,39 @@ export function Teams() {
           </div>
 
           {/* Live Now */}
-          <Card className="p-3">
-            <div className={cn(
-              "text-2xl font-bold",
-              liveStats?.team.live_now ? "text-green-600" : "text-muted-foreground"
-            )}>
-              {liveStats?.team.live_now ?? "--"}
-            </div>
-            <div className="text-xs text-muted-foreground uppercase tracking-wide">Live Now</div>
-          </Card>
+          <div className="group relative">
+            <Card className={cn("p-3", liveStats?.team.live_events?.length && "cursor-help")}>
+              <div className={cn(
+                "text-2xl font-bold",
+                liveStats?.team.live_now ? "text-green-600" : "text-muted-foreground"
+              )}>
+                {liveStats?.team.live_now ?? "--"}
+              </div>
+              <div className="text-xs text-muted-foreground uppercase tracking-wide">Live Now</div>
+            </Card>
+            {liveStats?.team.live_events && liveStats.team.live_events.length > 0 && (
+              <div className="absolute left-0 top-full mt-1 z-50 hidden group-hover:block">
+                <Card className="p-3 shadow-lg min-w-[240px] max-w-[320px]">
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 pb-1 border-b">
+                    Live Now
+                  </div>
+                  <div className="space-y-2">
+                    {liveStats.team.live_events.map((event, idx) => (
+                      <div key={idx} className="text-sm">
+                        <div className="font-medium truncate" title={event.title}>
+                          {event.title}
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>{event.league}</span>
+                          <span>Started {new Date(event.start_time).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -761,15 +788,15 @@ export function Teams() {
                           <div
                             className={cn("relative inline-block", hasMultiLeague && "cursor-help")}
                           >
-                            {leagueLogos[team.primary_league] ? (
+                            {leagueLookup.logos[team.primary_league] ? (
                               <img
-                                src={leagueLogos[team.primary_league]}
-                                alt={team.primary_league.toUpperCase()}
-                                title={team.primary_league.toUpperCase()}
+                                src={leagueLookup.logos[team.primary_league]}
+                                alt={leagueLookup.aliases[team.primary_league] || team.primary_league}
+                                title={leagueLookup.aliases[team.primary_league] || team.primary_league}
                                 className="h-7 w-auto object-contain"
                               />
                             ) : (
-                              <Badge variant="secondary">{team.primary_league}</Badge>
+                              <Badge variant="secondary">{leagueLookup.aliases[team.primary_league] || team.primary_league}</Badge>
                             )}
                             {/* Multi-league badge */}
                             {hasMultiLeague && (
@@ -790,15 +817,15 @@ export function Teams() {
                                 <div className="space-y-1.5">
                                   {team.leagues.map((leagueSlug) => (
                                     <div key={leagueSlug} className="flex items-center gap-2 text-sm">
-                                      {leagueLogos[leagueSlug] && (
+                                      {leagueLookup.logos[leagueSlug] && (
                                         <img
-                                          src={leagueLogos[leagueSlug]}
+                                          src={leagueLookup.logos[leagueSlug]}
                                           alt=""
                                           className="h-5 w-5 object-contain"
                                         />
                                       )}
                                       <span className={leagueSlug === team.primary_league ? "font-medium text-foreground" : "text-muted-foreground"}>
-                                        {leagueSlug.toUpperCase()}
+                                        {leagueLookup.aliases[leagueSlug] || leagueSlug}
                                       </span>
                                     </div>
                                   ))}

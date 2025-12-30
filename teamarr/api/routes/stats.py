@@ -313,8 +313,8 @@ def get_live_stats(
         today = now.date()
 
         stats = {
-            "team": {"games_today": 0, "live_now": 0, "by_league": {}},
-            "event": {"games_today": 0, "live_now": 0, "by_league": {}},
+            "team": {"games_today": 0, "live_now": 0, "by_league": {}, "live_events": []},
+            "event": {"games_today": 0, "live_now": 0, "by_league": {}, "live_events": []},
         }
 
         # Fetch team EPG XMLTV content
@@ -452,6 +452,16 @@ def _parse_xmltv_for_live_stats(
             # Live now: currently in progress
             if start_time <= now <= stop_time:
                 stats["live_now"] += 1
+
+                # Add to live_events list for tooltip display
+                if "live_events" not in stats:
+                    stats["live_events"] = []
+                stats["live_events"].append({
+                    "title": title,
+                    "channel_id": channel_id,
+                    "start_time": start_local.isoformat(),
+                    "league": league.upper(),
+                })
 
 
 @router.get("/history")

@@ -91,6 +91,10 @@ def init_db(db_path: Path | str | None = None) -> None:
             # (schema.sql references league_id column in INSERT OR REPLACE)
             _rename_league_id_column_if_needed(conn)
 
+            # Pre-migration: add league_alias column before schema.sql runs
+            # (schema.sql INSERT OR REPLACE references league_alias column)
+            _add_league_alias_column_if_needed(conn)
+
             # Apply schema (creates tables if missing, INSERT OR REPLACE updates seed data)
             conn.executescript(schema_sql)
             # Run remaining migrations for existing databases
@@ -197,6 +201,32 @@ def _rename_league_id_column_if_needed(conn: sqlite3.Connection) -> None:
     if "league_id_alias" in columns and "league_id" not in columns:
         conn.execute("ALTER TABLE leagues RENAME COLUMN league_id_alias TO league_id")
         logger.info("Renamed leagues.league_id_alias -> league_id")
+
+
+def _add_league_alias_column_if_needed(conn: sqlite3.Connection) -> None:
+    """Add league_alias column if it doesn't exist.
+
+    This MUST run before schema.sql because schema.sql INSERT OR REPLACE
+    statements reference the league_alias column.
+    """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    # Check if leagues table exists
+    cursor = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='leagues'"
+    )
+    if not cursor.fetchone():
+        return  # Fresh database, schema.sql will create table with correct column
+
+    # Check if column exists
+    cursor = conn.execute("PRAGMA table_info(leagues)")
+    columns = {row["name"] for row in cursor.fetchall()}
+
+    if "league_alias" not in columns:
+        conn.execute("ALTER TABLE leagues ADD COLUMN league_alias TEXT")
+        logger.info("Added leagues.league_alias column")
 
 
 def _seed_tsdb_cache_if_needed(conn: sqlite3.Connection) -> None:
@@ -307,6 +337,13 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
         conn.execute("UPDATE settings SET schema_version = 5 WHERE id = 1")
         logger.info("Schema upgraded to version 5")
         current_version = 5
+
+    # Version 6: Add league_alias column for {league} template variable
+    if current_version < 6:
+        _add_column_if_not_exists(conn, "leagues", "league_alias", "TEXT")
+        conn.execute("UPDATE settings SET schema_version = 6 WHERE id = 1")
+        logger.info("Schema upgraded to version 6 (added league_alias column)")
+        current_version = 6
 
 
 def _migrate_teams_to_leagues_array(conn: sqlite3.Connection) -> bool:

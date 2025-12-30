@@ -112,6 +112,7 @@ def list_leagues(
                 "team_count": league.team_count,
                 "logo_url": league.logo_url,
                 "import_enabled": league.import_enabled,
+                "league_alias": league.league_alias,
             }
             for league in leagues
         ],

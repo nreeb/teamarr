@@ -34,6 +34,7 @@ class LeagueInfo:
     team_count: int = 0
     logo_url: str | None = None
     import_enabled: bool = False
+    league_alias: str | None = None  # Short display alias (e.g., 'EPL', 'UCL')
 
 
 @dataclass
@@ -165,6 +166,7 @@ class CacheService:
                 team_count=lg.team_count,
                 logo_url=lg.logo_url,
                 import_enabled=lg.import_enabled,
+                league_alias=lg.league_alias,
             )
             for lg in leagues
         ]

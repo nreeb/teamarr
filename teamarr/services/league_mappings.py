@@ -27,8 +27,9 @@ class LeagueMappingService:
     use in parallel processing threads.
 
     Provides methods for template variable resolution:
-    - get_league_id(league_code) - returns alias or league_code
-    - get_league_display_name(league_code) - returns display_name or fallback
+    - get_league_alias(league_code) - for {league}: league_alias or display_name
+    - get_league_id(league_code) - for {league_id}: league_id or league_code
+    - get_league_display_name(league_code) - for {league_name}: display_name
     """
 
     def __init__(
@@ -39,17 +40,25 @@ class LeagueMappingService:
         # Cache all mappings at initialization for thread-safety
         self._mappings: dict[tuple[str, str], LeagueMapping] = {}
         self._provider_leagues: dict[str, list[LeagueMapping]] = {}
-        # Additional caches for template variable resolution
-        self._league_ids: dict[str, str] = {}  # league_code -> league_id
-        self._league_display_names: dict[str, str] = {}  # league_code -> display_name
-        self._league_cache_names: dict[str, str] = {}  # league_code -> cached league_name
+        # Template variable caches (league_code -> value)
+        # {league}: league_alias if set, else display_name
+        self._league_aliases: dict[str, str] = {}
+        # {league_id}: league_id if set, else league_code (handled in getter)
+        self._league_ids: dict[str, str] = {}
+        # {league_name}: display_name (always)
+        self._league_display_names: dict[str, str] = {}
+        # Fallback from league_cache for discovered leagues
+        self._league_cache_names: dict[str, str] = {}
         self._load_all_mappings()
 
     def _load_all_mappings(self) -> None:
         """Load all league mappings into memory.
 
         Called once at initialization. After this, no DB access is needed.
-        Also loads league_id and display_name for template variable resolution.
+        Also loads template variable values:
+        - league_alias for {league}
+        - league_id for {league_id}
+        - display_name for {league_name}
         """
         with self._db_getter() as conn:
             # Load configured leagues
@@ -57,7 +66,7 @@ class LeagueMappingService:
                 """
                 SELECT league_code, provider, provider_league_id,
                        provider_league_name, sport, display_name, logo_url,
-                       league_id
+                       league_alias, league_id
                 FROM leagues
                 WHERE enabled = 1
                 ORDER BY provider, league_code
@@ -83,12 +92,19 @@ class LeagueMappingService:
                     self._provider_leagues[row["provider"]] = []
                 self._provider_leagues[row["provider"]].append(mapping)
 
-                # Cache league_id for template variables
                 league_code_lower = row["league_code"].lower()
+
+                # Cache league_alias for {league} - fallback to display_name
+                if row["league_alias"]:
+                    self._league_aliases[league_code_lower] = row["league_alias"]
+                elif row["display_name"]:
+                    self._league_aliases[league_code_lower] = row["display_name"]
+
+                # Cache league_id for {league_id}
                 if row["league_id"]:
                     self._league_ids[league_code_lower] = row["league_id"]
 
-                # Cache display_name for template variables
+                # Cache display_name for {league_name}
                 if row["display_name"]:
                     self._league_display_names[league_code_lower] = row["display_name"]
 
@@ -108,6 +124,7 @@ class LeagueMappingService:
         logger.info(
             f"Loaded {len(self._mappings)} league mappings into memory "
             f"({len(self._provider_leagues)} providers, "
+            f"{len(self._league_aliases)} aliases, "
             f"{len(self._league_ids)} league_ids)"
         )
 
@@ -118,10 +135,41 @@ class LeagueMappingService:
         """
         self._mappings.clear()
         self._provider_leagues.clear()
+        self._league_aliases.clear()
         self._league_ids.clear()
         self._league_display_names.clear()
         self._league_cache_names.clear()
         self._load_all_mappings()
+
+    def get_league_alias(self, league_code: str) -> str:
+        """Get short display alias for {league} variable.
+
+        Fallback chain:
+            1. league_alias from leagues table (e.g., 'EPL', 'UCL')
+            2. display_name from leagues table (e.g., 'NFL', 'La Liga')
+            3. league_name from league_cache table
+            4. league_code uppercase
+
+        Thread-safe: uses in-memory cache, no DB access.
+
+        Args:
+            league_code: Raw league code (e.g., 'eng.1', 'nfl')
+
+        Returns:
+            Short alias (e.g., 'EPL', 'NFL', 'La Liga')
+        """
+        key = league_code.lower()
+
+        # Try league_alias (already includes display_name fallback from load)
+        if key in self._league_aliases:
+            return self._league_aliases[key]
+
+        # Fallback to league_cache name
+        if key in self._league_cache_names:
+            return self._league_cache_names[key]
+
+        # Final fallback
+        return league_code.upper()
 
     def get_league_id(self, league_code: str) -> str:
         """Get the URL-safe league ID for a league.

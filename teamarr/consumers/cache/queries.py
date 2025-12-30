@@ -112,7 +112,8 @@ class TeamLeagueCache:
                 query = """
                     SELECT league_code as league_slug, provider,
                            display_name as league_name, sport, logo_url,
-                           cached_team_count as team_count, import_enabled
+                           cached_team_count as team_count, import_enabled,
+                           league_alias
                     FROM leagues
                     WHERE import_enabled = 1 AND enabled = 1
                 """
@@ -131,12 +132,13 @@ class TeamLeagueCache:
                 # Prefer configured leagues, fallback to discovered
                 query = """
                     SELECT league_slug, provider, league_name, sport,
-                           logo_url, team_count, import_enabled
+                           logo_url, team_count, import_enabled, league_alias
                     FROM (
                         -- Configured leagues (preferred)
                         SELECT league_code as league_slug, provider,
                                display_name as league_name, sport, logo_url,
                                cached_team_count as team_count, import_enabled,
+                               league_alias,
                                1 as priority
                         FROM leagues
                         WHERE enabled = 1
@@ -147,6 +149,7 @@ class TeamLeagueCache:
                         SELECT lc.league_slug, lc.provider,
                                lc.league_name, lc.sport, lc.logo_url,
                                lc.team_count, 0 as import_enabled,
+                               NULL as league_alias,
                                2 as priority
                         FROM league_cache lc
                         WHERE NOT EXISTS (
@@ -178,6 +181,7 @@ class TeamLeagueCache:
                     logo_url=row[4],
                     team_count=row[5] or 0,
                     import_enabled=bool(row[6]),
+                    league_alias=row[7],
                 )
                 for row in cursor.fetchall()
             ]

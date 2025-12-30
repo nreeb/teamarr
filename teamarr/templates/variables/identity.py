@@ -130,23 +130,28 @@ def extract_matchup_abbrev(ctx: TemplateContext, game_ctx: GameContext | None) -
     name="league",
     category=Category.IDENTITY,
     suffix_rules=SuffixRules.BASE_ONLY,
-    description="League display name (e.g., 'NFL', 'NCAA Baseball', 'English Premier League')",
+    description="League short alias (e.g., 'NFL', 'EPL', 'UCL', 'La Liga')",
 )
 def extract_league(ctx: TemplateContext, game_ctx: GameContext | None) -> str:
-    """Return league display name.
+    """Return league short alias for display.
+
+    Fallback chain:
+        1. league_alias from leagues table (e.g., 'EPL', 'UCL')
+        2. display_name from leagues table (e.g., 'NFL', 'La Liga')
+        3. league_code uppercase
 
     Examples:
-        nfl → NFL
-        college-baseball → NCAA Baseball
-        eng.1 → English Premier League
-        ger.1 → Bundesliga
+        eng.1 → EPL (has league_alias)
+        uefa.champions → UCL (has league_alias)
+        nfl → NFL (display_name already short)
+        ger.1 → Bundesliga (display_name already short)
 
     THREAD-SAFE: Uses in-memory cache, no DB access.
     """
     from teamarr.services.league_mappings import get_league_mapping_service
 
     service = get_league_mapping_service()
-    return service.get_league_display_name(ctx.team_config.league)
+    return service.get_league_alias(ctx.team_config.league)
 
 
 @register_variable(

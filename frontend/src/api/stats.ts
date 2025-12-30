@@ -5,10 +5,18 @@ export interface LeagueCount {
   count: number
 }
 
+export interface LiveEvent {
+  title: string
+  channel_id: string
+  start_time: string
+  league: string
+}
+
 export interface LiveStatsCategory {
   games_today: number
   live_now: number
   by_league: LeagueCount[]
+  live_events: LiveEvent[]
 }
 
 export interface LiveStats {
