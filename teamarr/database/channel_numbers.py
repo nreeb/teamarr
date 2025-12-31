@@ -95,13 +95,20 @@ def get_next_channel_number(
         return None
 
     # Get all active channel numbers for this group
+    # Note: channel_number may be stored as TEXT or INTEGER, so cast to int
     used_rows = conn.execute(
         """SELECT channel_number FROM managed_channels
            WHERE event_epg_group_id = ? AND deleted_at IS NULL
            ORDER BY channel_number""",
         (group_id,),
     ).fetchall()
-    used_set = {row["channel_number"] for row in used_rows if row["channel_number"]}
+    used_set = set()
+    for row in used_rows:
+        if row["channel_number"]:
+            try:
+                used_set.add(int(row["channel_number"]))
+            except (ValueError, TypeError):
+                pass  # Skip invalid channel numbers
 
     # Find the first available number starting from channel_start
     next_num = channel_start

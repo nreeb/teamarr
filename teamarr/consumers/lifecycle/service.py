@@ -482,7 +482,7 @@ class ChannelLifecycleService:
                 # Create channel
                 create_result = self._channel_manager.create_channel(
                     name=channel_name,
-                    channel_number=int(channel_number),
+                    channel_number=channel_number,
                     stream_ids=[stream_id],
                     tvg_id=tvg_id,
                     channel_group_id=channel_group_id,
@@ -545,6 +545,9 @@ class ChannelLifecycleService:
             exception_keyword=matched_keyword,
             m3u_account_id=stream.get("m3u_account_id"),
         )
+
+        # Commit immediately so next channel number query sees this channel
+        conn.commit()
 
         return ChannelCreationResult(
             success=True,
@@ -662,7 +665,7 @@ class ChannelLifecycleService:
         conn: Connection,
         group_id: int,
         group_start_number: int | None = None,
-    ) -> str | None:
+    ) -> int | None:
         """Get next available channel number for a group.
 
         Uses the channel_numbers module for AUTO/MANUAL mode support
@@ -674,7 +677,7 @@ class ChannelLifecycleService:
             group_start_number: Starting channel number from group config (unused, read from DB)
 
         Returns:
-            Next available channel number as string, or None if range exhausted
+            Next available channel number as int, or None if range exhausted
         """
         from teamarr.database.channel_numbers import get_next_channel_number
 
@@ -682,7 +685,7 @@ class ChannelLifecycleService:
         if next_num is None:
             logger.warning(f"Could not allocate channel number for group {group_id}")
             return None
-        return str(next_num)
+        return next_num
 
     def _sync_channel_settings(
         self,
@@ -880,11 +883,16 @@ class ChannelLifecycleService:
                     continue
 
                 # Associate EPG with channel
+                epg_data_id = epg_data.get("id")
+                if not epg_data_id:
+                    result["not_found"] += 1
+                    continue
+
                 try:
                     with self._dispatcharr_lock:
                         self._channel_manager.set_channel_epg(
                             channel.dispatcharr_channel_id,
-                            epg_data.id,
+                            epg_data_id,
                         )
                     result["associated"] += 1
                 except Exception as e:
