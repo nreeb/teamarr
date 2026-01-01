@@ -159,7 +159,7 @@ function EditTeamDialog({ team, templates, open, onOpenChange, onSave, isSaving 
               value={formData.template_id?.toString() ?? ""}
               onChange={(e) => setFormData({ ...formData, template_id: e.target.value ? parseInt(e.target.value) : null })}
             >
-              <option value="">Default Template</option>
+              <option value="">No Template</option>
               {templates.map((template) => (
                 <option key={template.id} value={template.id.toString()}>
                   {template.name}
@@ -848,12 +848,12 @@ export function Teams() {
                     <TableCell className="font-mono text-sm">{team.channel_id}</TableCell>
                     <TableCell>
                       {team.template_id ? (
-                        <span className="text-muted-foreground">
+                        <Badge variant="success">
                           {templates?.find((t) => t.id === team.template_id)?.name ??
                             `#${team.template_id}`}
-                        </span>
+                        </Badge>
                       ) : (
-                        <span className="text-muted-foreground italic">Default</span>
+                        <Badge variant="warning">Default</Badge>
                       )}
                     </TableCell>
                     <TableCell>
@@ -951,7 +951,7 @@ export function Teams() {
                 setBulkTemplateId(e.target.value ? parseInt(e.target.value) : null)
               }
             >
-              <option value="">Default Template</option>
+              <option value="">No Template</option>
               {teamTemplates.map((template) => (
                 <option key={template.id} value={template.id.toString()}>
                   {template.name}

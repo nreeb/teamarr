@@ -119,6 +119,7 @@ export function EventGroupForm() {
   const [formData, setFormData] = useState<EventGroupCreate>({
     name: m3uGroupName || "",
     leagues: [],
+    parent_group_id: null,
     template_id: null,
     channel_start_number: null,
     channel_assignment_mode: "auto",
@@ -140,7 +141,9 @@ export function EventGroupForm() {
   // Single-league selection
   const [selectedSport, setSelectedSport] = useState<string | null>(null)
   const [selectedLeague, setSelectedLeague] = useState<string | null>(null)
-  const [parentGroupId, setParentGroupId] = useState<number | null>(null)
+
+  // Track if this is a child group (inherits settings from parent)
+  const isChildGroup = formData.parent_group_id != null
 
   // Multi-league selection
   const [selectedLeagues, setSelectedLeagues] = useState<Set<string>>(new Set())
@@ -546,11 +549,14 @@ export function EventGroupForm() {
               <div className="space-y-2 pt-4 border-t">
                 <Label>Parent Group (Optional)</Label>
                 <p className="text-xs text-muted-foreground mb-2">
-                  Child groups add their streams to the parent's channels instead of creating new ones.
+                  Child groups inherit all settings from parent and add streams to parent's channels.
                 </p>
                 <Select
-                  value={parentGroupId?.toString() || ""}
-                  onChange={(e) => setParentGroupId(e.target.value ? Number(e.target.value) : null)}
+                  value={formData.parent_group_id?.toString() || ""}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    parent_group_id: e.target.value ? Number(e.target.value) : null
+                  })}
                 >
                   <option value="">No parent (independent group)</option>
                   {eligibleParents.map(g => (
@@ -711,13 +717,31 @@ export function EventGroupForm() {
       {/* Step 3: Settings */}
       {currentStep === "settings" && (
         <div className="space-y-6">
+          {/* Child Group Notice */}
+          {isChildGroup && (
+            <Card className="border-blue-500/50 bg-blue-500/5">
+              <CardContent className="py-4">
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">👶</span>
+                  <div>
+                    <p className="font-medium">Child Group</p>
+                    <p className="text-sm text-muted-foreground">
+                      This group inherits template, channel settings, and filters from its parent.
+                      Only name and enabled status can be configured.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Basic Info */}
           <Card>
             <CardHeader>
               <CardTitle>Basic Settings</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className={cn("grid gap-4", isChildGroup ? "grid-cols-1" : "grid-cols-2")}>
                 <div className="space-y-2">
                   <Label htmlFor="name">Group Name</Label>
                   <Input
@@ -727,29 +751,31 @@ export function EventGroupForm() {
                     placeholder="e.g., NFL Sunday Ticket"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="template">Event Template</Label>
-                  <Select
-                    id="template"
-                    value={formData.template_id?.toString() || ""}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        template_id: e.target.value ? Number(e.target.value) : null,
-                      })
-                    }
-                  >
-                    <option value="">Default Template</option>
-                    {eventTemplates.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Only event-type templates are shown
-                  </p>
-                </div>
+                {!isChildGroup && (
+                  <div className="space-y-2">
+                    <Label htmlFor="template">Event Template</Label>
+                    <Select
+                      id="template"
+                      value={formData.template_id?.toString() || ""}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          template_id: e.target.value ? Number(e.target.value) : null,
+                        })
+                      }
+                    >
+                      <option value="">No Template</option>
+                      {eventTemplates.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Only event-type templates are shown
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Show selected leagues */}
@@ -788,8 +814,8 @@ export function EventGroupForm() {
             </CardContent>
           </Card>
 
-          {/* Channel Settings */}
-          <Card>
+          {/* Channel Settings - hidden for child groups */}
+          {!isChildGroup && <Card>
             <CardHeader>
               <CardTitle>Channel Settings</CardTitle>
             </CardHeader>
@@ -845,10 +871,10 @@ export function EventGroupForm() {
                 </p>
               </div>
             </CardContent>
-          </Card>
+          </Card>}
 
-          {/* Dispatcharr Settings */}
-          <Card>
+          {/* Dispatcharr Settings - hidden for child groups */}
+          {!isChildGroup && <Card>
             <CardHeader>
               <CardTitle>Dispatcharr Settings</CardTitle>
               <CardDescription>
@@ -1056,10 +1082,10 @@ export function EventGroupForm() {
                 </p>
               </div>
             </CardContent>
-          </Card>
+          </Card>}
 
-          {/* Stream Filtering */}
-          <Card>
+          {/* Stream Filtering - hidden for child groups */}
+          {!isChildGroup && <Card>
             <CardHeader>
               <CardTitle>Stream Filtering</CardTitle>
               <CardDescription>
@@ -1170,10 +1196,10 @@ export function EventGroupForm() {
                 />
               </div>
             </CardContent>
-          </Card>
+          </Card>}
 
-          {/* Multi-Sport Settings (Phase 3) - only show for multi-sport groups */}
-          {formData.leagues.length > 1 && (
+          {/* Multi-Sport Settings - only show for multi-sport parent groups */}
+          {!isChildGroup && formData.leagues.length > 1 && (
             <Card>
               <CardHeader>
                 <CardTitle>Multi-Sport Settings</CardTitle>

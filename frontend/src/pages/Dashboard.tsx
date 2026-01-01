@@ -131,9 +131,9 @@ async function fetchDashboardStats(): Promise<DashboardStats> {
   return api.get("/stats/dashboard")
 }
 
-// Fetch EPG history (recent runs)
+// Fetch EPG history (recent runs) - only show full_epg aggregate runs
 async function fetchEPGHistory(): Promise<EPGHistoryEntry[]> {
-  const response = await api.get<{ runs: EPGHistoryEntry[]; count: number }>("/stats/runs?limit=10")
+  const response = await api.get<{ runs: EPGHistoryEntry[]; count: number }>("/stats/runs?limit=10&run_type=full_epg")
   return response.runs || []
 }
 

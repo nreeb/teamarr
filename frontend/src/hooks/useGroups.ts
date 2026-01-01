@@ -8,6 +8,7 @@ import {
   listGroups,
   previewGroup,
   processGroup,
+  reorderGroups,
   updateGroup,
 } from "@/api/groups"
 import type { EventGroupCreate, EventGroupUpdate } from "@/api/types"
@@ -88,5 +89,17 @@ export function useProcessGroup() {
 export function usePreviewGroup() {
   return useMutation({
     mutationFn: (groupId: number) => previewGroup(groupId),
+  })
+}
+
+export function useReorderGroups() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (groups: { group_id: number; sort_order: number }[]) =>
+      reorderGroups(groups),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["groups"] })
+    },
   })
 }

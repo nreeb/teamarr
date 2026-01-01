@@ -64,7 +64,7 @@ function formatDateRange(start: string | null, end: string | null): string {
 
 export function EPG() {
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useStats()
-  const { data: runsData, isLoading: runsLoading, refetch: refetchRuns } = useRecentRuns(10)
+  const { data: runsData, isLoading: runsLoading, refetch: refetchRuns } = useRecentRuns(10, "full_epg")
   const { data: analysis, isLoading: analysisLoading, refetch: refetchAnalysis } = useEPGAnalysis()
   const { data: epgContent, isLoading: contentLoading } = useEPGContent(2000)
   const { formatDateTime, formatRelativeTime } = useDateFormat()

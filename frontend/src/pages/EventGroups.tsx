@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import React, { useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { useQuery } from "@tanstack/react-query"
@@ -13,6 +13,7 @@ import {
   X,
   Check,
   AlertCircle,
+  GripVertical,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -41,6 +42,7 @@ import {
   useDeleteGroup,
   useToggleGroup,
   usePreviewGroup,
+  useReorderGroups,
 } from "@/hooks/useGroups"
 import { useTemplates } from "@/hooks/useTemplates"
 import type { EventGroup, PreviewGroupResponse } from "@/api/types"
@@ -61,6 +63,10 @@ export function EventGroups() {
   const deleteMutation = useDeleteGroup()
   const toggleMutation = useToggleGroup()
   const previewMutation = usePreviewGroup()
+  const reorderMutation = useReorderGroups()
+
+  // Drag-and-drop state for AUTO groups
+  const [draggedGroupId, setDraggedGroupId] = useState<number | null>(null)
 
   // Preview modal state
   const [previewData, setPreviewData] = useState<PreviewGroupResponse | null>(null)
@@ -97,15 +103,72 @@ export function EventGroups() {
     return [...leagues].sort()
   }, [data?.groups])
 
-  // Filter groups
-  const filteredGroups = useMemo(() => {
-    if (!data?.groups) return []
-    return data.groups.filter((group) => {
+  // Filter groups and organize parent/child, separating AUTO and MANUAL
+  const { parentGroups, autoGroups, manualGroups, filteredGroups } = useMemo(() => {
+    if (!data?.groups) return { parentGroups: [], autoGroups: [], manualGroups: [], filteredGroups: [] }
+
+    // Separate parent and child groups
+    const parents: EventGroup[] = []
+    const childrenMap: Record<number, EventGroup[]> = {}
+
+    for (const group of data.groups) {
+      if (typeof group.parent_group_id === 'number') {
+        if (!childrenMap[group.parent_group_id]) {
+          childrenMap[group.parent_group_id] = []
+        }
+        childrenMap[group.parent_group_id].push(group)
+      } else {
+        parents.push(group)
+      }
+    }
+
+    // Filter parents
+    const filteredParents = parents.filter((group) => {
       if (leagueFilter && !group.leagues.includes(leagueFilter)) return false
       if (statusFilter === "enabled" && !group.enabled) return false
       if (statusFilter === "disabled" && group.enabled) return false
       return true
     })
+
+    // Separate AUTO and MANUAL groups, sort AUTO by sort_order
+    const auto = filteredParents
+      .filter((g) => g.channel_assignment_mode === "auto")
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    const manual = filteredParents.filter((g) => g.channel_assignment_mode !== "auto")
+
+    // Build flat list: AUTO groups first (with children), then MANUAL groups (with children)
+    const flat: EventGroup[] = []
+
+    // Add AUTO groups with their children
+    for (const parent of auto) {
+      flat.push(parent)
+      const children = childrenMap[parent.id] || []
+      const filteredChildren = children.filter((group) => {
+        if (statusFilter === "enabled" && !group.enabled) return false
+        if (statusFilter === "disabled" && group.enabled) return false
+        return true
+      })
+      flat.push(...filteredChildren)
+    }
+
+    // Add MANUAL groups with their children
+    for (const parent of manual) {
+      flat.push(parent)
+      const children = childrenMap[parent.id] || []
+      const filteredChildren = children.filter((group) => {
+        if (statusFilter === "enabled" && !group.enabled) return false
+        if (statusFilter === "disabled" && group.enabled) return false
+        return true
+      })
+      flat.push(...filteredChildren)
+    }
+
+    return {
+      parentGroups: filteredParents,
+      autoGroups: auto,
+      manualGroups: manual,
+      filteredGroups: flat,
+    }
   }, [data?.groups, leagueFilter, statusFilter])
 
   // Calculate stats
@@ -213,6 +276,55 @@ export function EventGroups() {
   }
 
   const hasActiveFilters = leagueFilter || statusFilter !== "all"
+
+  // Drag-and-drop handlers for AUTO groups
+  const handleDragStart = (e: React.DragEvent, groupId: number) => {
+    setDraggedGroupId(groupId)
+    e.dataTransfer.effectAllowed = "move"
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = "move"
+  }
+
+  const handleDrop = async (e: React.DragEvent, targetGroupId: number) => {
+    e.preventDefault()
+    if (!draggedGroupId || draggedGroupId === targetGroupId) {
+      setDraggedGroupId(null)
+      return
+    }
+
+    // Find current positions
+    const draggedIndex = autoGroups.findIndex((g) => g.id === draggedGroupId)
+    const targetIndex = autoGroups.findIndex((g) => g.id === targetGroupId)
+
+    if (draggedIndex === -1 || targetIndex === -1) {
+      setDraggedGroupId(null)
+      return
+    }
+
+    // Build new order
+    const newOrder = [...autoGroups]
+    const [dragged] = newOrder.splice(draggedIndex, 1)
+    newOrder.splice(targetIndex, 0, dragged)
+
+    // Assign new sort_order values
+    const reorderData = newOrder.map((g, i) => ({ group_id: g.id, sort_order: i }))
+
+    try {
+      await reorderMutation.mutateAsync(reorderData)
+      toast.success("Group order updated")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to reorder groups")
+    }
+
+    setDraggedGroupId(null)
+  }
+
+  const handleDragEnd = () => {
+    setDraggedGroupId(null)
+  }
 
   if (error) {
     return (
@@ -366,6 +478,7 @@ export function EventGroups() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-8"></TableHead>
                   <TableHead className="w-10">
                     <Checkbox
                       checked={selectedIds.size === filteredGroups.length && filteredGroups.length > 0}
@@ -382,15 +495,83 @@ export function EventGroups() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredGroups.map((group) => (
-                  <TableRow key={group.id}>
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedIds.has(group.id)}
-                        onCheckedChange={() => toggleSelect(group.id)}
-                      />
+                {/* AUTO Section Header */}
+                {autoGroups.length > 0 && (
+                  <TableRow className="bg-muted/30 hover:bg-muted/30">
+                    <TableCell colSpan={9} className="py-1.5 text-xs font-medium text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-400 border-blue-500/30">AUTO</Badge>
+                        <span>Channel Assignment</span>
+                        <span className="text-muted-foreground/60">• Drag to reorder priority</span>
+                      </div>
                     </TableCell>
-                    <TableCell className="font-medium">{group.name}</TableCell>
+                  </TableRow>
+                )}
+                {filteredGroups.map((group, index) => {
+                  const isChild = typeof group.parent_group_id === 'number'
+                  const parentGroup = isChild
+                    ? parentGroups.find((p) => p.id === group.parent_group_id)
+                    : null
+                  const isAuto = group.channel_assignment_mode === "auto"
+                  const isManual = !isAuto && !isChild
+
+                  // Insert MANUAL section header before first manual group
+                  const isFirstManual = isManual && !filteredGroups.slice(0, index).some(
+                    (g) => g.channel_assignment_mode !== "auto" && typeof g.parent_group_id !== 'number'
+                  )
+
+                  return (
+                    <React.Fragment key={group.id}>
+                      {isFirstManual && manualGroups.length > 0 && (
+                        <TableRow className="bg-muted/30 hover:bg-muted/30">
+                          <TableCell colSpan={9} className="py-1.5 text-xs font-medium text-muted-foreground">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="secondary" className="text-xs">MANUAL</Badge>
+                              <span>Channel Assignment</span>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      <TableRow
+                        className={`${isChild ? "bg-purple-500/5 hover:bg-purple-500/10" : ""} ${
+                          draggedGroupId === group.id ? "opacity-50" : ""
+                        }`}
+                        draggable={isAuto && !isChild}
+                        onDragStart={(e) => isAuto && !isChild && handleDragStart(e, group.id)}
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => isAuto && !isChild && handleDrop(e, group.id)}
+                        onDragEnd={handleDragEnd}
+                      >
+                        <TableCell className="w-8 p-0">
+                          {isAuto && !isChild ? (
+                            <div className="flex items-center justify-center h-full cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground">
+                              <GripVertical className="h-4 w-4" />
+                            </div>
+                          ) : null}
+                        </TableCell>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedIds.has(group.id)}
+                            onCheckedChange={() => toggleSelect(group.id)}
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {isChild ? (
+                            <div className="flex items-center gap-2 pl-4">
+                              <span className="text-purple-400 font-bold">└</span>
+                              <span>{group.name}</span>
+                              <Badge
+                                variant="outline"
+                                className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-xs italic"
+                                title={`Child of: ${parentGroup?.name}`}
+                              >
+                            ↳ {parentGroup?.name ? (parentGroup.name.length > 15 ? parentGroup.name.slice(0, 15) + "…" : parentGroup.name) : "parent"}
+                          </Badge>
+                        </div>
+                      ) : (
+                        group.name
+                      )}
+                    </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
                         {group.leagues.slice(0, 3).map((league) => (
@@ -488,7 +669,9 @@ export function EventGroups() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                    </React.Fragment>
+                  )
+                })}
               </TableBody>
             </Table>
           )}

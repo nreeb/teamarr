@@ -72,3 +72,9 @@ export async function previewGroup(
 ): Promise<PreviewGroupResponse> {
   return api.get(`/groups/${groupId}/preview`)
 }
+
+export async function reorderGroups(
+  groups: { group_id: number; sort_order: number }[]
+): Promise<{ success: boolean; updated_count: number; message: string }> {
+  return api.post("/groups/reorder", { groups })
+}

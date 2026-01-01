@@ -4,6 +4,7 @@ export interface EventGroup {
   id: number
   name: string
   leagues: string[]
+  parent_group_id: number | null
   template_id: number | null
   channel_start_number: number | null
   channel_group_id: number | null
@@ -47,6 +48,7 @@ export interface EventGroup {
 export interface EventGroupCreate {
   name: string
   leagues: string[]
+  parent_group_id?: number | null
   template_id?: number | null
   channel_start_number?: number | null
   channel_group_id?: number | null
@@ -77,6 +79,7 @@ export interface EventGroupCreate {
 }
 
 export interface EventGroupUpdate extends Partial<EventGroupCreate> {
+  clear_parent_group_id?: boolean
   clear_template?: boolean
   clear_channel_start_number?: boolean
   clear_channel_group_id?: boolean
