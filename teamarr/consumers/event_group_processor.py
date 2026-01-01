@@ -634,6 +634,7 @@ class EventGroupProcessor:
                     matched_count=0,
                     filtered_include_regex=filter_result.filtered_include,
                     filtered_exclude_regex=filter_result.filtered_exclude,
+                    total_stream_count=result.streams_fetched,  # V1 parity
                 )
                 return result
 
@@ -711,6 +712,7 @@ class EventGroupProcessor:
                 filtered_include_regex=result.filtered_include_regex,
                 filtered_exclude_regex=result.filtered_exclude_regex,
                 filtered_no_match=result.streams_unmatched,
+                total_stream_count=result.streams_fetched,  # V1 parity
             )
 
         except Exception as e:
@@ -815,6 +817,7 @@ class EventGroupProcessor:
                     matched_count=0,
                     filtered_include_regex=filter_result.filtered_include,
                     filtered_exclude_regex=filter_result.filtered_exclude,
+                    total_stream_count=result.streams_fetched,  # V1 parity
                 )
                 return result
 
@@ -826,6 +829,16 @@ class EventGroupProcessor:
                 result.completed_at = datetime.now()
                 stats_run.complete(status="completed", error="No events found")
                 save_run(conn, stats_run)
+                # V1 parity: Update total_stream_count even when no events
+                update_group_stats(
+                    conn,
+                    group.id,
+                    stream_count=0,
+                    matched_count=0,
+                    filtered_include_regex=filter_result.filtered_include,
+                    filtered_exclude_regex=filter_result.filtered_exclude,
+                    total_stream_count=result.streams_fetched,
+                )
                 return result
 
             # Step 3: Match streams to events (uses fingerprint cache)
@@ -848,8 +861,18 @@ class EventGroupProcessor:
 
             # Step 4: Create/update channels
             matched_streams = self._build_matched_stream_list(streams, match_result)
+            # Sort by event start time so channels are created in chronological order
+            def sort_key(m):
+                return m["event"].start_time if m.get("event") else datetime.max
+            matched_streams.sort(key=sort_key)
+
+            # Extract all stream IDs for cleanup (V1 parity: cleanup missing streams)
+            all_stream_ids = [s.get("id") for s in streams if s.get("id")]
+
             if matched_streams:
-                lifecycle_result = self._process_channels(matched_streams, group, conn)
+                lifecycle_result = self._process_channels(
+                    matched_streams, group, conn, all_stream_ids=all_stream_ids
+                )
                 result.channels_created = len(lifecycle_result.created)
                 result.channels_existing = len(lifecycle_result.existing)
                 result.channels_skipped = len(lifecycle_result.skipped)
@@ -899,6 +922,7 @@ class EventGroupProcessor:
                 filtered_include_regex=result.filtered_include_regex,
                 filtered_exclude_regex=result.filtered_exclude_regex,
                 filtered_no_match=result.streams_unmatched,
+                total_stream_count=result.streams_fetched,  # V1 parity
             )
 
         except Exception as e:
@@ -1241,8 +1265,19 @@ class EventGroupProcessor:
         matched_streams: list[dict],
         group: EventEPGGroup,
         conn: Connection,
+        all_stream_ids: list[int] | None = None,
     ) -> StreamProcessResult:
-        """Create/update channels via ChannelLifecycleService."""
+        """Create/update channels via ChannelLifecycleService.
+
+        V1 Parity: Full lifecycle management with every generation:
+        1. Process scheduled deletions (expired channels)
+        2. Cleanup deleted streams (missing from M3U)
+        3. Create/update channels
+        4. Sync existing channel settings
+        5. Reassign channel numbers if needed
+        """
+        from teamarr.consumers.lifecycle import StreamProcessResult
+
         lifecycle_service = create_lifecycle_service(
             self._db_factory,
             self._service,  # Required for template resolution
@@ -1264,9 +1299,61 @@ class EventGroupProcessor:
         if group.template_id:
             template_config = self._load_event_template(conn, group.template_id)
 
-        return lifecycle_service.process_matched_streams(
+        combined_result = StreamProcessResult()
+
+        # V1 Parity Step 0: Global AUTO range reassignment
+        # This ensures all AUTO groups have correct non-overlapping ranges
+        # Must happen BEFORE creating new channels to avoid range conflicts
+        try:
+            reassign_result = lifecycle_service.reassign_all_auto_groups()
+            if reassign_result.get("channels_reassigned"):
+                logger.info(
+                    f"Global reassignment: moved {reassign_result['channels_reassigned']} "
+                    f"channels across {reassign_result['groups_processed']} groups"
+                )
+        except Exception as e:
+            logger.debug(f"Error in global AUTO reassignment: {e}")
+
+        # V1 Parity Step 1: Process scheduled deletions first
+        try:
+            deletion_result = lifecycle_service.process_scheduled_deletions()
+            combined_result.merge(deletion_result)
+            if deletion_result.deleted:
+                logger.info(f"Deleted {len(deletion_result.deleted)} expired channels")
+        except Exception as e:
+            logger.debug(f"Error processing scheduled deletions: {e}")
+
+        # V1 Parity Step 2: Cleanup deleted/missing streams
+        if all_stream_ids is not None:
+            try:
+                cleanup_result = lifecycle_service.cleanup_deleted_streams(
+                    group.id, all_stream_ids
+                )
+                combined_result.merge(cleanup_result)
+                if cleanup_result.deleted:
+                    logger.info(
+                        f"Deleted {len(cleanup_result.deleted)} channels with missing streams"
+                    )
+            except Exception as e:
+                logger.debug(f"Error cleaning up deleted streams: {e}")
+
+        # V1 Parity Step 3-4: Create new channels and sync existing settings
+        process_result = lifecycle_service.process_matched_streams(
             matched_streams, group_config, template_config
         )
+        combined_result.merge(process_result)
+
+        # V1 Parity Step 5: Reassign channel numbers to compact range
+        try:
+            reassign_result = lifecycle_service.reassign_group_channels(group.id)
+            if reassign_result.get("reassigned"):
+                logger.info(
+                    f"Reassigned {len(reassign_result['reassigned'])} channels in group {group.id}"
+                )
+        except Exception as e:
+            logger.debug(f"Error reassigning channel numbers: {e}")
+
+        return combined_result
 
     def _load_event_template(self, conn: Connection, template_id: int):
         """Load and convert template for event-based EPG.

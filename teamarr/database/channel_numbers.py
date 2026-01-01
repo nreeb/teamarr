@@ -54,7 +54,7 @@ def get_next_channel_number(
         Next available channel number, or None if disabled/would exceed max
     """
     cursor = conn.execute(
-        """SELECT channel_start_number, channel_assignment_mode, sort_order, total_stream_count
+        """SELECT channel_start_number, channel_assignment_mode, sort_order
            FROM event_epg_groups WHERE id = ?""",
         (group_id,),
     )
@@ -72,11 +72,9 @@ def get_next_channel_number(
         if not channel_start:
             logger.warning(f"Could not calculate auto channel_start for group {group_id}")
             return None
-        # Calculate block_end based on stream count
-        stream_count = group["total_stream_count"] or 0
-        blocks_needed = (stream_count + 9) // 10 if stream_count > 0 else 1
-        range_size = blocks_needed * 10
-        block_end = channel_start + range_size - 1
+        # Calculate block_end by finding where the next group starts
+        # This allows dynamic expansion as a group adds more channels
+        block_end = _calculate_auto_block_end(conn, group_id, group["sort_order"], channel_start)
 
     # For MANUAL mode with no channel_start, auto-assign if enabled
     elif not channel_start and auto_assign:
@@ -128,6 +126,124 @@ def get_next_channel_number(
     return next_num
 
 
+def _get_actual_channel_count(conn: Connection, group_id: int) -> int:
+    """Get the actual count of active (non-deleted) channels for a group."""
+    cursor = conn.execute(
+        """SELECT COUNT(*) as cnt FROM managed_channels
+           WHERE event_epg_group_id = ? AND deleted_at IS NULL""",
+        (group_id,),
+    )
+    row = cursor.fetchone()
+    return row["cnt"] if row else 0
+
+
+def _get_total_stream_count(conn: Connection, group_id: int) -> int:
+    """Get the total raw M3U stream count for a group (before filtering).
+
+    This is used for range reservation - we want to reserve space for ALL
+    potential streams, not just currently matched ones.
+    """
+    cursor = conn.execute(
+        """SELECT total_stream_count FROM event_epg_groups WHERE id = ?""",
+        (group_id,),
+    )
+    row = cursor.fetchone()
+    return row["total_stream_count"] if row and row["total_stream_count"] else 0
+
+
+def _get_max_channel_number(conn: Connection, group_id: int) -> int | None:
+    """Get the maximum channel number currently assigned to a group.
+
+    Returns None if no channels are assigned.
+    """
+    cursor = conn.execute(
+        """SELECT MAX(CAST(channel_number AS INTEGER)) as max_ch
+           FROM managed_channels
+           WHERE event_epg_group_id = ? AND deleted_at IS NULL""",
+        (group_id,),
+    )
+    row = cursor.fetchone()
+    return row["max_ch"] if row and row["max_ch"] else None
+
+
+def _calculate_auto_block_end(
+    conn: Connection,
+    group_id: int,
+    sort_order: int,
+    channel_start: int,
+) -> int:
+    """Calculate the block_end for an AUTO group.
+
+    Uses the minimum channel number from the NEXT group that has channels.
+    This allows groups to grow into empty space between them.
+
+    If no following group has channels, returns the global range end.
+    """
+    range_start, range_end = get_global_channel_range(conn)
+    effective_end = range_end if range_end else MAX_CHANNEL
+
+    # Get all AUTO groups sorted by sort_order, excluding child groups
+    auto_groups = conn.execute(
+        """SELECT id, sort_order
+           FROM event_epg_groups
+           WHERE channel_assignment_mode = 'auto'
+             AND parent_group_id IS NULL
+             AND enabled = 1
+           ORDER BY sort_order ASC""",
+    ).fetchall()
+
+    # Find the first group AFTER us that has actual channels
+    found_self = False
+    for grp in auto_groups:
+        if grp["id"] == group_id:
+            found_self = True
+            continue
+
+        if found_self:
+            # Check if this group has any channels
+            next_min = _get_min_channel_number(conn, grp["id"])
+            if next_min:
+                # Found a following group with channels - our block ends before theirs
+                return next_min - 1
+
+    # No following group has channels - use global range end
+    return effective_end
+
+
+def _calculate_blocks_needed(stream_count: int) -> int:
+    """Calculate blocks needed for a group based on total stream count.
+
+    Reserves enough space for all potential streams (raw M3U count).
+    Uses 10-channel blocks with ceiling division.
+
+    Examples:
+        0 streams → 1 block (10 slots) - minimum reservation
+        1-10 streams → 1 block (10 slots)
+        11-20 streams → 2 blocks (20 slots)
+        21-30 streams → 3 blocks (30 slots)
+        100 streams → 10 blocks (100 slots)
+    """
+    if stream_count == 0:
+        return 1
+    # Ceiling division: (n + 9) // 10 rounds up to nearest 10
+    return (stream_count + 9) // 10
+
+
+def _get_min_channel_number(conn: Connection, group_id: int) -> int | None:
+    """Get the minimum channel number currently assigned to a group.
+
+    Returns None if no channels are assigned.
+    """
+    cursor = conn.execute(
+        """SELECT MIN(CAST(channel_number AS INTEGER)) as min_ch
+           FROM managed_channels
+           WHERE event_epg_group_id = ? AND deleted_at IS NULL""",
+        (group_id,),
+    )
+    row = cursor.fetchone()
+    return row["min_ch"] if row and row["min_ch"] else None
+
+
 def _calculate_auto_channel_start(
     conn: Connection,
     group_id: int,
@@ -138,10 +254,13 @@ def _calculate_auto_channel_start(
     AUTO groups are allocated channel blocks in 10-channel increments.
     Each group starts based on how many blocks preceding groups need.
 
+    Uses actual channel counts instead of total_stream_count for reliability.
+    Also respects existing channel positions to avoid range conflicts.
+
     Example with range_start=9001:
-    - Group 1 (16 streams): 9001 (needs 2 blocks of 10)
-    - Group 2 (20 streams): 9021 (needs 2 blocks of 10)
-    - Group 3 (250 streams): 9041 (needs 25 blocks of 10)
+    - Group 1 (16 channels): 9001 (needs 2 blocks of 10)
+    - Group 2 (20 channels): 9021 (needs 3 blocks to allow growth)
+    - Group 3 (250 channels): 9051 (needs 26 blocks)
 
     Returns:
         Calculated channel_start, or None if range exhausted
@@ -151,7 +270,7 @@ def _calculate_auto_channel_start(
 
     # Get all AUTO groups sorted by sort_order, excluding child groups
     auto_groups = conn.execute(
-        """SELECT id, sort_order, total_stream_count
+        """SELECT id, sort_order
            FROM event_epg_groups
            WHERE channel_assignment_mode = 'auto'
              AND parent_group_id IS NULL
@@ -163,7 +282,13 @@ def _calculate_auto_channel_start(
     current_start = range_start
     for grp in auto_groups:
         if grp["id"] == group_id:
-            # This is our group - return current_start
+            # This is our group
+            # Use MIN of calculated start and actual min channel number
+            # This prevents range conflicts when preceding groups grow
+            min_existing = _get_min_channel_number(conn, group_id)
+            if min_existing and min_existing < current_start:
+                current_start = min_existing
+
             if current_start > effective_end:
                 logger.warning(
                     f"AUTO group {group_id} would start at {current_start}, "
@@ -172,9 +297,9 @@ def _calculate_auto_channel_start(
                 return None
             return current_start
 
-        # Calculate blocks needed for this preceding group
-        stream_count = grp["total_stream_count"] or 0
-        blocks_needed = (stream_count + 9) // 10 if stream_count > 0 else 1
+        # Calculate blocks needed based on total raw stream count
+        total_streams = _get_total_stream_count(conn, grp["id"])
+        blocks_needed = _calculate_blocks_needed(total_streams)
         current_start += blocks_needed * 10
 
     # Group not found in AUTO groups

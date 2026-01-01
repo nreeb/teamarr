@@ -17,7 +17,7 @@ from teamarr.services import SportsDataService
 from teamarr.templates.context_builder import ContextBuilder
 from teamarr.templates.resolver import TemplateResolver
 from teamarr.utilities.sports import get_sport_duration
-from teamarr.utilities.tz import now_user
+from teamarr.utilities.tz import now_user, to_user_tz
 
 logger = logging.getLogger(__name__)
 
@@ -210,7 +210,9 @@ class TeamEPGGenerator:
         # Calculate output window
         now = now_user()
         today = now.date()
-        output_cutoff = now + timedelta(days=options.output_days_ahead)
+        # Use end-of-day in user timezone for cutoff to avoid excluding evening games
+        # whose UTC time falls on the next day
+        output_cutoff_date = today + timedelta(days=options.output_days_ahead)
 
         programmes = []
         included_events = []  # Track events that generated programmes (for filler)
@@ -251,7 +253,9 @@ class TeamEPGGenerator:
                 # else: Today's final with include_final_events=True - include it
 
             # Skip events beyond the output window
-            if event.start_time > output_cutoff:
+            # Compare dates in user timezone to match filler generation behavior
+            event_date = to_user_tz(event.start_time).date()
+            if event_date > output_cutoff_date:
                 continue
 
             # Generate programme with template resolution

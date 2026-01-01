@@ -323,11 +323,38 @@ class ChannelLifecycleService:
             get_next_stream_priority,
             log_channel_history,
             stream_exists_on_channel,
+            update_managed_channel,
         )
 
         result = StreamProcessResult()
         stream_name = stream.get("name", "")
         stream_id = stream.get("id")
+
+        # V1 Parity: Verify channel exists in Dispatcharr, recreate if missing
+        if self._channel_manager and existing.dispatcharr_channel_id:
+            with self._dispatcharr_lock:
+                disp_channel = self._channel_manager.get_channel(
+                    existing.dispatcharr_channel_id
+                )
+                if not disp_channel:
+                    # Channel deleted from Dispatcharr - recreate it
+                    logger.warning(
+                        f"Channel {existing.dispatcharr_channel_id} missing from "
+                        f"Dispatcharr, recreating: {existing.channel_name}"
+                    )
+                    new_id = self._recreate_channel_in_dispatcharr(
+                        conn, existing, stream, event, group_config, template
+                    )
+                    if new_id:
+                        # Update our record with new Dispatcharr ID
+                        update_managed_channel(
+                            conn, existing.id, {"dispatcharr_channel_id": new_id}
+                        )
+                        existing.dispatcharr_channel_id = new_id
+                        logger.info(
+                            f"Recreated channel in Dispatcharr: {existing.channel_name} "
+                            f"(new ID: {new_id})"
+                        )
 
         if effective_mode == "ignore":
             # Skip - don't add stream
@@ -361,7 +388,8 @@ class ChannelLifecycleService:
                     with self._dispatcharr_lock:
                         current = self._channel_manager.get_channel(existing.dispatcharr_channel_id)
                         if current:
-                            current_streams = [s.id for s in current.streams]
+                            # streams is already tuple[int, ...] of stream IDs
+                            current_streams = list(current.streams) if current.streams else []
                             if stream_id not in current_streams:
                                 current_streams.append(stream_id)
                                 self._channel_manager.update_channel(
@@ -557,6 +585,54 @@ class ChannelLifecycleService:
             tvg_id=tvg_id,
         )
 
+    def _recreate_channel_in_dispatcharr(
+        self,
+        conn: Connection,
+        existing: Any,
+        stream: dict,
+        event: Event,
+        group_config: dict,
+        template: dict | None,
+    ) -> int | None:
+        """Recreate a channel in Dispatcharr that was deleted.
+
+        Uses existing channel data from our database to recreate the channel
+        in Dispatcharr with a new ID.
+
+        Returns:
+            New Dispatcharr channel ID, or None if creation failed
+        """
+        if not self._channel_manager:
+            return None
+
+        try:
+            # Get group settings
+            channel_group_id = group_config.get("channel_group_id")
+            stream_profile_id = group_config.get("stream_profile_id")
+            stream_id = stream.get("id")
+
+            # Create in Dispatcharr
+            disp_result = self._channel_manager.create_channel(
+                name=existing.channel_name,
+                channel_number=int(existing.channel_number),
+                tvg_id=existing.tvg_id,
+                stream_ids=[stream_id] if stream_id else [],
+                logo_id=None,  # Will be synced later
+                channel_group_id=channel_group_id,
+                stream_profile_id=stream_profile_id,
+            )
+
+            if disp_result.success and disp_result.channel:
+                # channel is a dict, not an object
+                return disp_result.channel.get("id")
+
+            logger.error(f"Failed to recreate channel: {disp_result.error}")
+            return None
+
+        except Exception as e:
+            logger.exception(f"Error recreating channel in Dispatcharr: {e}")
+            return None
+
     def _generate_channel_name(
         self,
         event: Event,
@@ -696,7 +772,30 @@ class ChannelLifecycleService:
         group_config: dict,
         template: dict | None,
     ) -> StreamProcessResult:
-        """Sync channel settings from group/template to Dispatcharr."""
+        """Sync channel settings from group/template to Dispatcharr.
+
+        V1 Parity: Syncs all 8 channel properties:
+        | Source              | Dispatcharr Field    | Handling                    |
+        |---------------------|---------------------|-----------------------------|
+        | template            | name                | Template variable resolution|
+        | group.channel_start | channel_number      | Range validation/reassign   |
+        | group               | channel_group_id    | Simple compare              |
+        | group               | stream_profile_id   | Simple compare              |
+        | current_stream      | streams             | M3U ID lookup               |
+        | group               | channel_profile_ids | Add/remove via profile API  |
+        | template            | logo_id             | Upload/update if different  |
+        | event_id            | tvg_id              | Ensures EPG matching        |
+        """
+        from teamarr.database.channels import (
+            log_channel_history,
+            update_managed_channel,
+        )
+        from teamarr.database.channel_numbers import (
+            get_group_channel_range,
+            get_next_channel_number,
+            validate_channel_in_range,
+        )
+
         result = StreamProcessResult()
 
         if not self._channel_manager:
@@ -709,22 +808,75 @@ class ChannelLifecycleService:
                     return result
 
             update_data = {}
+            db_updates = {}
+            changes_made = []
+            group_id = group_config.get("id")
 
-            # Check channel_group_id
-            group_channel_group_id = group_config.get("channel_group_id")
-            if group_channel_group_id != current_channel.channel_group_id:
-                update_data["channel_group_id"] = group_channel_group_id
+            # 1. Check channel name (template resolution) - V1 parity
+            matched_keyword = getattr(existing, "exception_keyword", None)
+            expected_name = self._generate_channel_name(event, template, matched_keyword)
+            if expected_name != current_channel.name:
+                update_data["name"] = expected_name
+                db_updates["channel_name"] = expected_name
+                changes_made.append(f"name: {current_channel.name} → {expected_name}")
 
-            # Check stream_profile_id
-            group_stream_profile_id = group_config.get("stream_profile_id")
-            if group_stream_profile_id != current_channel.stream_profile_id:
-                update_data["stream_profile_id"] = group_stream_profile_id
+            # 2. Check channel number (range validation/reassign) - V1 parity
+            current_number = (
+                int(current_channel.channel_number) if current_channel.channel_number else None
+            )
+            if current_number and group_id:
+                if not validate_channel_in_range(conn, group_id, current_number):
+                    # Channel is out of range - reassign
+                    new_number = get_next_channel_number(conn, group_id, auto_assign=False)
+                    if new_number:
+                        update_data["channel_number"] = new_number
+                        db_updates["channel_number"] = new_number
+                        changes_made.append(
+                            f"number: {current_number} → {new_number} (range reassign)"
+                        )
 
-            # Check tvg_id
+                        # Log range reassignment
+                        range_start, range_end = get_group_channel_range(conn, group_id)
+                        logger.info(
+                            f"Channel '{existing.channel_name}' reassigned: "
+                            f"{current_number} → {new_number} (range {range_start}-{range_end})"
+                        )
+
+            # 3. Check channel_group_id
+            new_group_id = group_config.get("channel_group_id")
+            old_group_id = current_channel.channel_group_id
+            if new_group_id != old_group_id:
+                update_data["channel_group_id"] = new_group_id
+                changes_made.append(f"channel_group_id: {old_group_id} → {new_group_id}")
+
+            # 4. Check stream_profile_id
+            new_profile_id = group_config.get("stream_profile_id")
+            old_profile_id = current_channel.stream_profile_id
+            if new_profile_id != old_profile_id:
+                update_data["stream_profile_id"] = new_profile_id
+                changes_made.append(f"stream_profile_id: {old_profile_id} → {new_profile_id}")
+
+            # 5. Check streams (M3U ID sync) - V1 parity
+            stream_id = stream.get("id") if stream else None
+            if stream_id:
+                # streams is already tuple[int, ...] of stream IDs
+                ch_streams = current_channel.streams
+                current_stream_ids = list(ch_streams) if ch_streams else []
+                if stream_id not in current_stream_ids:
+                    # Stream changed - update to use current stream
+                    # Note: For consolidate mode, this adds streams; for separate, this replaces
+                    new_streams = current_stream_ids + [stream_id]
+                    update_data["streams"] = new_streams
+                    db_updates["dispatcharr_stream_id"] = stream_id
+                    changes_made.append(f"streams: added {stream_id}")
+
+            # 6. Check tvg_id
             expected_tvg_id = existing.tvg_id
             if expected_tvg_id != current_channel.tvg_id:
                 update_data["tvg_id"] = expected_tvg_id
+                changes_made.append(f"tvg_id: {current_channel.tvg_id} → {expected_tvg_id}")
 
+            # Apply Dispatcharr updates
             if update_data:
                 with self._dispatcharr_lock:
                     self._channel_manager.update_channel(
@@ -732,12 +884,100 @@ class ChannelLifecycleService:
                         update_data,
                     )
 
+            # Apply DB updates
+            if db_updates:
+                update_managed_channel(conn, existing.id, db_updates)
+
+            # 7. Sync channel_profile_ids - V1 parity
+            group_profile_ids = self._parse_profile_ids(group_config.get("channel_profile_ids"))
+            stored_profile_ids = self._parse_profile_ids(
+                getattr(existing, "channel_profile_ids", None)
+            )
+
+            profiles_to_add = set(group_profile_ids) - set(stored_profile_ids)
+            profiles_to_remove = set(stored_profile_ids) - set(group_profile_ids)
+
+            if profiles_to_add or profiles_to_remove:
+                with self._dispatcharr_lock:
+                    for profile_id in profiles_to_remove:
+                        try:
+                            self._channel_manager.remove_from_profile(
+                                profile_id, existing.dispatcharr_channel_id
+                            )
+                            changes_made.append(f"removed from profile {profile_id}")
+                        except Exception as e:
+                            logger.debug(f"Failed to remove channel from profile {profile_id}: {e}")
+
+                    for profile_id in profiles_to_add:
+                        try:
+                            self._channel_manager.add_to_profile(
+                                profile_id, existing.dispatcharr_channel_id
+                            )
+                            changes_made.append(f"added to profile {profile_id}")
+                        except Exception as e:
+                            logger.debug(f"Failed to add channel to profile {profile_id}: {e}")
+
+                # Update stored profile IDs in DB
+                if group_profile_ids != stored_profile_ids:
+                    update_managed_channel(
+                        conn, existing.id, {"channel_profile_ids": json.dumps(group_profile_ids)}
+                    )
+
+            # 8. Sync logo - V1 parity
+            logo_url = self._resolve_logo_url(event, template)
+            if logo_url and self._logo_manager:
+                current_logo_id = getattr(existing, "dispatcharr_logo_id", None)
+                # Check if logo needs update (URL changed or no logo set)
+                stored_logo_url = getattr(existing, "logo_url", None)
+                if logo_url != stored_logo_url:
+                    with self._dispatcharr_lock:
+                        # Upload new logo
+                        logo_result = self._logo_manager.upload(
+                            name=f"{existing.channel_name} Logo",
+                            url=logo_url,
+                        )
+                        if logo_result.success and logo_result.logo:
+                            new_logo_id = logo_result.logo.get("id")
+                            # Update channel with new logo
+                            self._channel_manager.update_channel(
+                                existing.dispatcharr_channel_id,
+                                {"logo_id": new_logo_id},
+                            )
+                            # Update DB
+                            update_managed_channel(
+                                conn,
+                                existing.id,
+                                {
+                                    "logo_url": logo_url,
+                                    "dispatcharr_logo_id": new_logo_id,
+                                },
+                            )
+                            changes_made.append("logo updated")
+
+                            # Delete old logo if it existed
+                            if current_logo_id:
+                                try:
+                                    self._logo_manager.delete(current_logo_id)
+                                except Exception:
+                                    pass  # Ignore logo deletion failures
+
+            # Log changes if any
+            if changes_made:
                 result.settings_updated.append(
                     {
                         "channel_id": existing.dispatcharr_channel_id,
                         "channel_name": existing.channel_name,
-                        "changes": update_data,
+                        "changes": changes_made,
                     }
+                )
+
+                # Log to history
+                log_channel_history(
+                    conn=conn,
+                    managed_channel_id=existing.id,
+                    change_type="synced",
+                    change_source="epg_generation",
+                    notes=f"Settings synced: {', '.join(changes_made)}",
                 )
 
         except Exception as e:
@@ -901,6 +1141,407 @@ class ChannelLifecycleService:
 
         if result["associated"]:
             logger.info(f"Associated EPG data with {result['associated']} channels")
+
+        return result
+
+    def cleanup_deleted_streams(
+        self,
+        group_id: int,
+        current_stream_ids: list[int],
+    ) -> StreamProcessResult:
+        """Clean up channels for streams that no longer exist in Dispatcharr.
+
+        V1 Parity: Runs regardless of delete_timing because missing streams
+        should trigger immediate deletion.
+
+        Args:
+            group_id: Event EPG group ID
+            current_stream_ids: List of current stream IDs from Dispatcharr M3U
+
+        Returns:
+            StreamProcessResult with deleted channels and errors
+        """
+        from teamarr.database.channels import (
+            get_channel_streams,
+            get_managed_channels_for_group,
+            log_channel_history,
+            remove_stream_from_channel,
+        )
+
+        result = StreamProcessResult()
+        current_ids_set = set(current_stream_ids)
+
+        try:
+            with self._db_factory() as conn:
+                # Get all active channels for the group
+                channels = get_managed_channels_for_group(conn, group_id)
+
+                for channel in channels:
+                    # Get streams associated with this channel
+                    streams = get_channel_streams(conn, channel.id)
+
+                    if not streams:
+                        # Legacy fallback: check primary_stream_id
+                        primary_id = getattr(channel, "primary_stream_id", None)
+                        if primary_id and primary_id not in current_ids_set:
+                            success = self.delete_managed_channel(
+                                conn,
+                                channel.id,
+                                reason="primary stream removed",
+                            )
+                            if success:
+                                result.deleted.append(
+                                    {
+                                        "channel_id": channel.dispatcharr_channel_id,
+                                        "channel_number": channel.channel_number,
+                                        "channel_name": channel.channel_name,
+                                        "reason": "primary stream no longer exists",
+                                    }
+                                )
+                        continue
+
+                    # Separate into valid and missing streams
+                    valid_streams = []
+                    missing_streams = []
+                    for s in streams:
+                        stream_id = getattr(s, "dispatcharr_stream_id", None)
+                        if stream_id and stream_id in current_ids_set:
+                            valid_streams.append(s)
+                        else:
+                            missing_streams.append(s)
+
+                    if not valid_streams:
+                        # All streams gone - delete channel
+                        success = self.delete_managed_channel(
+                            conn,
+                            channel.id,
+                            reason="all streams removed",
+                        )
+                        if success:
+                            result.deleted.append(
+                                {
+                                    "channel_id": channel.dispatcharr_channel_id,
+                                    "channel_number": channel.channel_number,
+                                    "channel_name": channel.channel_name,
+                                    "reason": "all streams no longer exist",
+                                }
+                            )
+                        else:
+                            result.errors.append(
+                                {
+                                    "channel_id": channel.dispatcharr_channel_id,
+                                    "error": "Failed to delete channel",
+                                }
+                            )
+
+                    elif missing_streams:
+                        # Some streams gone - remove them from channel
+                        for missing in missing_streams:
+                            stream_id = getattr(missing, "dispatcharr_stream_id", None)
+                            if stream_id:
+                                # Remove from DB
+                                remove_stream_from_channel(conn, channel.id, stream_id)
+
+                                # Remove from Dispatcharr
+                                if self._channel_manager:
+                                    with self._dispatcharr_lock:
+                                        current = self._channel_manager.get_channel(
+                                            channel.dispatcharr_channel_id
+                                        )
+                                        if current:
+                                            # streams is tuple[int, ...] of IDs
+                                            s = current.streams
+                                            current_ids = list(s) if s else []
+                                            if stream_id in current_ids:
+                                                current_ids.remove(stream_id)
+                                                self._channel_manager.update_channel(
+                                                    channel.dispatcharr_channel_id,
+                                                    {"streams": current_ids},
+                                                )
+
+                                # Log history
+                                log_channel_history(
+                                    conn=conn,
+                                    managed_channel_id=channel.id,
+                                    change_type="stream_removed",
+                                    change_source="lifecycle",
+                                    notes=f"Stream {stream_id} no longer exists",
+                                )
+
+                        result.streams_removed.append(
+                            {
+                                "channel_id": channel.dispatcharr_channel_id,
+                                "channel_name": channel.channel_name,
+                                "streams_removed": len(missing_streams),
+                            }
+                        )
+
+        except Exception as e:
+            logger.exception(f"Error cleaning up deleted streams for group {group_id}")
+            result.errors.append({"error": str(e)})
+
+        if result.deleted:
+            logger.info(f"Deleted {len(result.deleted)} channels with missing streams")
+
+        return result
+
+    def reassign_group_channels(self, group_id: int) -> dict:
+        """Reassign ALL channels in a group to their correct range.
+
+        V1 Parity: Called during EPG generation when AUTO sort order changes
+        or MANUAL start changes. Compacts channels to fill gaps.
+
+        Args:
+            group_id: Event EPG group ID
+
+        Returns:
+            Dict with reassigned, already_correct, and errors
+        """
+        from teamarr.database.channels import (
+            get_managed_channels_for_group,
+            log_channel_history,
+            update_managed_channel,
+        )
+        from teamarr.database.channel_numbers import get_group_channel_range
+        from teamarr.database.groups import get_group
+
+        result = {
+            "reassigned": [],
+            "already_correct": [],
+            "errors": [],
+        }
+
+        try:
+            with self._db_factory() as conn:
+                group = get_group(conn, group_id)
+                if not group:
+                    result["errors"].append({"error": f"Group {group_id} not found"})
+                    return result
+
+                # Get expected range for this group
+                range_start, range_end = get_group_channel_range(conn, group_id)
+                if range_start is None:
+                    # No range configured - skip
+                    return result
+
+                # Get and sort active channels by current number
+                channels = get_managed_channels_for_group(conn, group_id)
+                if not channels:
+                    return result
+
+                # Sort by current channel number to maintain relative order
+                sorted_channels = sorted(
+                    channels, key=lambda c: int(c.channel_number) if c.channel_number else 9999
+                )
+
+                # Reassign to compact range
+                next_number = range_start
+                for channel in sorted_channels:
+                    current_number = int(channel.channel_number) if channel.channel_number else None
+
+                    if current_number == next_number:
+                        # Already at correct position
+                        result["already_correct"].append(
+                            {
+                                "channel_id": channel.dispatcharr_channel_id,
+                                "channel_number": current_number,
+                            }
+                        )
+                        next_number += 1
+                        continue
+
+                    # Check for overflow
+                    if range_end and next_number > range_end:
+                        result["errors"].append(
+                            {
+                                "channel_id": channel.dispatcharr_channel_id,
+                                "channel_name": channel.channel_name,
+                                "error": f"Range exhausted (max {range_end})",
+                            }
+                        )
+                        continue
+
+                    # Check Dispatcharr max
+                    if next_number > 9999:
+                        result["errors"].append(
+                            {
+                                "channel_id": channel.dispatcharr_channel_id,
+                                "channel_name": channel.channel_name,
+                                "error": "Exceeds Dispatcharr max (9999)",
+                            }
+                        )
+                        continue
+
+                    # Update Dispatcharr
+                    if self._channel_manager:
+                        with self._dispatcharr_lock:
+                            self._channel_manager.update_channel(
+                                channel.dispatcharr_channel_id,
+                                {"channel_number": next_number},
+                            )
+
+                    # Update DB
+                    update_managed_channel(conn, channel.id, {"channel_number": next_number})
+
+                    # Log history
+                    log_channel_history(
+                        conn=conn,
+                        managed_channel_id=channel.id,
+                        change_type="modified",
+                        change_source="lifecycle",
+                        notes=f"Channel number: {current_number} → {next_number}",
+                    )
+
+                    result["reassigned"].append(
+                        {
+                            "channel_id": channel.dispatcharr_channel_id,
+                            "channel_name": channel.channel_name,
+                            "old_number": current_number,
+                            "new_number": next_number,
+                        }
+                    )
+
+                    next_number += 1
+
+        except Exception as e:
+            logger.exception(f"Error reassigning channels for group {group_id}")
+            result["errors"].append({"error": str(e)})
+
+        if result["reassigned"]:
+            logger.info(f"Reassigned {len(result['reassigned'])} channels in group {group_id}")
+
+        return result
+
+    def reassign_all_auto_groups(self) -> dict:
+        """Reassign ALL AUTO groups to their correct ranges.
+
+        V1 Parity: Called at the start of EPG generation to ensure
+        all AUTO groups have correct non-overlapping ranges based on
+        current channel counts and sort order.
+
+        This handles the case where:
+        - Group A (sort=1) expands and needs more channels
+        - Group B (sort=2) has channels in Group A's expanded range
+        - Group B's channels must move to make room
+
+        Returns:
+            Dict with total stats across all groups
+        """
+        from teamarr.database.channels import (
+            get_managed_channels_for_group,
+            log_channel_history,
+            update_managed_channel,
+        )
+        from teamarr.database.channel_numbers import (
+            get_global_channel_range,
+            _get_total_stream_count,
+            _calculate_blocks_needed,
+        )
+
+        result = {
+            "groups_processed": 0,
+            "channels_reassigned": 0,
+            "errors": [],
+        }
+
+        try:
+            with self._db_factory() as conn:
+                # Get global channel range
+                range_start, range_end = get_global_channel_range(conn)
+
+                # Get all AUTO groups sorted by sort_order
+                auto_groups = conn.execute(
+                    """SELECT id, name, sort_order
+                       FROM event_epg_groups
+                       WHERE channel_assignment_mode = 'auto'
+                         AND parent_group_id IS NULL
+                         AND enabled = 1
+                       ORDER BY sort_order ASC"""
+                ).fetchall()
+
+                if not auto_groups:
+                    return result
+
+                # Calculate ideal ranges for each group based on raw stream count
+                group_ranges = []
+                current_start = range_start
+                for grp in auto_groups:
+                    group_id = grp["id"]
+                    # Use total_stream_count (raw M3U) for range reservation
+                    total_streams = _get_total_stream_count(conn, group_id)
+                    blocks_needed = _calculate_blocks_needed(total_streams)
+                    group_end = current_start + (blocks_needed * 10) - 1
+
+                    group_ranges.append({
+                        "id": group_id,
+                        "name": grp["name"],
+                        "ideal_start": current_start,
+                        "ideal_end": group_end,
+                        "stream_count": total_streams,
+                    })
+
+                    current_start = group_end + 1
+
+                # Process each group and reassign channels if needed
+                for grp_range in group_ranges:
+                    group_id = grp_range["id"]
+                    ideal_start = grp_range["ideal_start"]
+
+                    # Get channels for this group sorted by current number
+                    channels = get_managed_channels_for_group(conn, group_id)
+                    if not channels:
+                        continue
+
+                    sorted_channels = sorted(
+                        channels,
+                        key=lambda c: int(c.channel_number) if c.channel_number else 9999
+                    )
+
+                    # Reassign to ideal range
+                    next_number = ideal_start
+                    for channel in sorted_channels:
+                        current_num = (
+                            int(channel.channel_number) if channel.channel_number else None
+                        )
+
+                        if current_num == next_number:
+                            next_number += 1
+                            continue
+
+                        # Need to reassign
+                        if self._channel_manager:
+                            with self._dispatcharr_lock:
+                                self._channel_manager.update_channel(
+                                    channel.dispatcharr_channel_id,
+                                    {"channel_number": next_number},
+                                )
+
+                        update_managed_channel(
+                            conn, channel.id, {"channel_number": next_number}
+                        )
+
+                        log_channel_history(
+                            conn=conn,
+                            managed_channel_id=channel.id,
+                            change_type="modified",
+                            change_source="lifecycle",
+                            notes=f"Channel number: {current_num} → {next_number}",
+                        )
+
+                        result["channels_reassigned"] += 1
+                        next_number += 1
+
+                    result["groups_processed"] += 1
+
+        except Exception as e:
+            logger.exception("Error in global AUTO group reassignment")
+            result["errors"].append({"error": str(e)})
+
+        if result["channels_reassigned"]:
+            logger.info(
+                f"Global reassignment: {result['channels_reassigned']} channels "
+                f"across {result['groups_processed']} groups"
+            )
 
         return result
 

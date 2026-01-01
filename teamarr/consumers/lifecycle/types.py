@@ -70,6 +70,7 @@ class StreamProcessResult:
     skipped: list[dict] = field(default_factory=list)
     errors: list[dict] = field(default_factory=list)
     streams_added: list[dict] = field(default_factory=list)
+    streams_removed: list[dict] = field(default_factory=list)  # V1 parity
     logo_updated: list[dict] = field(default_factory=list)
     settings_updated: list[dict] = field(default_factory=list)
     deleted: list[dict] = field(default_factory=list)
@@ -81,6 +82,7 @@ class StreamProcessResult:
         self.skipped.extend(other.skipped)
         self.errors.extend(other.errors)
         self.streams_added.extend(other.streams_added)
+        self.streams_removed.extend(other.streams_removed)
         self.logo_updated.extend(other.logo_updated)
         self.settings_updated.extend(other.settings_updated)
         self.deleted.extend(other.deleted)
@@ -93,6 +95,7 @@ class StreamProcessResult:
             "skipped": self.skipped,
             "errors": self.errors,
             "streams_added": self.streams_added,
+            "streams_removed": self.streams_removed,
             "logo_updated": self.logo_updated,
             "settings_updated": self.settings_updated,
             "deleted": self.deleted,
@@ -101,6 +104,8 @@ class StreamProcessResult:
                 "existing_count": len(self.existing),
                 "skipped_count": len(self.skipped),
                 "error_count": len(self.errors),
+                "streams_removed_count": len(self.streams_removed),
+                "deleted_count": len(self.deleted),
             },
         }
 

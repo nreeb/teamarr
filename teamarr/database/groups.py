@@ -575,6 +575,7 @@ def update_group_stats(
     filtered_include_regex: int = 0,
     filtered_exclude_regex: int = 0,
     filtered_no_match: int = 0,
+    total_stream_count: int | None = None,
 ) -> bool:
     """Update processing stats for a group after EPG generation.
 
@@ -586,21 +587,36 @@ def update_group_stats(
         filtered_include_regex: Streams filtered by include regex
         filtered_exclude_regex: Streams filtered by exclude regex
         filtered_no_match: Streams with no event match
+        total_stream_count: Total streams fetched (before filtering) for range reservation
 
     Returns:
         True if updated
     """
-    cursor = conn.execute(
-        """UPDATE event_epg_groups
-           SET last_refresh = datetime('now'),
-               stream_count = ?,
-               matched_count = ?,
-               filtered_include_regex = ?,
-               filtered_exclude_regex = ?,
-               filtered_no_match = ?
-           WHERE id = ?""",
-        (stream_count, matched_count, filtered_include_regex, filtered_exclude_regex, filtered_no_match, group_id),
-    )
+    if total_stream_count is not None:
+        cursor = conn.execute(
+            """UPDATE event_epg_groups
+               SET last_refresh = datetime('now'),
+                   stream_count = ?,
+                   matched_count = ?,
+                   filtered_include_regex = ?,
+                   filtered_exclude_regex = ?,
+                   filtered_no_match = ?,
+                   total_stream_count = ?
+               WHERE id = ?""",
+            (stream_count, matched_count, filtered_include_regex, filtered_exclude_regex, filtered_no_match, total_stream_count, group_id),
+        )
+    else:
+        cursor = conn.execute(
+            """UPDATE event_epg_groups
+               SET last_refresh = datetime('now'),
+                   stream_count = ?,
+                   matched_count = ?,
+                   filtered_include_regex = ?,
+                   filtered_exclude_regex = ?,
+                   filtered_no_match = ?
+               WHERE id = ?""",
+            (stream_count, matched_count, filtered_include_regex, filtered_exclude_regex, filtered_no_match, group_id),
+        )
     return cursor.rowcount > 0
 
 
