@@ -203,7 +203,7 @@ export function Templates() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Templates</h1>
@@ -252,6 +252,7 @@ export function Templates() {
                   <TableHead>Name</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Usage</TableHead>
+                  <TableHead>Created</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -286,6 +287,15 @@ export function Templates() {
                           </Badge>
                         )
                       )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {template.created_at
+                        ? new Date(template.created_at).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })
+                        : "—"}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-1">
@@ -348,6 +358,23 @@ export function Templates() {
               Are you sure you want to delete "{deleteConfirm?.name}"? This cannot be undone.
             </DialogDescription>
           </DialogHeader>
+
+          {/* Usage warning */}
+          {deleteConfirm && (
+            (deleteConfirm.template_type === "team" && deleteConfirm.team_count && deleteConfirm.team_count > 0) ||
+            (deleteConfirm.template_type === "event" && deleteConfirm.group_count && deleteConfirm.group_count > 0)
+          ) && (
+            <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3 text-sm">
+              <p className="font-medium text-destructive">Warning</p>
+              <p className="text-muted-foreground mt-1">
+                {deleteConfirm.template_type === "team"
+                  ? `${deleteConfirm.team_count} team${deleteConfirm.team_count !== 1 ? "s are" : " is"} currently using this template. They will become unassigned and won't generate EPG data until you assign them a new template.`
+                  : `${deleteConfirm.group_count} event group${deleteConfirm.group_count !== 1 ? "s are" : " is"} currently using this template. They will become unassigned and won't generate EPG data until you assign them a new template.`
+                }
+              </p>
+            </div>
+          )}
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteConfirm(null)}>
               Cancel

@@ -47,24 +47,24 @@ export function MainLayout() {
     <div className="min-h-screen bg-background text-foreground">
       {/* Navbar */}
       <nav className="border-b border-border bg-secondary/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-[96rem] mx-auto px-4">
-          <div className="flex items-center justify-between h-14">
+        <div className="max-w-[1440px] mx-auto px-4">
+          <div className="flex items-center justify-between h-12">
             {/* Brand */}
-            <Link to="/" className="flex items-center gap-3">
+            <Link to="/" className="flex items-center gap-2">
               <img
                 src="/logo.svg"
                 alt="Teamarr"
-                className="h-8 w-8"
+                className="h-7 w-7"
                 onError={(e) => {
                   e.currentTarget.style.display = "none"
                 }}
               />
               <div className="flex flex-col">
-                <span className="font-semibold text-lg leading-tight">
+                <span className="font-semibold leading-tight">
                   Teamarr
                 </span>
-                <span className="text-xs text-muted-foreground leading-tight hidden sm:block">
-                  Dynamic Sports EPG Generator for Dispatcharr
+                <span className="text-[10px] text-muted-foreground leading-tight hidden sm:block">
+                  Sports EPG Generator for Dispatcharr
                 </span>
               </div>
             </Link>
@@ -110,13 +110,13 @@ export function MainLayout() {
       </nav>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 py-6">
+      <main className="max-w-[1440px] mx-auto px-4 py-4">
         <Outlet />
       </main>
 
       {/* Footer */}
       <footer className="border-t border-border mt-auto">
-        <div className="max-w-7xl mx-auto px-4 py-4">
+        <div className="max-w-[1440px] mx-auto px-4 py-3">
           <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
             <img
               src="/logo.svg"

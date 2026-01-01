@@ -106,3 +106,8 @@ body {
   outline: 2px solid var(--color-ring);
   outline-offset: 2px;
 }
+
+/* V1-like compact badge sizing */
+.badge {
+  padding-block: 0.125rem;
+}

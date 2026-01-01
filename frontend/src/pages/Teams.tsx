@@ -9,6 +9,9 @@ import {
   Search,
   Filter,
   X,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -71,6 +74,8 @@ async function fetchLeagues(): Promise<{ slug: string; logo_url: string | null; 
 }
 
 type ActiveFilter = "all" | "active" | "inactive"
+type SortColumn = "team" | "league" | "sport" | "template" | "channel" | "status" | null
+type SortDirection = "asc" | "desc"
 
 interface TeamUpdate {
   team_name?: string
@@ -223,8 +228,14 @@ export function Teams() {
   // Filter state
   const [searchFilter, setSearchFilter] = useState("")
   const [leagueFilter, setLeagueFilter] = useState<string>("")
+  const [sportFilter, setSportFilter] = useState<string>("")
+  const [templateFilter, setTemplateFilter] = useState<string>("")
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>("all")
   const [showFilters, setShowFilters] = useState(false)
+
+  // Sorting state
+  const [sortColumn, setSortColumn] = useState<SortColumn>(null)
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
 
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
@@ -232,6 +243,11 @@ export function Teams() {
   const [bulkTemplateId, setBulkTemplateId] = useState<number | null>(null)
   const [showBulkTemplate, setShowBulkTemplate] = useState(false)
   const [showBulkDelete, setShowBulkDelete] = useState(false)
+  const [showBulkChannelId, setShowBulkChannelId] = useState(false)
+  const [channelIdMode, setChannelIdMode] = useState<"default" | "custom">("default")
+  const [customChannelIdFormat, setCustomChannelIdFormat] = useState("")
+  const [isUpdatingChannelIds, setIsUpdatingChannelIds] = useState(false)
+  const defaultChannelIdFormat = "{team_name_pascal}.{league_id}"
 
   // Edit dialog state
   const [showDialog, setShowDialog] = useState(false)
@@ -243,6 +259,13 @@ export function Teams() {
     if (!teams) return []
     const uniqueLeagues = [...new Set(teams.map((t) => t.primary_league))]
     return uniqueLeagues.sort()
+  }, [teams])
+
+  // Get unique sports from teams
+  const sports = useMemo(() => {
+    if (!teams) return []
+    const uniqueSports = [...new Set(teams.map((t) => t.sport))]
+    return uniqueSports.sort()
   }, [teams])
 
   // Filter templates to only show team templates
@@ -274,10 +297,12 @@ export function Teams() {
     }
   }, [teams])
 
-  // Filter teams
+  // Filter and sort teams
   const filteredTeams = useMemo(() => {
     if (!teams) return []
-    return teams.filter((team) => {
+
+    // First filter
+    let result = teams.filter((team) => {
       // Search filter
       if (searchFilter) {
         const q = searchFilter.toLowerCase()
@@ -293,19 +318,96 @@ export function Teams() {
       // League filter - match if any of the team's leagues match
       if (leagueFilter && !team.leagues.includes(leagueFilter)) return false
 
+      // Sport filter
+      if (sportFilter && team.sport !== sportFilter) return false
+
+      // Template filter
+      if (templateFilter) {
+        if (templateFilter === "_unassigned") {
+          if (team.template_id !== null) return false
+        } else {
+          if (team.template_id?.toString() !== templateFilter) return false
+        }
+      }
+
       // Active filter
       if (activeFilter === "active" && !team.active) return false
       if (activeFilter === "inactive" && team.active) return false
 
       return true
     })
-  }, [teams, searchFilter, leagueFilter, activeFilter])
+
+    // Then sort
+    if (sortColumn) {
+      result = [...result].sort((a, b) => {
+        let aVal: string
+        let bVal: string
+
+        switch (sortColumn) {
+          case "team":
+            aVal = a.team_name.toLowerCase()
+            bVal = b.team_name.toLowerCase()
+            break
+          case "league":
+            aVal = a.primary_league.toLowerCase()
+            bVal = b.primary_league.toLowerCase()
+            break
+          case "sport":
+            aVal = a.sport.toLowerCase()
+            bVal = b.sport.toLowerCase()
+            break
+          case "template":
+            aVal = (teamTemplates.find((t) => t.id === a.template_id)?.name ?? "zzz").toLowerCase()
+            bVal = (teamTemplates.find((t) => t.id === b.template_id)?.name ?? "zzz").toLowerCase()
+            break
+          case "channel":
+            aVal = a.channel_id.toLowerCase()
+            bVal = b.channel_id.toLowerCase()
+            break
+          case "status":
+            aVal = a.active ? "active" : "inactive"
+            bVal = b.active ? "active" : "inactive"
+            break
+          default:
+            return 0
+        }
+
+        if (aVal < bVal) return sortDirection === "asc" ? -1 : 1
+        if (aVal > bVal) return sortDirection === "asc" ? 1 : -1
+        return 0
+      })
+    }
+
+    return result
+  }, [teams, searchFilter, leagueFilter, sportFilter, templateFilter, activeFilter, sortColumn, sortDirection, teamTemplates])
 
   // Clear selection when filters change
   useEffect(() => {
     setSelectedIds(new Set())
     setLastClickedIndex(null)
-  }, [searchFilter, leagueFilter, activeFilter])
+  }, [searchFilter, leagueFilter, sportFilter, templateFilter, activeFilter])
+
+  // Handle column sort
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      // Toggle direction if same column
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc")
+    } else {
+      // New column, start with ascending
+      setSortColumn(column)
+      setSortDirection("asc")
+    }
+  }
+
+  // Render sort icon
+  const renderSortIcon = (column: SortColumn) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="h-3 w-3 ml-1 opacity-50" />
+    }
+    return sortDirection === "asc"
+      ? <ArrowUp className="h-3 w-3 ml-1" />
+      : <ArrowDown className="h-3 w-3 ml-1" />
+  }
 
   const openEdit = (team: Team) => {
     setEditingTeam(team)
@@ -421,11 +523,52 @@ export function Teams() {
     setShowBulkDelete(false)
   }
 
-  const hasActiveFilters = searchFilter || leagueFilter || activeFilter !== "all"
+  const handleBulkUpdateChannelIds = async () => {
+    const formatTemplate = channelIdMode === "default" ? defaultChannelIdFormat : customChannelIdFormat
+    if (!formatTemplate.trim()) {
+      toast.error("Please enter a format template")
+      return
+    }
+
+    setIsUpdatingChannelIds(true)
+    try {
+      const response = await fetch("/api/v1/teams/bulk-channel-id", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          team_ids: Array.from(selectedIds),
+          format_template: formatTemplate,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (response.ok && result.updated > 0) {
+        toast.success(`Updated channel IDs for ${result.updated} team(s)`)
+        refetch()
+        setSelectedIds(new Set())
+        setShowBulkChannelId(false)
+        setChannelIdMode("default")
+        setCustomChannelIdFormat("")
+      } else if (result.errors?.length > 0) {
+        toast.error(result.errors[0])
+      } else {
+        toast.error("Failed to update channel IDs")
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update channel IDs")
+    } finally {
+      setIsUpdatingChannelIds(false)
+    }
+  }
+
+  const hasActiveFilters = searchFilter || leagueFilter || sportFilter || templateFilter || activeFilter !== "all"
 
   const clearFilters = () => {
     setSearchFilter("")
     setLeagueFilter("")
+    setSportFilter("")
+    setTemplateFilter("")
     setActiveFilter("all")
   }
 
@@ -446,7 +589,7 @@ export function Teams() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -605,7 +748,7 @@ export function Teams() {
               Filters
               {hasActiveFilters && (
                 <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 justify-center">
-                  {(leagueFilter ? 1 : 0) + (activeFilter !== "all" ? 1 : 0)}
+                  {(leagueFilter ? 1 : 0) + (sportFilter ? 1 : 0) + (templateFilter ? 1 : 0) + (activeFilter !== "all" ? 1 : 0)}
                 </Badge>
               )}
             </Button>
@@ -632,6 +775,37 @@ export function Teams() {
                   {leagues.map((league) => (
                     <option key={league} value={league}>
                       {league}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Sport</Label>
+                <Select
+                  value={sportFilter}
+                  onChange={(e) => setSportFilter(e.target.value)}
+                  className="w-32"
+                >
+                  <option value="">All sports</option>
+                  {sports.map((sport) => (
+                    <option key={sport} value={sport}>
+                      {sport.charAt(0).toUpperCase() + sport.slice(1)}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Template</Label>
+                <Select
+                  value={templateFilter}
+                  onChange={(e) => setTemplateFilter(e.target.value)}
+                  className="w-40"
+                >
+                  <option value="">All templates</option>
+                  <option value="_unassigned">Unassigned</option>
+                  {teamTemplates.map((template) => (
+                    <option key={template.id} value={template.id.toString()}>
+                      {template.name}
                     </option>
                   ))}
                 </Select>
@@ -694,6 +868,14 @@ export function Teams() {
               Assign Template
             </Button>
             <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowBulkChannelId(true)}
+              disabled={selectedIds.size === 0}
+            >
+              Change Channel ID
+            </Button>
+            <Button
               variant="destructive"
               size="sm"
               onClick={() => setShowBulkDelete(true)}
@@ -742,12 +924,54 @@ export function Teams() {
                       onCheckedChange={toggleSelectAll}
                     />
                   </TableHead>
-                  <TableHead>Team</TableHead>
-                  <TableHead className="w-16">League</TableHead>
-                  <TableHead className="w-14">Sport</TableHead>
-                  <TableHead>Channel ID</TableHead>
-                  <TableHead>Template</TableHead>
-                  <TableHead className="w-16">Status</TableHead>
+                  <TableHead
+                    className="cursor-pointer select-none hover:bg-muted/50"
+                    onClick={() => handleSort("team")}
+                  >
+                    <div className="flex items-center">
+                      Team{renderSortIcon("team")}
+                    </div>
+                  </TableHead>
+                  <TableHead
+                    className="w-16 cursor-pointer select-none hover:bg-muted/50"
+                    onClick={() => handleSort("league")}
+                  >
+                    <div className="flex items-center">
+                      League{renderSortIcon("league")}
+                    </div>
+                  </TableHead>
+                  <TableHead
+                    className="w-14 cursor-pointer select-none hover:bg-muted/50"
+                    onClick={() => handleSort("sport")}
+                  >
+                    <div className="flex items-center">
+                      Sport{renderSortIcon("sport")}
+                    </div>
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer select-none hover:bg-muted/50"
+                    onClick={() => handleSort("channel")}
+                  >
+                    <div className="flex items-center">
+                      Channel ID{renderSortIcon("channel")}
+                    </div>
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer select-none hover:bg-muted/50"
+                    onClick={() => handleSort("template")}
+                  >
+                    <div className="flex items-center">
+                      Template{renderSortIcon("template")}
+                    </div>
+                  </TableHead>
+                  <TableHead
+                    className="w-16 cursor-pointer select-none hover:bg-muted/50"
+                    onClick={() => handleSort("status")}
+                  >
+                    <div className="flex items-center">
+                      Status{renderSortIcon("status")}
+                    </div>
+                  </TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -992,6 +1216,80 @@ export function Teams() {
             >
               {deleteMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Delete {selectedIds.size} Team{selectedIds.size !== 1 && "s"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Channel ID Modal */}
+      <Dialog open={showBulkChannelId} onOpenChange={setShowBulkChannelId}>
+        <DialogContent className="max-w-lg" onClose={() => setShowBulkChannelId(false)}>
+          <DialogHeader>
+            <DialogTitle>Change Channel ID</DialogTitle>
+            <DialogDescription>
+              Update channel IDs for {selectedIds.size} selected team{selectedIds.size !== 1 && "s"}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="channel_id_mode"
+                  checked={channelIdMode === "default"}
+                  onChange={() => setChannelIdMode("default")}
+                  className="w-4 h-4"
+                />
+                <span>Use Global Default Format</span>
+              </label>
+              <p className="text-sm text-muted-foreground ml-6">
+                Current: <code className="bg-muted px-1 py-0.5 rounded text-xs">{defaultChannelIdFormat}</code>
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="channel_id_mode"
+                  checked={channelIdMode === "custom"}
+                  onChange={() => setChannelIdMode("custom")}
+                  className="w-4 h-4"
+                />
+                <span>Use Custom Format</span>
+              </label>
+
+              {channelIdMode === "custom" && (
+                <div className="ml-6 space-y-2">
+                  <Input
+                    value={customChannelIdFormat}
+                    onChange={(e) => setCustomChannelIdFormat(e.target.value)}
+                    placeholder="{team_name_pascal}.{league_id}"
+                  />
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <p className="font-medium">Available variables:</p>
+                    <div className="grid grid-cols-2 gap-1">
+                      <span><code>{"{team_name_pascal}"}</code> - PascalCase</span>
+                      <span><code>{"{team_abbrev}"}</code> - Abbreviation</span>
+                      <span><code>{"{team_name}"}</code> - lowercase-dashes</span>
+                      <span><code>{"{league_id}"}</code> - league code</span>
+                      <span><code>{"{league}"}</code> - League Name</span>
+                      <span><code>{"{sport}"}</code> - sport name</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBulkChannelId(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleBulkUpdateChannelIds} disabled={isUpdatingChannelIds}>
+              {isUpdatingChannelIds && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Apply to {selectedIds.size} Team{selectedIds.size !== 1 && "s"}
             </Button>
           </DialogFooter>
         </DialogContent>

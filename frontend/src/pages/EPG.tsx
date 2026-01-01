@@ -252,7 +252,7 @@ export function EPG() {
                    (analysis?.coverage_gaps?.length ?? 0) > 0
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">EPG Management</h1>

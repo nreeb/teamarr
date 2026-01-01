@@ -238,3 +238,116 @@ def bulk_import_teams(request: BulkImportRequest):
                 imported += 1
 
     return BulkImportResponse(imported=imported, updated=updated, skipped=skipped)
+
+
+class BulkChannelIdRequest(BaseModel):
+    """Bulk channel ID update request."""
+
+    team_ids: list[int]
+    format_template: str
+
+
+class BulkChannelIdResponse(BaseModel):
+    """Bulk channel ID update response."""
+
+    updated: int
+    errors: list[str]
+
+
+def to_pascal_case(name: str) -> str:
+    """Convert a string to PascalCase."""
+    return "".join(
+        word.capitalize()
+        for word in "".join(c if c.isalnum() or c.isspace() else "" for c in name).split()
+    )
+
+
+@router.post("/teams/bulk-channel-id", response_model=BulkChannelIdResponse)
+def bulk_update_channel_ids(request: BulkChannelIdRequest):
+    """Bulk update channel IDs based on a format template.
+
+    Supported format variables:
+    - {team_name_pascal}: Team name in PascalCase (e.g., "MichiganWolverines")
+    - {team_abbrev}: Team abbreviation lowercase (e.g., "mich")
+    - {team_name}: Team name lowercase with dashes (e.g., "michigan-wolverines")
+    - {provider_team_id}: Provider's team ID
+    - {league_id}: League code lowercase (e.g., "ncaam")
+    - {league}: League display name (e.g., "NCAAM")
+    - {sport}: Sport name lowercase (e.g., "basketball")
+    """
+    import re
+
+    from teamarr.database.leagues import get_league_id, get_league_display
+
+    if not request.team_ids:
+        return BulkChannelIdResponse(updated=0, errors=["No teams selected"])
+
+    if not request.format_template:
+        return BulkChannelIdResponse(updated=0, errors=["No format template provided"])
+
+    updated_count = 0
+    errors: list[str] = []
+
+    with get_db() as conn:
+        for team_id in request.team_ids:
+            try:
+                cursor = conn.execute("SELECT * FROM teams WHERE id = ?", (team_id,))
+                row = cursor.fetchone()
+                if not row:
+                    errors.append(f"Team ID {team_id} not found")
+                    continue
+
+                team_data = dict(row)
+                team_name = team_data.get("team_name", "")
+                primary_league = team_data.get("primary_league", "")
+
+                # Get league display name and ID
+                league_display = get_league_display(conn, primary_league)
+                league_id = get_league_id(conn, primary_league)
+
+                # Generate channel ID from format template
+                channel_id = request.format_template
+                channel_id = channel_id.replace("{team_name_pascal}", to_pascal_case(team_name))
+                channel_id = channel_id.replace(
+                    "{team_abbrev}", (team_data.get("team_abbrev") or "").lower()
+                )
+                channel_id = channel_id.replace(
+                    "{team_name}", team_name.lower().replace(" ", "-")
+                )
+                channel_id = channel_id.replace(
+                    "{provider_team_id}", str(team_data.get("provider_team_id") or "")
+                )
+                channel_id = channel_id.replace("{league_id}", league_id)
+                channel_id = channel_id.replace("{league}", league_display)
+                channel_id = channel_id.replace(
+                    "{sport}", (team_data.get("sport") or "").lower()
+                )
+
+                # Clean up channel ID
+                if (
+                    "{team_name_pascal}" in request.format_template
+                    or "{league}" in request.format_template
+                ):
+                    # Allow uppercase letters for PascalCase
+                    channel_id = re.sub(r"[^a-zA-Z0-9.-]+", "", channel_id)
+                else:
+                    # Lowercase only
+                    channel_id = re.sub(r"[^a-z0-9.-]+", "-", channel_id)
+                    channel_id = re.sub(r"-+", "-", channel_id)
+                    channel_id = channel_id.strip("-")
+
+                if not channel_id:
+                    errors.append(f"Generated empty channel ID for team '{team_name}'")
+                    continue
+
+                # Update the team's channel_id
+                conn.execute(
+                    "UPDATE teams SET channel_id = ? WHERE id = ?",
+                    (channel_id, team_id),
+                )
+                updated_count += 1
+
+            except Exception as e:
+                errors.append(f"Error updating team ID {team_id}: {str(e)}")
+
+    return BulkChannelIdResponse(updated=updated_count, errors=errors[:5])

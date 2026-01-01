@@ -61,6 +61,31 @@ def get_league_id(conn: sqlite3.Connection, league_code: str) -> str:
     return league_code
 
 
+def get_league_display(conn: sqlite3.Connection, league_code: str) -> str:
+    """Get the display name for a league.
+
+    Returns league_alias if configured, otherwise display_name, otherwise league_code.
+
+    Args:
+        conn: Database connection
+        league_code: Raw league code (e.g., 'eng.1', 'college-football')
+
+    Returns:
+        Display name (e.g., 'EPL', 'NCAAF') if configured, otherwise league_code
+    """
+    cursor = conn.execute(
+        "SELECT league_alias, display_name FROM leagues WHERE league_code = ?",
+        (league_code,),
+    )
+    row = cursor.fetchone()
+    if row:
+        if row["league_alias"]:
+            return row["league_alias"]
+        if row["display_name"]:
+            return row["display_name"]
+    return league_code.upper()
+
+
 def get_league_mapping(
     conn: sqlite3.Connection, league_code: str, provider: str
 ) -> LeagueMapping | None:
