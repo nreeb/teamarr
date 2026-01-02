@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useCallback } from "react"
 import { toast } from "sonner"
+import { useQuery } from "@tanstack/react-query"
 import {
   Play,
   Download,
@@ -17,11 +18,14 @@ import {
   ChevronUp,
   Search,
   FileText,
+  Plus,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select } from "@/components/ui/select"
 import {
   Table,
   TableBody,
@@ -30,6 +34,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog"
 import { useGenerationProgress } from "@/contexts/GenerationContext"
 import { useDateFormat } from "@/hooks/useDateFormat"
 import {
@@ -38,7 +50,15 @@ import {
   useEPGAnalysis,
   useEPGContent,
 } from "@/hooks/useEPG"
-import { getTeamXmltvUrl } from "@/api/epg"
+import {
+  getTeamXmltvUrl,
+  getMatchedStreams,
+  getFailedMatches,
+} from "@/api/epg"
+import { getLeagues, getLeagueTeams } from "@/api/teams"
+import { useCreateAlias } from "@/api/aliases"
+import type { FailedMatch } from "@/api/epg"
+import type { CachedLeague } from "@/api/teams"
 
 function formatDuration(ms: number | null): string {
   if (!ms) return "-"
@@ -62,6 +82,44 @@ function formatDateRange(start: string | null, end: string | null): string {
   return `${formatDate(start)} - ${formatDate(end)}`
 }
 
+function getMatchMethodBadge(method: string | null) {
+  switch (method) {
+    case "cache":
+      return <Badge variant="secondary">Cache</Badge>
+    case "user_corrected":
+      return <Badge variant="success">User Fixed</Badge>
+    case "alias":
+      return <Badge variant="info">Alias</Badge>
+    case "pattern":
+      return <Badge variant="outline">Pattern</Badge>
+    case "fuzzy":
+      return <Badge variant="warning">Fuzzy</Badge>
+    case "keyword":
+      return <Badge variant="secondary">Keyword</Badge>
+    case "direct":
+      return <Badge variant="success">Direct</Badge>
+    default:
+      return <Badge variant="outline">{method ?? "Unknown"}</Badge>
+  }
+}
+
+function getFailReasonBadge(reason: string) {
+  switch (reason) {
+    case "unmatched":
+      return <Badge variant="destructive">Unmatched</Badge>
+    case "excluded_league":
+      return <Badge variant="warning">Excluded League</Badge>
+    case "filtered_include":
+      return <Badge variant="secondary">Filtered (Include)</Badge>
+    case "filtered_exclude":
+      return <Badge variant="secondary">Filtered (Exclude)</Badge>
+    case "exception":
+      return <Badge variant="outline">Exception</Badge>
+    default:
+      return <Badge variant="outline">{reason}</Badge>
+  }
+}
+
 export function EPG() {
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useStats()
   const { data: runsData, isLoading: runsLoading, refetch: refetchRuns } = useRecentRuns(10, "full_epg")
@@ -77,6 +135,17 @@ export function EPG() {
   const [showLineNumbers, setShowLineNumbers] = useState(true)
   const previewRef = useRef<HTMLPreElement>(null)
 
+  // Modal states
+  const [matchedModalRunId, setMatchedModalRunId] = useState<number | null>(null)
+  const [failedModalRunId, setFailedModalRunId] = useState<number | null>(null)
+  const [aliasDialogOpen, setAliasDialogOpen] = useState(false)
+
+  // Alias form state
+  const [aliasText, setAliasText] = useState("")
+  const [selectedLeague, setSelectedLeague] = useState("")
+  const [selectedTeamId, setSelectedTeamId] = useState("")
+  const [teamSearchQuery, setTeamSearchQuery] = useState("")
+
   // Gap highlighting state
   const [highlightedGap, setHighlightedGap] = useState<{
     afterStop: string
@@ -87,6 +156,76 @@ export function EPG() {
 
   // EPG URL for IPTV apps
   const epgUrl = `${window.location.origin}${getTeamXmltvUrl()}`
+
+  // Fetch matched streams when modal is open
+  const { data: matchedData, isLoading: matchedLoading } = useQuery({
+    queryKey: ["matched-streams", matchedModalRunId],
+    queryFn: () => getMatchedStreams(matchedModalRunId ?? undefined),
+    enabled: matchedModalRunId !== null,
+  })
+
+  // Fetch failed matches when modal is open
+  const { data: failedData, isLoading: failedLoading } = useQuery({
+    queryKey: ["failed-matches", failedModalRunId],
+    queryFn: () => getFailedMatches(failedModalRunId ?? undefined),
+    enabled: failedModalRunId !== null,
+  })
+
+  // Fetch leagues for alias dialog
+  const { data: leaguesData, isLoading: leaguesLoading } = useQuery({
+    queryKey: ["cache", "leagues"],
+    queryFn: () => getLeagues(false),
+    enabled: aliasDialogOpen,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // Fetch teams when league selected
+  const { data: teamsData, isLoading: teamsLoading } = useQuery({
+    queryKey: ["cache", "leagues", selectedLeague, "teams"],
+    queryFn: () => getLeagueTeams(selectedLeague),
+    enabled: !!selectedLeague && aliasDialogOpen,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const createAliasMutation = useCreateAlias()
+
+  // Sort leagues by sport then name
+  const sortedLeagues = useMemo(() => {
+    if (!leaguesData?.leagues) return []
+    return [...leaguesData.leagues].sort((a, b) => {
+      const sportCompare = a.sport.localeCompare(b.sport)
+      if (sportCompare !== 0) return sportCompare
+      return a.name.localeCompare(b.name)
+    })
+  }, [leaguesData?.leagues])
+
+  // Group leagues by sport
+  const leaguesBySport = useMemo(() => {
+    const grouped: Record<string, CachedLeague[]> = {}
+    for (const league of sortedLeagues) {
+      if (!grouped[league.sport]) grouped[league.sport] = []
+      grouped[league.sport].push(league)
+    }
+    return grouped
+  }, [sortedLeagues])
+
+  // Filter teams by search
+  const filteredTeams = useMemo(() => {
+    if (!teamsData) return []
+    if (!teamSearchQuery) return teamsData
+    const query = teamSearchQuery.toLowerCase()
+    return teamsData.filter(
+      (t) =>
+        t.team_name.toLowerCase().includes(query) ||
+        t.team_abbrev?.toLowerCase().includes(query)
+    )
+  }, [teamsData, teamSearchQuery])
+
+  // Get selected team
+  const selectedTeam = useMemo(() => {
+    if (!selectedTeamId || !teamsData) return null
+    return teamsData.find((t) => t.provider_team_id === selectedTeamId) || null
+  }, [selectedTeamId, teamsData])
 
   const handleCopyUrl = async () => {
     try {
@@ -117,7 +256,6 @@ export function EPG() {
 
   const handleGenerate = () => {
     startGeneration(() => {
-      // Callback when generation completes
       refetchAnalysis()
       refetchRuns()
       refetchStats()
@@ -133,6 +271,32 @@ export function EPG() {
       toast.error("Failed to open XMLTV URL")
     } finally {
       setIsDownloading(false)
+    }
+  }
+
+  const handleOpenCreateAlias = (failedMatch: FailedMatch) => {
+    setAliasText(failedMatch.stream_name)
+    setSelectedLeague(failedMatch.detected_league ?? "")
+    setSelectedTeamId("")
+    setTeamSearchQuery("")
+    setAliasDialogOpen(true)
+  }
+
+  const handleCreateAlias = async () => {
+    if (!selectedTeam || !selectedLeague || !aliasText.trim()) return
+
+    try {
+      await createAliasMutation.mutateAsync({
+        alias: aliasText.toLowerCase().trim(),
+        league: selectedLeague,
+        team_id: selectedTeam.provider_team_id,
+        team_name: selectedTeam.team_name,
+        provider: selectedTeam.provider,
+      })
+      toast.success("Alias created successfully")
+      setAliasDialogOpen(false)
+    } catch {
+      // Error shown by mutation
     }
   }
 
@@ -153,7 +317,7 @@ export function EPG() {
   const scrollToMatch = useCallback((matchIndex: number) => {
     if (!previewRef.current || searchMatches.length === 0) return
     const lineNumber = searchMatches[matchIndex]
-    const lineHeight = 20 // Approximate line height
+    const lineHeight = 20
     previewRef.current.scrollTop = lineNumber * lineHeight - 100
   }, [searchMatches])
 
@@ -171,12 +335,11 @@ export function EPG() {
     scrollToMatch(prev)
   }
 
-  // Highlighted XML content (supports search and gap highlighting)
+  // Highlighted XML content
   const highlightedContent = useMemo(() => {
     if (!epgContent?.content) return ""
     const lines = epgContent.content.split("\n")
 
-    // Gap highlighting mode
     if (highlightedGap) {
       const result: string[] = []
       let inProgramme = false
@@ -187,7 +350,6 @@ export function EPG() {
         const line = lines[i]
         const lineNum = showLineNumbers ? `${(i + 1).toString().padStart(4)} | ` : ""
 
-        // Check if this line starts a programme block we care about
         if (line.includes("<programme")) {
           if (line.includes(`stop="${highlightedGap.afterStop}"`)) {
             inProgramme = true
@@ -200,22 +362,18 @@ export function EPG() {
           }
         }
 
-        // Track lines in the programme block
         if (inProgramme) {
           if (!programmeLines.includes(i)) {
             programmeLines.push(i)
           }
         }
 
-        // Check if we're closing a programme block
         if (inProgramme && line.includes("</programme>")) {
           inProgramme = false
-          // Choose color based on whether this is before or after the gap
           const bgClass = programmeType === "before"
-            ? "bg-red-400/30"   // Light red for programme ending before gap
-            : "bg-blue-400/30"  // Light blue for programme starting after gap
+            ? "bg-red-400/30"
+            : "bg-blue-400/30"
 
-          // Output all lines in this block with highlighting
           for (const lineIdx of programmeLines) {
             const ln = showLineNumbers ? `${(lineIdx + 1).toString().padStart(4)} | ` : ""
             result.push(`<span class="${bgClass}">${ln}${escapeHtml(lines[lineIdx])}</span>`)
@@ -225,7 +383,6 @@ export function EPG() {
           continue
         }
 
-        // If not in a highlighted programme, just output normally
         if (!inProgramme) {
           result.push(`${lineNum}${escapeHtml(line)}`)
         }
@@ -233,7 +390,6 @@ export function EPG() {
       return result.join("\n")
     }
 
-    // Normal search highlighting mode
     return lines.map((line, idx) => {
       const lineNum = showLineNumbers ? `${(idx + 1).toString().padStart(4)} | ` : ""
       const isMatch = searchTerm && line.toLowerCase().includes(searchTerm.toLowerCase())
@@ -391,7 +547,7 @@ export function EPG() {
                   <div className="text-2xl font-bold">{analysis.channels.total}</div>
                   <div className="text-xs text-muted-foreground">Channels</div>
                   <div className="text-xs text-muted-foreground mt-1">
-                    {analysis.channels.team_based} team-based / {analysis.channels.event_based} event-based
+                    {analysis.channels.team_based} team / {analysis.channels.event_based} event
                   </div>
                 </div>
                 <div className="text-center p-3 bg-muted/50 rounded-lg">
@@ -459,7 +615,6 @@ export function EPG() {
                             key={idx}
                             className="text-xs bg-yellow-500/20 px-2 py-1 rounded cursor-pointer hover:bg-yellow-500/40"
                             onClick={() => {
-                              // Clear search and enable gap highlighting
                               setSearchTerm("")
                               setHighlightedGap({
                                 afterStop: gap.after_stop,
@@ -468,7 +623,6 @@ export function EPG() {
                                 beforeProgram: gap.before_program,
                               })
                               setShowXmlPreview(true)
-                              // Scroll to highlighted content after render
                               setTimeout(() => {
                                 if (previewRef.current) {
                                   const mark = previewRef.current.querySelector(".bg-red-400\\/30, .bg-blue-400\\/30")
@@ -551,7 +705,7 @@ export function EPG() {
                       onChange={(e) => {
                         setSearchTerm(e.target.value)
                         setCurrentMatch(0)
-                        setHighlightedGap(null) // Clear gap highlighting when searching
+                        setHighlightedGap(null)
                       }}
                       className="pl-8"
                     />
@@ -619,7 +773,7 @@ export function EPG() {
       <Card>
         <CardHeader>
           <CardTitle>Recent Runs</CardTitle>
-          <CardDescription>Latest EPG generation runs</CardDescription>
+          <CardDescription>Latest EPG generation runs (click Matched/Failed to view details)</CardDescription>
         </CardHeader>
         <CardContent>
           {runsLoading ? (
@@ -636,10 +790,10 @@ export function EPG() {
                 <TableRow>
                   <TableHead>Status</TableHead>
                   <TableHead>Generated At</TableHead>
-                  <TableHead>Teams</TableHead>
                   <TableHead>Events</TableHead>
-                  <TableHead>Filler</TableHead>
-                  <TableHead>Managed Channels</TableHead>
+                  <TableHead>Matched</TableHead>
+                  <TableHead>Failed</TableHead>
+                  <TableHead>Channels</TableHead>
                   <TableHead>Duration</TableHead>
                   <TableHead>Size</TableHead>
                 </TableRow>
@@ -661,10 +815,24 @@ export function EPG() {
                     <TableCell className="text-muted-foreground">
                       {formatDateTime(run.started_at)}
                     </TableCell>
-                    <TableCell>{(run.extra_metrics?.teams_processed as number) ?? 0}</TableCell>
                     <TableCell>{run.programmes?.events ?? 0}</TableCell>
-                    <TableCell>{(run.programmes?.pregame ?? 0) + (run.programmes?.postgame ?? 0) + (run.programmes?.idle ?? 0)}</TableCell>
-                    <TableCell>{run.channels?.active ?? (run.channels?.created ?? 0) + (run.channels?.updated ?? 0)}</TableCell>
+                    <TableCell>
+                      <button
+                        className="text-green-600 hover:underline font-medium"
+                        onClick={() => setMatchedModalRunId(run.id)}
+                      >
+                        {run.streams?.matched ?? 0}
+                      </button>
+                    </TableCell>
+                    <TableCell>
+                      <button
+                        className="text-red-600 hover:underline font-medium"
+                        onClick={() => setFailedModalRunId(run.id)}
+                      >
+                        {run.streams?.unmatched ?? 0}
+                      </button>
+                    </TableCell>
+                    <TableCell>{run.channels?.active ?? 0}</TableCell>
                     <TableCell>{formatDuration(run.duration_ms)}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {formatBytes(run.xmltv_size_bytes)}
@@ -726,6 +894,312 @@ export function EPG() {
         </CardContent>
       </Card>
 
+      {/* Matched Streams Modal */}
+      <Dialog open={matchedModalRunId !== null} onOpenChange={() => setMatchedModalRunId(null)}>
+        <DialogContent onClose={() => setMatchedModalRunId(null)} className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              Matched Streams
+            </DialogTitle>
+            <DialogDescription>
+              Streams successfully matched to events (Run #{matchedModalRunId})
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-auto">
+            {matchedLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : matchedData?.streams.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No matched streams for this run.
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Stream Name</TableHead>
+                    <TableHead>Event</TableHead>
+                    <TableHead>League</TableHead>
+                    <TableHead>Method</TableHead>
+                    <TableHead>Group</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {matchedData?.streams.map((stream) => (
+                    <TableRow key={stream.id}>
+                      <TableCell className="font-medium max-w-xs truncate">
+                        {stream.stream_name}
+                      </TableCell>
+                      <TableCell className="max-w-xs">
+                        <div className="truncate">
+                          {stream.event_name || `${stream.away_team} @ ${stream.home_team}`}
+                        </div>
+                        {stream.event_date && (
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(stream.event_date).toLocaleDateString()}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{stream.league ?? "-"}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        {getMatchMethodBadge(stream.match_method)}
+                        {stream.from_cache && (
+                          <Badge variant="outline" className="ml-1">Cached</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {stream.group_name}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+
+          <DialogFooter>
+            <div className="text-sm text-muted-foreground">
+              {matchedData?.count ?? 0} matched streams
+            </div>
+            <Button variant="outline" onClick={() => setMatchedModalRunId(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Failed Matches Modal */}
+      <Dialog open={failedModalRunId !== null} onOpenChange={() => setFailedModalRunId(null)}>
+        <DialogContent onClose={() => setFailedModalRunId(null)} className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <XCircle className="h-5 w-5 text-red-600" />
+              Failed Matches
+            </DialogTitle>
+            <DialogDescription>
+              Streams that failed to match to events (Run #{failedModalRunId})
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-auto">
+            {failedLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : failedData?.failures.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No failed matches for this run.
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Stream Name</TableHead>
+                    <TableHead>Reason</TableHead>
+                    <TableHead>Detected Teams</TableHead>
+                    <TableHead>Group</TableHead>
+                    <TableHead className="w-20">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {failedData?.failures.map((failure) => (
+                    <TableRow key={failure.id}>
+                      <TableCell className="font-medium max-w-xs truncate">
+                        {failure.stream_name}
+                      </TableCell>
+                      <TableCell>
+                        {getFailReasonBadge(failure.reason)}
+                        {failure.exclusion_reason && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {failure.exclusion_reason}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {failure.extracted_team1 || failure.extracted_team2 ? (
+                          <div>
+                            {failure.extracted_team1 && <div>{failure.extracted_team1}</div>}
+                            {failure.extracted_team2 && <div className="text-muted-foreground">vs {failure.extracted_team2}</div>}
+                            {failure.detected_league && (
+                              <Badge variant="outline" className="mt-1">{failure.detected_league}</Badge>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {failure.group_name}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenCreateAlias(failure)}
+                          title="Create alias for this stream"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+
+          <DialogFooter>
+            <div className="text-sm text-muted-foreground">
+              {failedData?.count ?? 0} failed matches
+            </div>
+            <Button variant="outline" onClick={() => setFailedModalRunId(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Alias Dialog */}
+      <Dialog open={aliasDialogOpen} onOpenChange={setAliasDialogOpen}>
+        <DialogContent onClose={() => setAliasDialogOpen(false)} className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create Team Alias</DialogTitle>
+            <DialogDescription>
+              Map this stream name to a team for future matching
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* Alias Text */}
+            <div className="space-y-2">
+              <Label htmlFor="alias">Alias Text *</Label>
+              <Input
+                id="alias"
+                value={aliasText}
+                onChange={(e) => setAliasText(e.target.value)}
+                placeholder="e.g., Spurs, Man U, NYG"
+              />
+              <p className="text-xs text-muted-foreground">
+                The text that appears in stream names (case-insensitive)
+              </p>
+            </div>
+
+            {/* League Dropdown */}
+            <div className="space-y-2">
+              <Label htmlFor="league">League *</Label>
+              {leaguesLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading leagues...
+                </div>
+              ) : (
+                <Select
+                  id="league"
+                  value={selectedLeague}
+                  onChange={(e) => {
+                    setSelectedLeague(e.target.value)
+                    setSelectedTeamId("")
+                    setTeamSearchQuery("")
+                  }}
+                >
+                  <option value="">Select a league...</option>
+                  {Object.entries(leaguesBySport).map(([sport, leagues]) => (
+                    <optgroup key={sport} label={sport}>
+                      {leagues.map((league) => (
+                        <option key={league.slug} value={league.slug}>
+                          {league.name} ({league.team_count} teams)
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </Select>
+              )}
+            </div>
+
+            {/* Team Dropdown */}
+            <div className="space-y-2">
+              <Label htmlFor="team">Team *</Label>
+              {!selectedLeague ? (
+                <p className="text-sm text-muted-foreground py-2">
+                  Select a league first
+                </p>
+              ) : teamsLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading teams...
+                </div>
+              ) : (
+                <>
+                  <div className="relative mb-2">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search teams..."
+                      className="pl-10"
+                      value={teamSearchQuery}
+                      onChange={(e) => setTeamSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  <Select
+                    id="team"
+                    value={selectedTeamId}
+                    onChange={(e) => setSelectedTeamId(e.target.value)}
+                  >
+                    <option value="">Select a team...</option>
+                    {filteredTeams.map((team) => (
+                      <option key={team.provider_team_id} value={team.provider_team_id}>
+                        {team.team_name}
+                        {team.team_abbrev ? ` (${team.team_abbrev})` : ""}
+                      </option>
+                    ))}
+                  </Select>
+                </>
+              )}
+            </div>
+
+            {/* Selected team preview */}
+            {selectedTeam && (
+              <div className="bg-muted p-3 rounded-md space-y-1">
+                <p className="text-sm font-medium">Selected Team</p>
+                <div className="flex items-center gap-3">
+                  {selectedTeam.logo_url && (
+                    <img
+                      src={selectedTeam.logo_url}
+                      alt=""
+                      className="h-8 w-8 object-contain"
+                    />
+                  )}
+                  <div className="text-sm">
+                    <p className="font-medium">{selectedTeam.team_name}</p>
+                    <p className="text-muted-foreground">
+                      {selectedTeam.provider.toUpperCase()} ID: {selectedTeam.provider_team_id}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAliasDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateAlias}
+              disabled={
+                !aliasText.trim() ||
+                !selectedLeague ||
+                !selectedTeamId ||
+                createAliasMutation.isPending
+              }
+            >
+              {createAliasMutation.isPending ? "Creating..." : "Create Alias"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

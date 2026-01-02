@@ -168,3 +168,83 @@ export async function getEPGAnalysis(): Promise<EPGAnalysis> {
 export async function getEPGContent(maxLines = 2000): Promise<EPGContent> {
   return api.get(`/epg/content?max_lines=${maxLines}`)
 }
+
+// Matched Streams types and functions
+
+export interface MatchedStream {
+  id: number
+  run_id: number
+  group_id: number
+  group_name: string | null
+  stream_id: number | null
+  stream_name: string
+  event_id: string
+  event_name: string | null
+  event_date: string | null
+  home_team: string | null
+  away_team: string | null
+  league: string | null
+  from_cache: boolean
+  match_method: string | null
+  confidence: number | null
+  created_at: string
+}
+
+export interface MatchedStreamsResponse {
+  count: number
+  run_id: number | null
+  group_id: number | null
+  streams: MatchedStream[]
+}
+
+export async function getMatchedStreams(
+  runId?: number,
+  groupId?: number,
+  limit = 500
+): Promise<MatchedStreamsResponse> {
+  const params = new URLSearchParams()
+  if (runId !== undefined) params.set("run_id", runId.toString())
+  if (groupId !== undefined) params.set("group_id", groupId.toString())
+  params.set("limit", limit.toString())
+  return api.get(`/epg/matched-streams?${params}`)
+}
+
+// Failed Matches types and functions
+
+export interface FailedMatch {
+  id: number
+  run_id: number
+  group_id: number
+  group_name: string | null
+  stream_id: number | null
+  stream_name: string
+  reason: string
+  exclusion_reason: string | null
+  detail: string | null
+  extracted_team1: string | null
+  extracted_team2: string | null
+  detected_league: string | null
+  created_at: string
+}
+
+export interface FailedMatchesResponse {
+  count: number
+  run_id: number | null
+  group_id: number | null
+  reason_filter: string | null
+  failures: FailedMatch[]
+}
+
+export async function getFailedMatches(
+  runId?: number,
+  groupId?: number,
+  reason?: string,
+  limit = 500
+): Promise<FailedMatchesResponse> {
+  const params = new URLSearchParams()
+  if (runId !== undefined) params.set("run_id", runId.toString())
+  if (groupId !== undefined) params.set("group_id", groupId.toString())
+  if (reason) params.set("reason", reason)
+  params.set("limit", limit.toString())
+  return api.get(`/epg/failed-matches?${params}`)
+}

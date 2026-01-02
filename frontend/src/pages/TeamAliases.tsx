@@ -1,5 +1,6 @@
-import { useState } from "react"
-import { Plus, Trash2, Download, Upload, Search } from "lucide-react"
+import { useState, useEffect, useMemo } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { Plus, Trash2, Download, Upload, Search, Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -30,29 +31,84 @@ import {
   exportAliases,
   useImportAliases,
 } from "@/api/aliases"
+import { getLeagues, getLeagueTeams } from "@/api/teams"
 import type { TeamAliasCreate } from "@/api/types"
+import type { CachedLeague } from "@/api/teams"
 
 export function TeamAliases() {
   const [leagueFilter, setLeagueFilter] = useState<string>("")
   const [searchQuery, setSearchQuery] = useState("")
   const [isCreateOpen, setIsCreateOpen] = useState(false)
-  const [newAlias, setNewAlias] = useState<TeamAliasCreate>({
-    alias: "",
-    league: "",
-    team_id: "",
-    team_name: "",
-    provider: "espn",
-  })
+
+  // Form state for create dialog
+  const [aliasText, setAliasText] = useState("")
+  const [selectedLeague, setSelectedLeague] = useState("")
+  const [selectedTeamId, setSelectedTeamId] = useState("")
+  const [teamSearchQuery, setTeamSearchQuery] = useState("")
 
   const { data, isLoading } = useAliases(leagueFilter || undefined)
   const createMutation = useCreateAlias()
   const deleteMutation = useDeleteAlias()
   const importMutation = useImportAliases()
 
-  // Get unique leagues for filter dropdown
-  const leagues = [...new Set(data?.aliases.map((a) => a.league) || [])]
+  // Fetch all leagues for dropdown
+  const { data: leaguesData, isLoading: leaguesLoading } = useQuery({
+    queryKey: ["cache", "leagues"],
+    queryFn: () => getLeagues(false),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  })
 
-  // Filter by search query
+  // Fetch teams for selected league
+  const { data: teamsData, isLoading: teamsLoading } = useQuery({
+    queryKey: ["cache", "leagues", selectedLeague, "teams"],
+    queryFn: () => getLeagueTeams(selectedLeague),
+    enabled: !!selectedLeague,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // Sort leagues by sport then name
+  const sortedLeagues = useMemo(() => {
+    if (!leaguesData?.leagues) return []
+    return [...leaguesData.leagues].sort((a, b) => {
+      const sportCompare = a.sport.localeCompare(b.sport)
+      if (sportCompare !== 0) return sportCompare
+      return a.name.localeCompare(b.name)
+    })
+  }, [leaguesData?.leagues])
+
+  // Group leagues by sport for display
+  const leaguesBySport = useMemo(() => {
+    const grouped: Record<string, CachedLeague[]> = {}
+    for (const league of sortedLeagues) {
+      if (!grouped[league.sport]) grouped[league.sport] = []
+      grouped[league.sport].push(league)
+    }
+    return grouped
+  }, [sortedLeagues])
+
+  // Filter teams by search query
+  const filteredTeams = useMemo(() => {
+    if (!teamsData) return []
+    if (!teamSearchQuery) return teamsData
+    const query = teamSearchQuery.toLowerCase()
+    return teamsData.filter(
+      (t) =>
+        t.team_name.toLowerCase().includes(query) ||
+        t.team_abbrev?.toLowerCase().includes(query) ||
+        t.team_short_name?.toLowerCase().includes(query)
+    )
+  }, [teamsData, teamSearchQuery])
+
+  // Get selected team object
+  const selectedTeam = useMemo(() => {
+    if (!selectedTeamId || !teamsData) return null
+    return teamsData.find((t) => t.provider_team_id === selectedTeamId) || null
+  }, [selectedTeamId, teamsData])
+
+  // Get unique leagues for filter dropdown (from existing aliases)
+  const existingLeagues = [...new Set(data?.aliases.map((a) => a.league) || [])]
+
+  // Filter aliases by search query
   const filteredAliases = (data?.aliases || []).filter((alias) => {
     const query = searchQuery.toLowerCase()
     return (
@@ -62,17 +118,36 @@ export function TeamAliases() {
     )
   })
 
+  // Reset form when dialog closes
+  useEffect(() => {
+    if (!isCreateOpen) {
+      setAliasText("")
+      setSelectedLeague("")
+      setSelectedTeamId("")
+      setTeamSearchQuery("")
+    }
+  }, [isCreateOpen])
+
+  // Clear team selection when league changes
+  useEffect(() => {
+    setSelectedTeamId("")
+    setTeamSearchQuery("")
+  }, [selectedLeague])
+
   const handleCreate = async () => {
+    if (!selectedTeam || !selectedLeague || !aliasText) return
+
+    const newAlias: TeamAliasCreate = {
+      alias: aliasText.toLowerCase().trim(),
+      league: selectedLeague,
+      team_id: selectedTeam.provider_team_id,
+      team_name: selectedTeam.team_name,
+      provider: selectedTeam.provider,
+    }
+
     try {
       await createMutation.mutateAsync(newAlias)
       setIsCreateOpen(false)
-      setNewAlias({
-        alias: "",
-        league: "",
-        team_id: "",
-        team_name: "",
-        provider: "espn",
-      })
     } catch {
       // Error shown by mutation
     }
@@ -138,70 +213,124 @@ export function TeamAliases() {
 
       {/* Create Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent onClose={() => setIsCreateOpen(false)}>
+        <DialogContent onClose={() => setIsCreateOpen(false)} className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Create Team Alias</DialogTitle>
             <DialogDescription>
-              Map a stream name to a provider team for better matching
+              Map a stream name to a team for better matching
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* Alias Text */}
             <div className="space-y-2">
-              <Label htmlFor="alias">Alias Text</Label>
+              <Label htmlFor="alias">Alias Text *</Label>
               <Input
                 id="alias"
-                value={newAlias.alias}
-                onChange={(e) => setNewAlias({ ...newAlias, alias: e.target.value })}
+                value={aliasText}
+                onChange={(e) => setAliasText(e.target.value)}
                 placeholder="e.g., Spurs, Man U, NYG"
               />
               <p className="text-xs text-muted-foreground">
-                The text that appears in stream names
+                The text that appears in stream names (case-insensitive)
               </p>
             </div>
+
+            {/* League Dropdown */}
             <div className="space-y-2">
-              <Label htmlFor="league">League Code</Label>
-              <Input
-                id="league"
-                value={newAlias.league}
-                onChange={(e) => setNewAlias({ ...newAlias, league: e.target.value })}
-                placeholder="e.g., eng.1, nfl, nba"
-              />
+              <Label htmlFor="league">League *</Label>
+              {leaguesLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading leagues...
+                </div>
+              ) : (
+                <Select
+                  id="league"
+                  value={selectedLeague}
+                  onChange={(e) => setSelectedLeague(e.target.value)}
+                >
+                  <option value="">Select a league...</option>
+                  {Object.entries(leaguesBySport).map(([sport, leagues]) => (
+                    <optgroup key={sport} label={sport}>
+                      {leagues.map((league) => (
+                        <option key={league.slug} value={league.slug}>
+                          {league.name} ({league.team_count} teams)
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </Select>
+              )}
             </div>
+
+            {/* Team Dropdown */}
             <div className="space-y-2">
-              <Label htmlFor="team_name">Team Name</Label>
-              <Input
-                id="team_name"
-                value={newAlias.team_name}
-                onChange={(e) => setNewAlias({ ...newAlias, team_name: e.target.value })}
-                placeholder="e.g., Tottenham Hotspur"
-              />
-              <p className="text-xs text-muted-foreground">
-                The full team name from the provider
-              </p>
+              <Label htmlFor="team">Team *</Label>
+              {!selectedLeague ? (
+                <p className="text-sm text-muted-foreground py-2">
+                  Select a league first
+                </p>
+              ) : teamsLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading teams...
+                </div>
+              ) : (
+                <>
+                  {/* Team search filter */}
+                  <div className="relative mb-2">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search teams..."
+                      className="pl-10"
+                      value={teamSearchQuery}
+                      onChange={(e) => setTeamSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  <Select
+                    id="team"
+                    value={selectedTeamId}
+                    onChange={(e) => setSelectedTeamId(e.target.value)}
+                    className="max-h-60"
+                  >
+                    <option value="">Select a team...</option>
+                    {filteredTeams.map((team) => (
+                      <option key={team.provider_team_id} value={team.provider_team_id}>
+                        {team.team_name}
+                        {team.team_abbrev ? ` (${team.team_abbrev})` : ""}
+                      </option>
+                    ))}
+                  </Select>
+                  {filteredTeams.length === 0 && teamSearchQuery && (
+                    <p className="text-xs text-muted-foreground">
+                      No teams match "{teamSearchQuery}"
+                    </p>
+                  )}
+                </>
+              )}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="team_id">Team ID</Label>
-              <Input
-                id="team_id"
-                value={newAlias.team_id}
-                onChange={(e) => setNewAlias({ ...newAlias, team_id: e.target.value })}
-                placeholder="e.g., 367"
-              />
-              <p className="text-xs text-muted-foreground">
-                The provider's team ID (find in Team Import or API)
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="provider">Provider</Label>
-              <Select
-                id="provider"
-                value={newAlias.provider}
-                onChange={(e) => setNewAlias({ ...newAlias, provider: e.target.value })}
-              >
-                <option value="espn">ESPN</option>
-                <option value="tsdb">TheSportsDB</option>
-              </Select>
-            </div>
+
+            {/* Selected team preview */}
+            {selectedTeam && (
+              <div className="bg-muted p-3 rounded-md space-y-1">
+                <p className="text-sm font-medium">Selected Team</p>
+                <div className="flex items-center gap-3">
+                  {selectedTeam.logo_url && (
+                    <img
+                      src={selectedTeam.logo_url}
+                      alt=""
+                      className="h-8 w-8 object-contain"
+                    />
+                  )}
+                  <div className="text-sm">
+                    <p className="font-medium">{selectedTeam.team_name}</p>
+                    <p className="text-muted-foreground">
+                      {selectedTeam.provider.toUpperCase()} ID: {selectedTeam.provider_team_id}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
@@ -210,14 +339,13 @@ export function TeamAliases() {
             <Button
               onClick={handleCreate}
               disabled={
-                !newAlias.alias ||
-                !newAlias.league ||
-                !newAlias.team_id ||
-                !newAlias.team_name ||
+                !aliasText.trim() ||
+                !selectedLeague ||
+                !selectedTeamId ||
                 createMutation.isPending
               }
             >
-              {createMutation.isPending ? "Creating..." : "Create"}
+              {createMutation.isPending ? "Creating..." : "Create Alias"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -247,7 +375,7 @@ export function TeamAliases() {
               onChange={(e) => setLeagueFilter(e.target.value)}
             >
               <option value="">All Leagues</option>
-              {leagues.map((league) => (
+              {existingLeagues.map((league) => (
                 <option key={league} value={league}>
                   {league}
                 </option>

@@ -96,3 +96,42 @@ export async function searchTeams(
   if (sport) params.set("sport", sport)
   return api.get(`/cache/teams/search?${params}`)
 }
+
+// Cache API - Leagues
+export interface CachedLeague {
+  slug: string
+  provider: string
+  name: string
+  sport: string
+  team_count: number
+  logo_url: string | null
+  import_enabled: boolean
+  league_alias: string | null
+}
+
+export interface LeaguesResponse {
+  count: number
+  leagues: CachedLeague[]
+}
+
+export async function getLeagues(importOnly = false): Promise<LeaguesResponse> {
+  const params = importOnly ? "?import_only=true" : ""
+  return api.get(`/cache/leagues${params}`)
+}
+
+// Cache API - Teams for a league
+export interface CachedTeam {
+  id: number
+  team_name: string
+  team_abbrev: string | null
+  team_short_name: string | null
+  provider: string
+  provider_team_id: string
+  league: string
+  sport: string
+  logo_url: string | null
+}
+
+export async function getLeagueTeams(leagueSlug: string): Promise<CachedTeam[]> {
+  return api.get(`/cache/leagues/${encodeURIComponent(leagueSlug)}/teams`)
+}

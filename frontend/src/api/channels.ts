@@ -130,3 +130,8 @@ export async function runReconciliation(
 export async function getPendingDeletions(): Promise<PendingDeletionsResponse> {
   return api.get("/channels/pending-deletions")
 }
+
+// Delete an orphan channel directly from Dispatcharr (not tracked in Teamarr)
+export async function deleteDispatcharrChannel(channelId: number): Promise<DeleteResponse> {
+  return api.delete(`/channels/dispatcharr/${channelId}`)
+}

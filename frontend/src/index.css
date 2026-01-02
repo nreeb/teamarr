@@ -107,7 +107,65 @@ body {
   outline-offset: 2px;
 }
 
-/* V1-like compact badge sizing */
+/* V1-like compact styling */
+
+/* Compact tables */
+table {
+  font-size: 0.85rem;
+}
+
+table th,
+table td {
+  padding: 0.5rem;
+}
+
+table th {
+  background-color: var(--color-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+table td {
+  color: var(--color-muted-foreground);
+}
+
+/* Compact badges */
 .badge {
-  padding-block: 0.125rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+/* Compact buttons */
+button {
+  font-size: 0.85rem;
+}
+
+/* Compact cards */
+.card-header {
+  padding: 0.75rem 1rem;
+}
+
+.card-content {
+  padding: 0.75rem 1rem;
+}
+
+/* V1-like select/dropdown styling */
+select {
+  background-color: var(--color-background);
+  color: var(--color-muted-foreground);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-style: italic;
+  padding: 0.25rem 0.375rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+select option {
+  background-color: var(--color-card);
+  color: var(--color-foreground);
+  font-style: italic;
 }

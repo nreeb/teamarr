@@ -1,5 +1,6 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { toast } from "sonner"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   Trash2,
   Loader2,
@@ -7,10 +8,13 @@ import {
   Clock,
   Tv,
   Wrench,
+  Search,
+  AlertTriangle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Table,
   TableBody,
@@ -34,8 +38,10 @@ import {
   useSyncLifecycle,
   useRunReconciliation,
   usePendingDeletions,
+  useReconciliationStatus,
 } from "@/hooks/useChannels"
 import { useGroups } from "@/hooks/useGroups"
+import { deleteDispatcharrChannel, deleteManagedChannel } from "@/api/channels"
 import type { ManagedChannel } from "@/api/channels"
 
 function formatDateTime(dateStr: string | null): string {
@@ -88,6 +94,12 @@ export function Channels() {
   const [selectedGroupId, setSelectedGroupId] = useState<number | undefined>(undefined)
   const [includeDeleted, setIncludeDeleted] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<ManagedChannel | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false)
+  const [orphansModalOpen, setOrphansModalOpen] = useState(false)
+  const [deletingOrphanId, setDeletingOrphanId] = useState<number | null>(null)
+
+  const queryClient = useQueryClient()
 
   const { data: groups } = useGroups()
   const {
@@ -101,6 +113,52 @@ export function Channels() {
   const deleteMutation = useDeleteManagedChannel()
   const syncMutation = useSyncLifecycle()
   const reconcileMutation = useRunReconciliation()
+
+  // Fetch reconciliation status (for orphans)
+  const {
+    data: reconciliationData,
+    isLoading: reconciliationLoading,
+    refetch: refetchReconciliation,
+  } = useReconciliationStatus()
+
+  // Filter orphan_dispatcharr issues
+  const orphanChannels = useMemo(() => {
+    if (!reconciliationData?.issues_found) return []
+    return reconciliationData.issues_found.filter(
+      (issue) => issue.issue_type === "orphan_dispatcharr"
+    )
+  }, [reconciliationData])
+
+  // Mutation for deleting orphan channel
+  const deleteOrphanMutation = useMutation({
+    mutationFn: deleteDispatcharrChannel,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reconciliation"] })
+      refetchReconciliation()
+    },
+  })
+
+  // Mutation for bulk delete
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: number[]) => {
+      const results = await Promise.allSettled(
+        ids.map((id) => deleteManagedChannel(id))
+      )
+      const succeeded = results.filter((r) => r.status === "fulfilled").length
+      const failed = results.filter((r) => r.status === "rejected").length
+      return { succeeded, failed }
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["managed-channels"] })
+      refetch()
+      toast.success(`Deleted ${result.succeeded} channel(s)${result.failed > 0 ? `, ${result.failed} failed` : ""}`)
+      setSelectedIds(new Set())
+      setBulkDeleteConfirm(false)
+    },
+    onError: () => {
+      toast.error("Bulk delete failed")
+    },
+  })
 
   const handleDelete = async () => {
     if (!deleteConfirm) return
@@ -143,6 +201,47 @@ export function Channels() {
     }
   }
 
+  const handleDeleteOrphan = async (channelId: number) => {
+    setDeletingOrphanId(channelId)
+    try {
+      await deleteOrphanMutation.mutateAsync(channelId)
+      toast.success("Orphan channel deleted from Dispatcharr")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete orphan")
+    } finally {
+      setDeletingOrphanId(null)
+    }
+  }
+
+  const handleBulkDelete = () => {
+    bulkDeleteMutation.mutate(Array.from(selectedIds))
+  }
+
+  // Selection handlers
+  const toggleSelect = (id: number) => {
+    const newSet = new Set(selectedIds)
+    if (newSet.has(id)) {
+      newSet.delete(id)
+    } else {
+      newSet.add(id)
+    }
+    setSelectedIds(newSet)
+  }
+
+  const toggleSelectAll = () => {
+    if (!channelsData?.channels) return
+    if (selectedIds.size === channelsData.channels.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(channelsData.channels.map((c) => c.id)))
+    }
+  }
+
+  const isAllSelected =
+    channelsData?.channels &&
+    channelsData.channels.length > 0 &&
+    selectedIds.size === channelsData.channels.length
+
   if (error) {
     return (
       <div className="space-y-4">
@@ -169,12 +268,53 @@ export function Channels() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              refetchReconciliation()
+              setOrphansModalOpen(true)
+            }}
+          >
+            <Search className="h-4 w-4 mr-1" />
+            Find Orphans
+          </Button>
           <Button variant="outline" size="sm" onClick={() => refetch()}>
             <RefreshCw className="h-4 w-4 mr-1" />
             Refresh
           </Button>
         </div>
       </div>
+
+      {/* Batch Operations Bar */}
+      {selectedIds.size > 0 && (
+        <Card className="bg-muted/50">
+          <CardContent className="py-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">
+                {selectedIds.size} channel{selectedIds.size > 1 ? "s" : ""} selected
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedIds(new Set())}
+                >
+                  Clear Selection
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setBulkDeleteConfirm(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Delete Selected
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Action Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -295,7 +435,7 @@ export function Channels() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Tv className="h-5 w-5" />
-            Channels
+            Channels ({channelsData?.channels.length ?? 0})
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -311,6 +451,12 @@ export function Channels() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={isAllSelected}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </TableHead>
                   <TableHead>Channel</TableHead>
                   <TableHead>Event</TableHead>
                   <TableHead>League</TableHead>
@@ -323,6 +469,12 @@ export function Channels() {
               <TableBody>
                 {channelsData?.channels.map((channel) => (
                   <TableRow key={channel.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedIds.has(channel.id)}
+                        onCheckedChange={() => toggleSelect(channel.id)}
+                      />
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         {channel.logo_url && (
@@ -404,6 +556,125 @@ export function Channels() {
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               )}
               Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation */}
+      <Dialog open={bulkDeleteConfirm} onOpenChange={setBulkDeleteConfirm}>
+        <DialogContent onClose={() => setBulkDeleteConfirm(false)}>
+          <DialogHeader>
+            <DialogTitle>Delete {selectedIds.size} Channels</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete {selectedIds.size} channel
+              {selectedIds.size > 1 ? "s" : ""}? This will also remove them from
+              Dispatcharr if configured.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkDeleteConfirm(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleBulkDelete}
+              disabled={bulkDeleteMutation.isPending}
+            >
+              {bulkDeleteMutation.isPending && (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              )}
+              Delete All
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Find Orphans Modal */}
+      <Dialog open={orphansModalOpen} onOpenChange={setOrphansModalOpen}>
+        <DialogContent onClose={() => setOrphansModalOpen(false)} className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-warning" />
+              Orphan Channels
+            </DialogTitle>
+            <DialogDescription>
+              Channels in Dispatcharr that aren't tracked by Teamarr
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            {reconciliationLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : orphanChannels.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No orphan channels found. Everything is in sync!
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Found {orphanChannels.length} orphan channel
+                  {orphanChannels.length > 1 ? "s" : ""}. These exist in Dispatcharr but
+                  aren't tracked by Teamarr.
+                </p>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Channel Name</TableHead>
+                      <TableHead>Dispatcharr ID</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {orphanChannels.map((orphan, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell className="font-medium">
+                          {orphan.channel_name ?? "Unknown"}
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">
+                          {orphan.dispatcharr_channel_id}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() =>
+                              orphan.dispatcharr_channel_id &&
+                              handleDeleteOrphan(orphan.dispatcharr_channel_id)
+                            }
+                            disabled={
+                              !orphan.dispatcharr_channel_id ||
+                              deletingOrphanId === orphan.dispatcharr_channel_id
+                            }
+                          >
+                            {deletingOrphanId === orphan.dispatcharr_channel_id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOrphansModalOpen(false)}>
+              Close
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => refetchReconciliation()}
+              disabled={reconciliationLoading}
+            >
+              <RefreshCw className={`h-4 w-4 mr-1 ${reconciliationLoading ? "animate-spin" : ""}`} />
+              Refresh
             </Button>
           </DialogFooter>
         </DialogContent>
