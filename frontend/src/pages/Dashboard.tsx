@@ -206,12 +206,12 @@ export function Dashboard() {
     (counts?.teams ?? 0) === 0 && (counts?.templates ?? 0) === 0
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {/* Page Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground text-sm">
+          <h1 className="text-xl font-bold">Dashboard</h1>
+          <p className="text-sm text-muted-foreground">
             Overview of your EPG system
           </p>
         </div>

@@ -244,8 +244,8 @@ export function Channels() {
 
   if (error) {
     return (
-      <div className="space-y-4">
-        <h1 className="text-2xl font-bold">Managed Channels</h1>
+      <div className="space-y-2">
+        <h1 className="text-xl font-bold">Managed Channels</h1>
         <Card className="border-destructive">
           <CardContent className="pt-6">
             <p className="text-destructive">Error loading channels: {error.message}</p>
@@ -259,11 +259,11 @@ export function Channels() {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Managed Channels</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl font-bold">Managed Channels</h1>
+          <p className="text-sm text-muted-foreground">
             Event-based channels managed by Teamarr
           </p>
         </div>

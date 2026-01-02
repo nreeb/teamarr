@@ -323,8 +323,8 @@ export function Settings() {
 
   if (error) {
     return (
-      <div className="space-y-4">
-        <h1 className="text-2xl font-bold">Settings</h1>
+      <div className="space-y-2">
+        <h1 className="text-xl font-bold">Settings</h1>
         <Card className="border-destructive">
           <CardContent className="pt-6">
             <p className="text-destructive">Error loading settings: {error.message}</p>
@@ -338,11 +338,11 @@ export function Settings() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Settings</h1>
-          <p className="text-muted-foreground">Configure Teamarr application settings</p>
+          <h1 className="text-xl font-bold">Settings</h1>
+          <p className="text-sm text-muted-foreground">Configure Teamarr application settings</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => refetch()}>
           <RefreshCw className="h-4 w-4 mr-1" />

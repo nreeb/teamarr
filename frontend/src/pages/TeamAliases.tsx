@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query"
 import { Plus, Trash2, Download, Upload, Search, Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select } from "@/components/ui/select"
@@ -187,25 +186,25 @@ export function TeamAliases() {
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="space-y-2">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Team Aliases</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl font-bold">Team Aliases</h1>
+          <p className="text-sm text-muted-foreground">
             Define custom name mappings for stream matching
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleExport}>
-            <Download className="h-4 w-4 mr-2" />
+          <Button variant="outline" size="sm" onClick={handleExport}>
+            <Download className="h-4 w-4 mr-1" />
             Export
           </Button>
-          <Button variant="outline" onClick={handleImport}>
-            <Upload className="h-4 w-4 mr-2" />
+          <Button variant="outline" size="sm" onClick={handleImport}>
+            <Upload className="h-4 w-4 mr-1" />
             Import
           </Button>
-          <Button onClick={() => setIsCreateOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
+          <Button size="sm" onClick={() => setIsCreateOpen(true)}>
+            <Plus className="h-4 w-4 mr-1" />
             Add Alias
           </Button>
         </div>
@@ -351,109 +350,98 @@ export function TeamAliases() {
         </DialogContent>
       </Dialog>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Aliases ({filteredAliases.length})</CardTitle>
-          <CardDescription>
-            Aliases are checked before fuzzy matching for higher precision
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-4 mb-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search aliases..."
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <Select
-              className="w-48"
-              value={leagueFilter}
-              onChange={(e) => setLeagueFilter(e.target.value)}
-            >
-              <option value="">All Leagues</option>
-              {existingLeagues.map((league) => (
-                <option key={league} value={league}>
-                  {league}
-                </option>
-              ))}
-            </Select>
+      {/* Filter Bar */}
+      <div className="flex gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search aliases..."
+            className="pl-10"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        <Select
+          className="w-48"
+          value={leagueFilter}
+          onChange={(e) => setLeagueFilter(e.target.value)}
+        >
+          <option value="">All Leagues</option>
+          {existingLeagues.map((league) => (
+            <option key={league} value={league}>
+              {league}
+            </option>
+          ))}
+        </Select>
+      </div>
+
+      {/* Aliases Table */}
+      <div className="border border-border rounded-lg overflow-hidden">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-
-          {isLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading...</div>
-          ) : filteredAliases.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              {searchQuery || leagueFilter ? "No aliases match your filters" : "No aliases defined yet"}
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Alias</TableHead>
-                  <TableHead>League</TableHead>
-                  <TableHead>Team Name</TableHead>
-                  <TableHead>Team ID</TableHead>
-                  <TableHead>Provider</TableHead>
-                  <TableHead className="w-16"></TableHead>
+        ) : filteredAliases.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            {searchQuery || leagueFilter ? "No aliases match your filters" : "No aliases defined yet"}
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Alias</TableHead>
+                <TableHead>League</TableHead>
+                <TableHead>Team Name</TableHead>
+                <TableHead>Team ID</TableHead>
+                <TableHead>Provider</TableHead>
+                <TableHead className="w-16"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredAliases.map((alias) => (
+                <TableRow key={alias.id}>
+                  <TableCell className="font-medium">{alias.alias}</TableCell>
+                  <TableCell>
+                    <code className="bg-muted px-1 py-0.5 rounded text-sm">{alias.league}</code>
+                  </TableCell>
+                  <TableCell>{alias.team_name}</TableCell>
+                  <TableCell className="font-mono text-sm">{alias.team_id}</TableCell>
+                  <TableCell className="capitalize">{alias.provider}</TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => deleteMutation.mutate(alias.id)}
+                      disabled={deleteMutation.isPending}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredAliases.map((alias) => (
-                  <TableRow key={alias.id}>
-                    <TableCell className="font-medium">{alias.alias}</TableCell>
-                    <TableCell>
-                      <code className="bg-muted px-1 py-0.5 rounded text-sm">{alias.league}</code>
-                    </TableCell>
-                    <TableCell>{alias.team_name}</TableCell>
-                    <TableCell className="font-mono text-sm">{alias.team_id}</TableCell>
-                    <TableCell className="capitalize">{alias.provider}</TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteMutation.mutate(alias.id)}
-                        disabled={deleteMutation.isPending}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>How It Works</CardTitle>
-        </CardHeader>
-        <CardContent className="prose prose-sm dark:prose-invert max-w-none">
+      {/* How It Works */}
+      <div className="border border-border rounded-lg p-4">
+        <h3 className="font-medium mb-2">How It Works</h3>
+        <div className="text-sm text-muted-foreground space-y-2">
           <p>
             Team aliases help with stream matching when automatic fuzzy matching fails.
             Common use cases:
           </p>
-          <ul>
-            <li>
-              <strong>Nicknames:</strong> "Spurs" → "Tottenham Hotspur" (EPL) or "San Antonio Spurs" (NBA)
-            </li>
-            <li>
-              <strong>Abbreviations:</strong> "Man U" → "Manchester United"
-            </li>
-            <li>
-              <strong>Local Names:</strong> "NYG" → "New York Giants"
-            </li>
+          <ul className="list-disc list-inside space-y-1 ml-2">
+            <li><strong>Nicknames:</strong> "Spurs" → "Tottenham Hotspur" (EPL) or "San Antonio Spurs" (NBA)</li>
+            <li><strong>Abbreviations:</strong> "Man U" → "Manchester United"</li>
+            <li><strong>Local Names:</strong> "NYG" → "New York Giants"</li>
           </ul>
           <p>
             Aliases are league-specific so "Spurs" can map to different teams in different leagues.
           </p>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   )
 }

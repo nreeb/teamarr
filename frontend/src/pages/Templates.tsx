@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { Plus, Trash2, Pencil, Loader2, Copy, Download, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
   Table,
@@ -203,23 +203,23 @@ export function Templates() {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Templates</h1>
-          <p className="text-muted-foreground">Configure EPG title and description templates</p>
+          <h1 className="text-xl font-bold">Templates</h1>
+          <p className="text-sm text-muted-foreground">Configure EPG title and description templates</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleImportClick} disabled={isImporting}>
+          <Button variant="outline" size="sm" onClick={handleImportClick} disabled={isImporting}>
             {isImporting ? (
-              <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
             ) : (
-              <Upload className="h-4 w-4 mr-1.5" />
+              <Upload className="h-4 w-4 mr-1" />
             )}
             Import
           </Button>
-          <Button onClick={() => navigate("/templates/new")}>
-            <Plus className="h-4 w-4 mr-1.5" />
+          <Button size="sm" onClick={() => navigate("/templates/new")}>
+            <Plus className="h-4 w-4 mr-1" />
             New Template
           </Button>
         </div>
@@ -232,11 +232,7 @@ export function Templates() {
         />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Templates</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="border border-border rounded-lg overflow-hidden">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -343,8 +339,7 @@ export function Templates() {
               </TableBody>
             </Table>
           )}
-        </CardContent>
-      </Card>
+      </div>
 
       {/* Delete Confirmation */}
       <Dialog

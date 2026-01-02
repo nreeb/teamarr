@@ -408,11 +408,11 @@ export function EPG() {
                    (analysis?.coverage_gaps?.length ?? 0) > 0
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">EPG Management</h1>
-          <p className="text-muted-foreground">Generate and manage XMLTV output</p>
+          <h1 className="text-xl font-bold">EPG Management</h1>
+          <p className="text-sm text-muted-foreground">Generate and manage XMLTV output</p>
         </div>
         <div className="flex gap-2">
           <Button
