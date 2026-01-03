@@ -364,6 +364,31 @@ export function EventGroupForm() {
     })
   }
 
+  // Global select/clear all
+  const selectAllLeagues = () => {
+    const allSlugs = cachedLeagues?.map(l => l.slug) || []
+    setSelectedLeagues(new Set(allSlugs))
+  }
+
+  const clearAllLeagues = () => {
+    setSelectedLeagues(new Set())
+  }
+
+  // Check if all leagues in a sport are selected
+  const isSportFullySelected = (sport: string) => {
+    const sportLeagues = leaguesBySport[sport] || []
+    return sportLeagues.length > 0 && sportLeagues.every(l => selectedLeagues.has(l.slug))
+  }
+
+  // Toggle entire sport (for consolidated sports like Soccer)
+  const toggleSport = (sport: string) => {
+    if (isSportFullySelected(sport)) {
+      clearAllInSport(sport)
+    } else {
+      selectAllInSport(sport)
+    }
+  }
+
   if (isEdit && isLoadingGroup) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -539,20 +564,29 @@ export function EventGroupForm() {
               onChange={(e) => setLeagueSearch(e.target.value)}
             />
 
-            {/* Selected count */}
+            {/* Selected count and global actions */}
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">
-                {selectedLeagues.size} leagues selected
+                {selectedLeagues.size} league{selectedLeagues.size !== 1 ? "s" : ""} selected
               </span>
-              {selectedLeagues.size > 0 && (
+              <div className="flex items-center gap-1">
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setSelectedLeagues(new Set())}
+                  onClick={selectAllLeagues}
                 >
-                  Clear All
+                  Select All
                 </Button>
-              )}
+                {selectedLeagues.size > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearAllLeagues}
+                  >
+                    Clear All
+                  </Button>
+                )}
+              </div>
             </div>
 
             {/* Selected badges */}
@@ -588,6 +622,7 @@ export function EventGroupForm() {
                 {Object.entries(leaguesBySport)
                   .filter(([sport]) =>
                     !leagueSearch ||
+                    sport.toLowerCase().includes(leagueSearch.toLowerCase()) ||
                     leaguesBySport[sport].some(l =>
                       l.slug.toLowerCase().includes(leagueSearch.toLowerCase()) ||
                       l.name.toLowerCase().includes(leagueSearch.toLowerCase())
@@ -602,15 +637,55 @@ export function EventGroupForm() {
                         )
                       : leagues
 
-                    if (sportLeaguesFiltered.length === 0) return null
+                    // For search, if no individual leagues match but sport name matches, show all
+                    const displayLeagues = leagueSearch && sportLeaguesFiltered.length === 0 &&
+                      sport.toLowerCase().includes(leagueSearch.toLowerCase())
+                      ? leagues
+                      : sportLeaguesFiltered
 
-                    const allSelected = sportLeaguesFiltered.every(l => selectedLeagues.has(l.slug))
+                    if (displayLeagues.length === 0) return null
 
+                    const allSelected = isSportFullySelected(sport)
+                    const someSelected = leagues.some(l => selectedLeagues.has(l.slug)) && !allSelected
+
+                    // Soccer: show as single consolidated checkbox (too many leagues)
+                    if (sport === "soccer") {
+                      return (
+                        <label
+                          key={sport}
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-3 cursor-pointer hover:bg-accent",
+                            allSelected && "bg-primary/10"
+                          )}
+                          onClick={(e) => {
+                            e.preventDefault()
+                            toggleSport(sport)
+                          }}
+                        >
+                          <Checkbox
+                            checked={allSelected}
+                            // @ts-expect-error - indeterminate is valid but not in types
+                            indeterminate={someSelected}
+                            onCheckedChange={() => toggleSport(sport)}
+                          />
+                          <div className="flex-1">
+                            <div className="font-medium text-sm">
+                              {SPORT_NAMES[sport] || sport}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              All {leagues.length} leagues (EPL, La Liga, Bundesliga, Serie A, Ligue 1, MLS, Champions League, etc.)
+                            </div>
+                          </div>
+                        </label>
+                      )
+                    }
+
+                    // Other sports: show individual leagues
                     return (
                       <div key={sport}>
                         <div className="flex items-center justify-between px-3 py-2 bg-muted/50 sticky top-0">
                           <span className="font-medium text-sm">
-                            {SPORT_NAMES[sport] || sport} ({sportLeaguesFiltered.length})
+                            {SPORT_NAMES[sport] || sport} ({displayLeagues.length})
                           </span>
                           <Button
                             variant="ghost"
@@ -622,7 +697,7 @@ export function EventGroupForm() {
                           </Button>
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-1 p-2">
-                          {sportLeaguesFiltered.map(league => (
+                          {displayLeagues.map(league => (
                             <label
                               key={league.slug}
                               className={cn(
