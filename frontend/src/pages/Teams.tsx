@@ -71,7 +71,7 @@ async function fetchLeagues(): Promise<{ slug: string; logo_url: string | null; 
   return data.leagues || []
 }
 
-type ActiveFilter = "all" | "active" | "inactive"
+type ActiveFilter = "" | "active" | "inactive"
 type SortColumn = "team" | "league" | "sport" | "template" | "channel" | "status" | null
 type SortDirection = "asc" | "desc"
 
@@ -227,7 +227,7 @@ export function Teams() {
   const [leagueFilter, setLeagueFilter] = useState<string>("")
   const [sportFilter, setSportFilter] = useState<string>("")
   const [templateFilter, setTemplateFilter] = useState<string>("")
-  const [activeFilter, setActiveFilter] = useState<ActiveFilter>("all")
+  const [activeFilter, setActiveFilter] = useState<ActiveFilter>("")
 
   // Sorting state
   const [sortColumn, setSortColumn] = useState<SortColumn>(null)
@@ -314,7 +314,7 @@ export function Teams() {
         }
       }
 
-      // Active filter
+      // Active filter (empty string means show all)
       if (activeFilter === "active" && !team.active) return false
       if (activeFilter === "inactive" && team.active) return false
 
@@ -838,7 +838,7 @@ export function Teams() {
                       value={activeFilter}
                       onChange={(v) => setActiveFilter(v as ActiveFilter)}
                       options={[
-                        { value: "all", label: "All" },
+                        { value: "", label: "All" },
                         { value: "active", label: "Active" },
                         { value: "inactive", label: "Inactive" },
                       ]}
