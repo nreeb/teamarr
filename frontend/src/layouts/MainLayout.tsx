@@ -135,11 +135,14 @@ export function MainLayout() {
       <Toaster
         position="top-right"
         toastOptions={{
-          className: "!bg-background !text-foreground !border !border-border !rounded-lg !shadow-lg",
+          className: "!bg-background !text-foreground !border !border-border !rounded-lg !shadow-lg !overflow-hidden",
           style: {
             padding: "12px 16px",
             fontSize: "14px",
             width: "356px",
+            maxWidth: "356px",
+            wordWrap: "break-word",
+            overflowWrap: "break-word",
           },
         }}
       />

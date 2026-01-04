@@ -867,7 +867,7 @@ CREATE TABLE IF NOT EXISTS managed_channel_history (
 
     -- Change type
     change_type TEXT NOT NULL
-        CHECK(change_type IN ('created', 'modified', 'deleted', 'stream_added', 'stream_removed', 'verified', 'synced', 'error')),
+        CHECK(change_type IN ('created', 'modified', 'deleted', 'stream_added', 'stream_removed', 'verified', 'synced', 'error', 'number_swapped')),
 
     -- Change source
     change_source TEXT

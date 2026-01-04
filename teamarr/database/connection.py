@@ -493,22 +493,25 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
         current_version = 8
 
     # Version 9: Add 'keyword_ordering' to change_source CHECK constraint
+    # and 'number_swapped' to change_type
     if current_version < 9:
         # SQLite can't alter CHECK constraints, so we recreate the table
+        # IMPORTANT: Column order must match the original table exactly
         conn.executescript("""
-            -- Create temp table with updated constraint
+            -- Create temp table with updated constraints (same column order as original)
             CREATE TABLE managed_channel_history_new (
-                id INTEGER PRIMARY KEY,
-                managed_channel_id INTEGER NOT NULL REFERENCES managed_channels(id) ON DELETE CASCADE,
-                changed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                managed_channel_id INTEGER NOT NULL,
                 change_type TEXT NOT NULL
-                    CHECK(change_type IN ('created', 'modified', 'deleted', 'stream_added', 'stream_removed', 'verified', 'synced', 'error')),
+                    CHECK(change_type IN ('created', 'modified', 'deleted', 'stream_added', 'stream_removed', 'verified', 'synced', 'error', 'number_swapped')),
                 change_source TEXT
                     CHECK(change_source IN ('epg_generation', 'reconciliation', 'api', 'scheduler', 'manual', 'external_sync', 'lifecycle', 'cross_group_enforcement', 'keyword_enforcement', 'keyword_ordering')),
                 field_name TEXT,
                 old_value TEXT,
                 new_value TEXT,
-                notes TEXT
+                changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                notes TEXT,
+                FOREIGN KEY (managed_channel_id) REFERENCES managed_channels(id) ON DELETE CASCADE
             );
 
             -- Copy existing data
@@ -519,9 +522,11 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
             DROP TABLE managed_channel_history;
             ALTER TABLE managed_channel_history_new RENAME TO managed_channel_history;
 
-            -- Recreate index
-            CREATE INDEX IF NOT EXISTS idx_channel_history_channel
-            ON managed_channel_history(managed_channel_id);
+            -- Recreate indexes
+            CREATE INDEX IF NOT EXISTS idx_mch_channel
+            ON managed_channel_history(managed_channel_id, changed_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_mch_type
+            ON managed_channel_history(change_type);
         """)
         conn.execute("UPDATE settings SET schema_version = 9 WHERE id = 1")
         logger.info("Schema upgraded to version 9 (keyword_ordering change_source)")
