@@ -591,8 +591,8 @@ class EventGroupProcessor:
                 if self._dispatcharr_client:
                     enforcement_lifecycle = create_lifecycle_service(
                         db_factory=self._db_factory,
-                        client=self._dispatcharr_client,
                         sports_service=self._service,
+                        dispatcharr_client=self._dispatcharr_client,
                     )
                 self._run_enforcement(
                     conn, multi_league_ids, lifecycle_service=enforcement_lifecycle
