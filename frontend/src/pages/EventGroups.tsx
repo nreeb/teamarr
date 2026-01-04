@@ -38,12 +38,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { FilterSelect } from "@/components/ui/filter-select"
+import { Select } from "@/components/ui/select"
 import {
   useGroups,
   useDeleteGroup,
   useToggleGroup,
   usePreviewGroup,
   useReorderGroups,
+  useUpdateGroup,
 } from "@/hooks/useGroups"
 import { useTemplates } from "@/hooks/useTemplates"
 import type { EventGroup, PreviewGroupResponse } from "@/api/types"
@@ -90,6 +92,7 @@ export function EventGroups() {
   const { data: channelGroups } = useQuery({ queryKey: ["dispatcharr-channel-groups"], queryFn: fetchChannelGroups })
   const deleteMutation = useDeleteGroup()
   const toggleMutation = useToggleGroup()
+  const updateMutation = useUpdateGroup()
   const previewMutation = usePreviewGroup()
   const reorderMutation = useReorderGroups()
 
@@ -149,6 +152,8 @@ export function EventGroups() {
 
   const [deleteConfirm, setDeleteConfirm] = useState<EventGroup | null>(null)
   const [showBulkDelete, setShowBulkDelete] = useState(false)
+  const [showBulkTemplate, setShowBulkTemplate] = useState(false)
+  const [bulkTemplateId, setBulkTemplateId] = useState<number | null>(null)
 
   // Column sorting state
   type SortColumn = "name" | "sport" | "template" | "matched" | "status" | null
@@ -331,6 +336,11 @@ export function EventGroups() {
     return result.length > 0 ? result : filteredGroups
   }, [filteredGroups, autoGroups, manualGroups, childrenMap, sortColumn, sortDirection, leagueSports, templates])
 
+  // Filter templates to only show event templates
+  const eventTemplates = useMemo(() => {
+    return templates?.filter((t) => t.template_type === "event") ?? []
+  }, [templates])
+
   // Calculate rich stats like V1
   const stats = useMemo(() => {
     if (!data?.groups) return {
@@ -478,6 +488,26 @@ export function EventGroups() {
     toast.success(`Deleted ${deleted} groups`)
     setSelectedIds(new Set())
     setShowBulkDelete(false)
+  }
+
+  const handleBulkAssignTemplate = async () => {
+    const ids = Array.from(selectedIds)
+    let succeeded = 0
+    for (const id of ids) {
+      try {
+        await updateMutation.mutateAsync({
+          groupId: id,
+          data: { template_id: bulkTemplateId, clear_template: bulkTemplateId === null },
+        })
+        succeeded++
+      } catch {
+        // Continue with others
+      }
+    }
+    toast.success(`Assigned template to ${succeeded} groups`)
+    setSelectedIds(new Set())
+    setShowBulkTemplate(false)
+    setBulkTemplateId(null)
   }
 
   const clearFilters = () => {
@@ -704,6 +734,9 @@ export function EventGroups() {
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => handleBulkToggle(false)}>
                   Disable
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setShowBulkTemplate(true)}>
+                  Assign Template
                 </Button>
                 <Button variant="destructive" size="sm" onClick={() => setShowBulkDelete(true)}>
                   <Trash2 className="h-3 w-3 mr-1" />
@@ -1192,6 +1225,42 @@ export function EventGroups() {
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               )}
               Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Assign Template Dialog */}
+      <Dialog open={showBulkTemplate} onOpenChange={setShowBulkTemplate}>
+        <DialogContent onClose={() => setShowBulkTemplate(false)}>
+          <DialogHeader>
+            <DialogTitle>Assign Template</DialogTitle>
+            <DialogDescription>
+              Assign a template to {selectedIds.size} selected group{selectedIds.size !== 1 && "s"}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Select
+              value={bulkTemplateId?.toString() ?? ""}
+              onChange={(e) =>
+                setBulkTemplateId(e.target.value ? parseInt(e.target.value) : null)
+              }
+            >
+              <option value="">Unassigned (Default)</option>
+              {eventTemplates.map((template) => (
+                <option key={template.id} value={template.id.toString()}>
+                  {template.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBulkTemplate(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleBulkAssignTemplate} disabled={updateMutation.isPending}>
+              {updateMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Assign
             </Button>
           </DialogFooter>
         </DialogContent>
