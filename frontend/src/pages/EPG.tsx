@@ -900,7 +900,7 @@ export function EPG() {
                           </span>
                         )}
                         {/* Only show Cached badge if method is not already 'cache' */}
-                        {stream.from_cache && stream.match_method !== "cache" && (
+                        {!!stream.from_cache && stream.match_method !== "cache" && (
                           <Badge variant="outline" className="ml-1">Cached</Badge>
                         )}
                       </TableCell>
