@@ -55,9 +55,9 @@ function ProgressDescription({ status }: { status: GenerationStatus | null }) {
       {itemName && (
         <div className="text-xs text-muted-foreground break-words">
           {isStreamProgress ? (
-            <>{itemName} — {percent}%</>
+            itemName
           ) : (
-            <>{itemName}{total > 0 && ` (${current}/${total})`} — {percent}%</>
+            <>{itemName}{total > 0 && ` (${current}/${total})`}</>
           )}
         </div>
       )}
@@ -119,7 +119,9 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const updateToast = useCallback((status: GenerationStatus | null, isStarting: boolean = false) => {
-    const title = isStarting ? "Starting EPG generation..." : getPhaseLabel(status)
+    const phase = isStarting ? "Starting EPG generation..." : getPhaseLabel(status)
+    const percent = status?.percent ?? 0
+    const title = isStarting ? phase : `${phase} — ${percent}%`
 
     // Use standard toast.loading with description containing progress bar
     toast.loading(title, {
