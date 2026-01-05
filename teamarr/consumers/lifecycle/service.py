@@ -470,7 +470,7 @@ class ChannelLifecycleService:
                     conn=conn,
                     managed_channel_id=existing.id,
                     change_type="stream_added",
-                    change_source="cross_group_overlap",
+                    change_source="cross_group_enforcement",
                     notes=f"Added '{stream_name}' from multi-league group {group_id}",
                 )
 
