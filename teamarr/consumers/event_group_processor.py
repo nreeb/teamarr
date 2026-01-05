@@ -1524,6 +1524,8 @@ class EventGroupProcessor:
             # For cross-group consolidation
             "overlap_handling": group.overlap_handling,
             "leagues": group.leagues,  # len > 1 means multi-league
+            "m3u_account_id": group.m3u_account_id,
+            "m3u_account_name": group.m3u_account_name,
         }
 
         # Load template from database if configured
