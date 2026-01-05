@@ -126,7 +126,7 @@ export function MainLayout() {
                 e.currentTarget.style.display = "none"
               }}
             />
-            <span>Teamarr - Dynamic Sports EPG Generator for Dispatcharr | {version} | Port 9198</span>
+            <span>Teamarr - Dynamic Sports EPG Generator for Dispatcharr | {version}{window.location.port && ` | Port ${window.location.port}`}</span>
           </div>
         </div>
       </footer>
