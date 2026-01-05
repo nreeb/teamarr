@@ -256,6 +256,7 @@ class TeamProcessor:
                 }
 
                 for future in as_completed(future_to_team):
+                    logger.debug(f"Future completed, processing result...")
                     team = future_to_team[future]
                     processed_count += 1
                     try:
@@ -292,6 +293,10 @@ class TeamProcessor:
                         else:
                             msg = f"Finished {team.team_name}"
                         progress_callback(processed_count, total_teams, msg)
+
+            logger.info("ESPN parallel processing loop complete, exiting executor context")
+
+        logger.info("Executor context exited")
 
         # Process TSDB teams sequentially (rate limited API)
         if tsdb_teams:
@@ -351,12 +356,8 @@ class TeamProcessor:
                 if progress_callback:
                     progress_callback(processed_count, total_teams, team.team_name)
 
-        # Generate combined XMLTV from all teams (sequential, uses stored XMLTV)
-        if channels:
-            with self._db_factory() as conn:
-                combined_programmes = self._generate_all_programmes(conn, teams)
-                if combined_programmes:
-                    batch_result.total_xmltv = programmes_to_xmltv(combined_programmes, channels)
+        # Note: Combined XMLTV is read from database in generation.py
+        # Each team's XMLTV is already stored during _process_team_internal
 
         batch_result.completed_at = datetime.now()
         logger.info(f"Completed processing {len(teams)} teams")

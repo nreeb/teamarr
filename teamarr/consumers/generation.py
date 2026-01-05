@@ -183,8 +183,16 @@ def run_full_generation(
         result.teams_processed = team_result.teams_processed
         result.teams_programmes = team_result.total_programmes
 
+        # Transition message - teams done, starting groups
+        logger.info("Sending transition message: teams -> groups")
+        update_progress(
+            "groups", 50,
+            f"Teams complete ({result.teams_processed} processed), loading event groups...",
+            0, 1, "Loading event groups..."
+        )
+        logger.info("Transition message sent")
+
         # Step 3: Process all event groups (50-95%) - 45% budget
-        update_progress("groups", 50, "Processing event groups...")
 
         groups_start_time = time.time()
 

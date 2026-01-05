@@ -43,15 +43,15 @@ function ProgressDescription({ status }: { status: GenerationStatus | null }) {
   const isStreamProgress = itemName && (itemName.includes("✓") || itemName.includes("✗"))
 
   return (
-    <div className="space-y-2 mt-1 w-full max-w-[414px]">
-      {/* Progress bar */}
+    <div className="space-y-2 mt-1 w-[356px]">
+      {/* Progress bar - fixed width to prevent layout shift */}
       <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
         <div
           className="h-full bg-primary transition-all duration-300"
           style={{ width: `${percent}%` }}
         />
       </div>
-      {/* Current item - wrap text naturally */}
+      {/* Current item - fixed width container, text can wrap */}
       {itemName && (
         <div className="text-xs text-muted-foreground break-words">
           {isStreamProgress ? (

@@ -532,6 +532,15 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
         logger.info("Schema upgraded to version 9 (keyword_ordering change_source)")
         current_version = 9
 
+    # Version 10: Update channel timing CHECK constraints
+    # - Remove 'manual' from create/delete timing
+    # - Add '6_hours_after' to delete timing
+    if current_version < 10:
+        _update_channel_timing_constraints(conn)
+        conn.execute("UPDATE settings SET schema_version = 10 WHERE id = 1")
+        logger.info("Schema upgraded to version 10 (channel timing constraints)")
+        current_version = 10
+
 
 def _migrate_teams_to_leagues_array(conn: sqlite3.Connection) -> bool:
     """Migrate teams table from single league to leagues JSON array.
@@ -773,6 +782,101 @@ def _recreate_managed_channels_without_unique_constraint(
     """)
 
     logger.info("managed_channels table recreated without UNIQUE constraint")
+
+
+def _update_channel_timing_constraints(conn: sqlite3.Connection) -> None:
+    """Update CHECK constraints for channel_create_timing and channel_delete_timing.
+
+    Removes 'manual' option from both and adds '6_hours_after' to delete timing.
+
+    Since SQLite can't ALTER CHECK constraints, we just:
+    1. Fix any 'manual' values to safe defaults
+    2. Let schema.sql handle constraints for fresh databases
+
+    The actual constraint removal happens by recreating the table, but we skip
+    that for existing databases to avoid data loss. The constraint is relaxed
+    by schema.sql for fresh databases.
+    """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    # Fix any existing 'manual' values to safe defaults
+    # This is the critical migration - convert unsupported values
+    conn.execute("""
+        UPDATE settings
+        SET channel_create_timing = 'same_day'
+        WHERE channel_create_timing = 'manual'
+    """)
+    conn.execute("""
+        UPDATE settings
+        SET channel_delete_timing = 'day_after'
+        WHERE channel_delete_timing = 'manual'
+    """)
+
+    # For existing databases, we can't easily remove CHECK constraints
+    # without risking data loss. The constraint prevents invalid values,
+    # but '6_hours_after' is now valid, so we do a minimal table recreation.
+    #
+    # Note: This uses the safe approach of copying via a temp table.
+    cursor = conn.execute("PRAGMA table_info(settings)")
+    columns = [row["name"] for row in cursor.fetchall()]
+
+    # Check if we already migrated (no CHECK constraint issue)
+    # Try inserting a test value - if it fails, we need to migrate
+    try:
+        conn.execute(
+            "UPDATE settings SET channel_delete_timing = '6_hours_after' WHERE 1=0"
+        )
+        # If this succeeds (even with 0 rows), constraint allows the value
+        logger.info("Channel timing constraints already updated")
+        return
+    except Exception:
+        pass  # Need to migrate
+
+    # Get current CREATE TABLE statement
+    cursor = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='settings'"
+    )
+    row = cursor.fetchone()
+    if not row or not row["sql"]:
+        logger.info("Settings table not found, skipping constraint migration")
+        return
+
+    import re
+
+    create_sql = row["sql"]
+
+    # Modify CREATE statement to remove CHECK constraints on timing fields
+    create_sql = re.sub(
+        r"channel_create_timing TEXT DEFAULT '[^']*' CHECK\([^)]+\)",
+        "channel_create_timing TEXT DEFAULT 'same_day'",
+        create_sql,
+    )
+    create_sql = re.sub(
+        r"channel_delete_timing TEXT DEFAULT '[^']*' CHECK\([^)]+\)",
+        "channel_delete_timing TEXT DEFAULT 'day_after'",
+        create_sql,
+    )
+
+    # Perform atomic table swap
+    column_list = ", ".join(columns)
+    conn.executescript(f"""
+        PRAGMA foreign_keys = OFF;
+
+        ALTER TABLE settings RENAME TO settings_old;
+
+        {create_sql};
+
+        INSERT INTO settings ({column_list})
+        SELECT {column_list} FROM settings_old;
+
+        DROP TABLE settings_old;
+
+        PRAGMA foreign_keys = ON;
+    """)
+
+    logger.info("Updated settings table CHECK constraints for channel timing")
 
 
 def reset_db(db_path: Path | str | None = None) -> None:

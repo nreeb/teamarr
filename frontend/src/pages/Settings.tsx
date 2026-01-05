@@ -696,9 +696,28 @@ export function Settings() {
                       <tr key={kw.id} className="border-t">
                         <td className="px-3 py-2">{kw.keywords}</td>
                         <td className="px-3 py-2">
-                          <Badge variant={kw.behavior === "consolidate" ? "default" : kw.behavior === "separate" ? "secondary" : "outline"}>
-                            {kw.behavior === "consolidate" ? "Sub-Consolidate" : kw.behavior === "separate" ? "Separate" : "Ignore"}
-                          </Badge>
+                          <Select
+                            value={kw.behavior}
+                            onChange={async (e) => {
+                              const newBehavior = e.target.value
+                              try {
+                                await fetch(`/api/v1/keywords/${kw.id}`, {
+                                  method: "PUT",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ behavior: newBehavior }),
+                                })
+                                keywordsQuery.refetch()
+                                toast.success(`Updated behavior to "${newBehavior}"`)
+                              } catch (err) {
+                                toast.error("Failed to update keyword behavior")
+                              }
+                            }}
+                            className="w-40 h-8"
+                          >
+                            <option value="consolidate">Sub-Consolidate</option>
+                            <option value="separate">Separate</option>
+                            <option value="ignore">Ignore</option>
+                          </Select>
                         </td>
                         <td className="px-3 py-2">
                           <Button

@@ -50,16 +50,15 @@ def update_lifecycle_settings(update: LifecycleSettingsModel):
         "2_days_before",
         "3_days_before",
         "1_week_before",
-        "manual",
     }
     valid_delete = {
         "stream_removed",
+        "6_hours_after",
         "same_day",
         "day_after",
         "2_days_after",
         "3_days_after",
         "1_week_after",
-        "manual",
     }
 
     if update.channel_create_timing not in valid_create:

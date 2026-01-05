@@ -150,10 +150,10 @@ CREATE TABLE IF NOT EXISTS settings (
     epg_lookback_hours INTEGER DEFAULT 6,           -- Check for in-progress games
 
     -- Channel Lifecycle (for event-based EPG)
-    -- Create timing: 'stream_available', 'same_day', 'day_before', '2_days_before', '3_days_before', '1_week_before', 'manual'
-    channel_create_timing TEXT DEFAULT 'same_day' CHECK(channel_create_timing IN ('stream_available', 'same_day', 'day_before', '2_days_before', '3_days_before', '1_week_before', 'manual')),
-    -- Delete timing: 'stream_removed', 'same_day', 'day_after', '2_days_after', '3_days_after', '1_week_after', 'manual'
-    channel_delete_timing TEXT DEFAULT 'day_after' CHECK(channel_delete_timing IN ('stream_removed', 'same_day', 'day_after', '2_days_after', '3_days_after', '1_week_after', 'manual')),
+    -- Create timing: 'stream_available', 'same_day', 'day_before', '2_days_before', '3_days_before', '1_week_before'
+    channel_create_timing TEXT DEFAULT 'same_day' CHECK(channel_create_timing IN ('stream_available', 'same_day', 'day_before', '2_days_before', '3_days_before', '1_week_before')),
+    -- Delete timing: 'stream_removed', '6_hours_after', 'same_day', 'day_after', '2_days_after', '3_days_after', '1_week_after'
+    channel_delete_timing TEXT DEFAULT 'day_after' CHECK(channel_delete_timing IN ('stream_removed', '6_hours_after', 'same_day', 'day_after', '2_days_after', '3_days_after', '1_week_after')),
 
     -- Filler Settings
     midnight_crossover_mode TEXT DEFAULT 'postgame' CHECK(midnight_crossover_mode IN ('postgame', 'idle')),

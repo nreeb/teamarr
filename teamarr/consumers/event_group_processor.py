@@ -509,6 +509,13 @@ class EventGroupProcessor:
             total_groups = len(parent_groups) + len(child_groups) + len(multi_league_groups)
             processed_count = 0
 
+            # Send initial progress to avoid stall at 50%
+            if progress_callback:
+                if total_groups > 0:
+                    progress_callback(0, total_groups, f"Found {total_groups} groups to process")
+                else:
+                    progress_callback(0, 1, "No event groups configured")
+
             processed_group_ids = []
             multi_league_ids = [g.id for g in multi_league_groups]
 

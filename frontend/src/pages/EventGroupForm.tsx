@@ -196,6 +196,7 @@ export function EventGroupForm() {
       setFormData({
         name: group.name,
         leagues: group.leagues,
+        parent_group_id: group.parent_group_id,
         template_id: group.template_id,
         channel_start_number: group.channel_start_number,
         channel_group_id: group.channel_group_id,
@@ -738,8 +739,8 @@ export function EventGroupForm() {
                   <div>
                     <p className="font-medium">Child Group</p>
                     <p className="text-sm text-muted-foreground">
-                      This group inherits template, channel settings, and filters from its parent.
-                      Only name and enabled status can be configured.
+                      This group inherits league, template, and channel settings from its parent.
+                      Only enabled status and custom regex patterns can be configured here.
                     </p>
                   </div>
                 </div>
@@ -747,16 +748,45 @@ export function EventGroupForm() {
             </Card>
           )}
 
-          {/* Locked Group Type Indicator */}
-          <div className="flex items-center gap-2 px-1 py-2">
-            <span className="text-muted-foreground">🔒</span>
-            <Badge variant="secondary" className="font-normal">
-              {formData.leagues.length > 1 ? "Multi-Sport / Multi-League" : "Single League"}
-            </Badge>
-          </div>
+          {/* Group Type Indicator - hidden for child groups */}
+          {!isChildGroup && (
+            <div className="flex items-center gap-2 px-1 py-2">
+              <Badge variant="secondary" className="font-normal">
+                {formData.leagues.length > 1 ? "Multi-Sport / Multi-League" : "Single League"}
+              </Badge>
+            </div>
+          )}
 
-          {/* Basic Info */}
-          <Card>
+          {/* Child Group Basic Settings - only name and enabled */}
+          {isChildGroup && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Basic Settings</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Group Name</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    readOnly
+                    className="bg-muted"
+                  />
+                  <p className="text-xs text-muted-foreground">Name from M3U group</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={formData.enabled}
+                    onCheckedChange={(checked) => setFormData({ ...formData, enabled: checked })}
+                  />
+                  <Label className="font-normal">Enabled</Label>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Basic Info - hidden for child groups (inherited from parent) */}
+          {!isChildGroup && <Card>
             <CardHeader>
               <CardTitle>Basic Settings</CardTitle>
             </CardHeader>
@@ -767,9 +797,10 @@ export function EventGroupForm() {
                   <Input
                     id="name"
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="e.g., NFL Sunday Ticket"
+                    readOnly
+                    className="bg-muted"
                   />
+                  <p className="text-xs text-muted-foreground">Name from M3U group</p>
                 </div>
                 {!isChildGroup && (
                   <div className="space-y-2">
@@ -798,23 +829,230 @@ export function EventGroupForm() {
                 )}
               </div>
 
-              {/* Show selected leagues - only in edit mode since leagues are inline for add */}
-              {isEdit && (
+              {/* Show selected leagues in edit mode */}
+              {isEdit && groupMode === "single" && (
                 <div className="space-y-2">
-                  <Label>Matching Leagues</Label>
-                  <div className="flex flex-wrap gap-1.5">
+                  <Label>League</Label>
+                  <div className="flex items-center gap-2">
                     {formData.leagues.map(slug => {
                       const league = cachedLeagues?.find(l => l.slug === slug)
                       return (
-                        <Badge key={slug} variant="secondary">
+                        <Badge key={slug} variant="secondary" className="gap-1.5 py-1.5 px-3">
                           {league?.logo_url && (
-                            <img src={league.logo_url} alt="" className="h-3 w-3 object-contain mr-1" />
+                            <img src={league.logo_url} alt="" className="h-4 w-4 object-contain" />
                           )}
                           {league?.name || slug}
                         </Badge>
                       )
                     })}
+                    <span className="text-xs text-muted-foreground ml-2">
+                      (set on import)
+                    </span>
                   </div>
+                </div>
+              )}
+
+              {/* Full league picker for multi-league groups in edit mode */}
+              {isEdit && groupMode === "multi" && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Matching Leagues</Label>
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-muted-foreground mr-2">
+                        {formData.leagues.length} selected
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-xs"
+                        onClick={() => {
+                          const allSlugs = cachedLeagues?.map(l => l.slug) || []
+                          setFormData({ ...formData, leagues: allSlugs })
+                        }}
+                      >
+                        Select All
+                      </Button>
+                      {formData.leagues.length > 0 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 text-xs"
+                          onClick={() => setFormData({ ...formData, leagues: [] })}
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Search */}
+                  <Input
+                    placeholder="Search leagues..."
+                    value={leagueSearch}
+                    onChange={(e) => setLeagueSearch(e.target.value)}
+                  />
+
+                  {/* Selected badges */}
+                  {formData.leagues.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {formData.leagues.slice(0, 10).map(slug => {
+                        const league = cachedLeagues?.find(l => l.slug === slug)
+                        return (
+                          <Badge key={slug} variant="secondary" className="gap-1">
+                            {league?.logo_url && (
+                              <img src={league.logo_url} alt="" className="h-3 w-3 object-contain" />
+                            )}
+                            {league?.name || slug}
+                            <button
+                              type="button"
+                              onClick={() => setFormData({
+                                ...formData,
+                                leagues: formData.leagues.filter(l => l !== slug)
+                              })}
+                              className="ml-1 hover:bg-muted rounded"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        )
+                      })}
+                      {formData.leagues.length > 10 && (
+                        <Badge variant="outline">+{formData.leagues.length - 10} more</Badge>
+                      )}
+                    </div>
+                  )}
+
+                  {/* League picker by sport */}
+                  {isLoadingLeagues ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                    </div>
+                  ) : (
+                    <div className="max-h-72 overflow-y-auto border rounded-md divide-y">
+                      {Object.entries(leaguesBySport)
+                        .filter(([sport]) =>
+                          !leagueSearch ||
+                          sport.toLowerCase().includes(leagueSearch.toLowerCase()) ||
+                          leaguesBySport[sport].some(l =>
+                            l.slug.toLowerCase().includes(leagueSearch.toLowerCase()) ||
+                            l.name.toLowerCase().includes(leagueSearch.toLowerCase())
+                          )
+                        )
+                        .sort(([a], [b]) => a.localeCompare(b))
+                        .map(([sport, leagues]) => {
+                          const sportLeaguesFiltered = leagueSearch
+                            ? leagues.filter(l =>
+                                l.slug.toLowerCase().includes(leagueSearch.toLowerCase()) ||
+                                l.name.toLowerCase().includes(leagueSearch.toLowerCase())
+                              )
+                            : leagues
+
+                          const displayLeagues = leagueSearch && sportLeaguesFiltered.length === 0 &&
+                            sport.toLowerCase().includes(leagueSearch.toLowerCase())
+                            ? leagues
+                            : sportLeaguesFiltered
+
+                          if (displayLeagues.length === 0) return null
+
+                          const allInSportSelected = leagues.every(l => formData.leagues.includes(l.slug))
+                          const someInSportSelected = leagues.some(l => formData.leagues.includes(l.slug)) && !allInSportSelected
+
+                          // Soccer: consolidated checkbox
+                          if (sport === "soccer") {
+                            return (
+                              <label
+                                key={sport}
+                                className={cn(
+                                  "flex items-center gap-3 px-3 py-3 cursor-pointer hover:bg-accent",
+                                  allInSportSelected && "bg-primary/10"
+                                )}
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  const sportSlugs = leagues.map(l => l.slug)
+                                  if (allInSportSelected) {
+                                    setFormData({ ...formData, leagues: formData.leagues.filter(l => !sportSlugs.includes(l)) })
+                                  } else {
+                                    const newLeagues = [...new Set([...formData.leagues, ...sportSlugs])]
+                                    setFormData({ ...formData, leagues: newLeagues })
+                                  }
+                                }}
+                              >
+                                <Checkbox
+                                  checked={allInSportSelected}
+                                  // @ts-expect-error - indeterminate is valid
+                                  indeterminate={someInSportSelected}
+                                />
+                                <div className="flex-1">
+                                  <div className="font-medium text-sm">{SPORT_NAMES[sport] || sport}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    All {leagues.length} leagues (EPL, La Liga, Bundesliga, etc.)
+                                  </div>
+                                </div>
+                              </label>
+                            )
+                          }
+
+                          // Other sports: individual leagues
+                          return (
+                            <div key={sport}>
+                              <div className="flex items-center justify-between px-3 py-2 bg-muted/50 sticky top-0">
+                                <span className="font-medium text-sm">
+                                  {SPORT_NAMES[sport] || sport} ({displayLeagues.length})
+                                </span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 text-xs"
+                                  onClick={() => {
+                                    const sportSlugs = leagues.map(l => l.slug)
+                                    if (allInSportSelected) {
+                                      setFormData({ ...formData, leagues: formData.leagues.filter(l => !sportSlugs.includes(l)) })
+                                    } else {
+                                      const newLeagues = [...new Set([...formData.leagues, ...sportSlugs])]
+                                      setFormData({ ...formData, leagues: newLeagues })
+                                    }
+                                  }}
+                                >
+                                  {allInSportSelected ? "Clear" : "Select All"}
+                                </Button>
+                              </div>
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-1 p-2">
+                                {displayLeagues.map(league => {
+                                  const isSelected = formData.leagues.includes(league.slug)
+                                  return (
+                                    <label
+                                      key={league.slug}
+                                      className={cn(
+                                        "flex items-center gap-2 px-2 py-1.5 rounded text-sm cursor-pointer hover:bg-accent",
+                                        isSelected && "bg-primary/10"
+                                      )}
+                                    >
+                                      <Checkbox
+                                        checked={isSelected}
+                                        onCheckedChange={() => {
+                                          if (isSelected) {
+                                            setFormData({ ...formData, leagues: formData.leagues.filter(l => l !== league.slug) })
+                                          } else {
+                                            setFormData({ ...formData, leagues: [...formData.leagues, league.slug] })
+                                          }
+                                        }}
+                                      />
+                                      {league.logo_url && (
+                                        <img src={league.logo_url} alt="" className="h-4 w-4 object-contain" />
+                                      )}
+                                      <span className="truncate">{league.name}</span>
+                                    </label>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )
+                        })}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -826,7 +1064,7 @@ export function EventGroupForm() {
                 <Label className="font-normal">Enabled</Label>
               </div>
             </CardContent>
-          </Card>
+          </Card>}
 
           {/* Channel Settings - hidden for child groups */}
           {!isChildGroup && <Card>
@@ -1437,8 +1675,8 @@ export function EventGroupForm() {
             </Card>
           )}
 
-          {/* M3U Source */}
-          {formData.m3u_group_name && (
+          {/* M3U Source - hidden for child groups */}
+          {!isChildGroup && formData.m3u_group_name && (
             <Card>
               <CardHeader>
                 <CardTitle>Stream Source</CardTitle>
