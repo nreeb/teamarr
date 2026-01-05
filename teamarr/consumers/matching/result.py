@@ -1,15 +1,17 @@
 """Match Result System for stream-to-event matching.
 
-Comprehensive result hierarchy with three categories:
-- FILTERED: Stream excluded before matching attempted
-- FAILED: Matching attempted but couldn't complete
+Clean result hierarchy with three discrete categories:
+- FILTERED: Pre-match, didn't attempt to match (stream excluded by configuration)
+- FAILED: Matching attempted but couldn't find event
 - MATCHED: Successfully matched to an event
+- EXCLUDED: Matched successfully but won't create channel/EPG
 
-Ported from V1 with simplifications for V2:
-- Removed legacy string compatibility
-- Removed unsupported sport detection (handled by classifier)
-- Added MatchMethod enum (replaces MatchedTier)
-- Added confidence score for fuzzy matches
+Each category has reason subtypes for detailed breakdown.
+
+Refactored Jan 2026 for clean separation:
+- FILTERED = pre-match filtering only (regex, not_event)
+- FAILED = matching phase failures (no teams, no events)
+- EXCLUDED = post-match exclusions (lifecycle timing, league mismatch)
 """
 
 import logging
@@ -27,38 +29,33 @@ from teamarr.core.types import Event
 class ResultCategory(Enum):
     """Top-level result category for stream matching."""
 
-    FILTERED = "filtered"  # Stream excluded before matching
+    FILTERED = "filtered"  # Pre-match: didn't attempt to match
     FAILED = "failed"  # Matching attempted but failed
     MATCHED = "matched"  # Successfully matched to event
-    EXCLUDED = "excluded"  # Matched but excluded by lifecycle timing
+    EXCLUDED = "excluded"  # Matched but excluded (lifecycle/config)
 
 
 # =============================================================================
-# FILTERED REASONS - Stream excluded before matching attempted
+# FILTERED REASONS - Pre-match filtering (didn't attempt to match)
 # =============================================================================
 
 
 class FilteredReason(Enum):
-    """Reasons for filtering a stream BEFORE matching is attempted.
+    """Reasons for filtering BEFORE matching is attempted.
 
     These are expected exclusions based on stream characteristics or
-    user configuration - not failures.
+    user regex configuration. The stream never entered the matching phase.
     """
 
-    # Pre-filter exclusions (stream doesn't look like a game)
-    NO_GAME_INDICATOR = "no_game_indicator"  # No vs/@/at detected
-    PLACEHOLDER = "placeholder"  # Matches placeholder pattern (e.g., "ESPN+ 45")
-    INCLUDE_REGEX_MISS = "include_regex_miss"  # Didn't match inclusion pattern
-    EXCLUDE_REGEX_MATCH = "exclude_regex_match"  # Matched exclusion pattern
+    # Stream doesn't look like an event (no vs/@/at, dates, or event patterns)
+    NOT_EVENT = "not_event"
 
-    # Event timing exclusions
-    EVENT_PAST = "event_past"  # Event already completed (past day)
-    EVENT_FINAL = "event_final"  # Event is final (excluded by setting)
-    EVENT_OUTSIDE_WINDOW = "event_outside_window"  # Outside lookahead window
-    DATE_MISMATCH = "date_mismatch"  # Stream date doesn't match event date
+    # User regex configuration
+    INCLUDE_REGEX = "include_regex"  # Didn't match user's inclusion pattern
+    EXCLUDE_REGEX = "exclude_regex"  # Matched user's exclusion pattern
 
-    # Configuration exclusions
-    LEAGUE_NOT_ENABLED = "league_not_enabled"  # Event in non-enabled league
+    # Stream's detected league not in group's search leagues (pre-match)
+    LEAGUE_NOT_INCLUDED = "league_not_included"
 
 
 # =============================================================================
@@ -69,20 +66,20 @@ class FilteredReason(Enum):
 class FailedReason(Enum):
     """Reasons for match FAILURE - matching was attempted but couldn't complete.
 
-    These represent genuine failures that might indicate:
+    These represent genuine failures during the matching phase:
     - Data issues (teams not in provider)
     - Detection limitations (ambiguous streams)
     - Scheduling gaps (no event found)
     """
 
     # Team parsing failures
-    TEAMS_NOT_PARSED = "teams_not_parsed"  # Couldn't extract team names
+    TEAMS_NOT_PARSED = "teams_not_parsed"  # Couldn't extract team names from stream
 
     # Team lookup failures
-    TEAM1_NOT_FOUND = "team1_not_found"  # First team not found
-    TEAM2_NOT_FOUND = "team2_not_found"  # Second team not found
+    TEAM1_NOT_FOUND = "team1_not_found"  # First team not found in any league
+    TEAM2_NOT_FOUND = "team2_not_found"  # Second team not found in any league
     BOTH_TEAMS_NOT_FOUND = "both_teams_not_found"  # Neither team found
-    NO_COMMON_LEAGUE = "no_common_league"  # Teams in different leagues
+    NO_COMMON_LEAGUE = "no_common_league"  # Teams exist but in different leagues
 
     # League detection failures (multi-sport groups)
     NO_LEAGUE_DETECTED = "no_league_detected"  # Teams matched but can't determine league
@@ -93,6 +90,9 @@ class FailedReason(Enum):
 
     # Event card failures (UFC, boxing)
     NO_EVENT_CARD_MATCH = "no_event_card_match"  # Could not match to event card
+
+    # Date validation failures (stream has date that doesn't match any event)
+    DATE_MISMATCH = "date_mismatch"  # Stream date != event date
 
 
 # =============================================================================
@@ -132,17 +132,20 @@ class MatchMethod(Enum):
 
 
 class ExcludedReason(Enum):
-    """Reasons for EXCLUSION - stream matched successfully but event excluded by timing.
+    """Reasons for EXCLUSION - stream matched successfully but won't create channel.
 
-    These are NOT failures - the match was correct, but the event falls outside
-    the configured lifecycle window. Users can see "this matched correctly,
-    just too late/early for channel creation".
+    These are NOT failures - the match was correct, but the stream/event is
+    excluded due to configuration or lifecycle timing. Users can see
+    "this matched correctly, just excluded because...".
     """
 
-    # Event timing exclusions (matched but excluded)
-    EVENT_PAST = "event_past"  # Event already completed (past delete threshold)
-    EVENT_FINAL = "event_final"  # Event is in final state
-    BEFORE_CREATE_WINDOW = "before_create_window"  # Event too far in the future
+    # Matcher-level exclusions (during matching phase, after successful match)
+    LEAGUE_NOT_INCLUDED = "league_not_included"  # Matched but league not in group's leagues[]
+
+    # Lifecycle-level exclusions (after matching, during channel creation)
+    EVENT_FINAL = "event_final"  # Event status is final
+    EVENT_PAST = "event_past"  # Event already ended (past delete threshold)
+    BEFORE_WINDOW = "before_window"  # Too early to create channel
 
 
 # =============================================================================
@@ -155,7 +158,7 @@ class MatchOutcome:
     """Unified result object for stream matching.
 
     Use the factory methods to create instances:
-        MatchOutcome.filtered(FilteredReason.NO_GAME_INDICATOR)
+        MatchOutcome.filtered(FilteredReason.NOT_EVENT)
         MatchOutcome.failed(FailedReason.NO_EVENT_FOUND, detail="...")
         MatchOutcome.matched(MatchMethod.FUZZY, event=event, confidence=0.85)
     """
@@ -187,7 +190,7 @@ class MatchOutcome:
     parsed_team1: str | None = None
     parsed_team2: str | None = None
 
-    # For LEAGUE_NOT_ENABLED - the league that was found
+    # For EXCLUDED/LEAGUE_NOT_INCLUDED - the league that was found (for display)
     found_league: str | None = None
     found_league_name: str | None = None
 
@@ -199,8 +202,6 @@ class MatchOutcome:
         stream_name: str | None = None,
         stream_id: int | None = None,
         detail: str | None = None,
-        found_league: str | None = None,
-        found_league_name: str | None = None,
     ) -> "MatchOutcome":
         """Create a FILTERED result."""
         return cls(
@@ -209,8 +210,6 @@ class MatchOutcome:
             stream_name=stream_name,
             stream_id=stream_id,
             detail=detail,
-            found_league=found_league,
-            found_league_name=found_league_name,
         )
 
     @classmethod
@@ -280,6 +279,9 @@ class MatchOutcome:
         cls,
         reason: ExcludedReason,
         matched_outcome: "MatchOutcome",
+        *,
+        found_league: str | None = None,
+        found_league_name: str | None = None,
     ) -> "MatchOutcome":
         """Create an EXCLUDED result from a matched outcome.
 
@@ -289,6 +291,8 @@ class MatchOutcome:
         Args:
             reason: Why the match was excluded (EVENT_PAST, EVENT_FINAL, etc.)
             matched_outcome: The original successful match outcome
+            found_league: For LEAGUE_NOT_INCLUDED - the league code that was found
+            found_league_name: For LEAGUE_NOT_INCLUDED - the league display name
         """
         return cls(
             category=ResultCategory.EXCLUDED,
@@ -302,6 +306,8 @@ class MatchOutcome:
             parsed_team1=matched_outcome.parsed_team1,
             parsed_team2=matched_outcome.parsed_team2,
             origin_match_method=matched_outcome.origin_match_method,
+            found_league=found_league,
+            found_league_name=found_league_name,
         )
 
     @property
@@ -351,20 +357,14 @@ class MatchOutcome:
     def affects_match_rate(self) -> bool:
         """Check if this outcome counts toward match rate calculation.
 
-        Returns True for outcomes where we TRIED to match (failed or matched).
-        Returns False for pre-filtered streams that never entered matching.
+        Returns True for outcomes where we TRIED to match:
+        - MATCHED: Successfully matched
+        - FAILED: Attempted but couldn't match
+        - EXCLUDED: Matched but excluded (still counts as a match attempt)
+
+        Returns False for FILTERED streams that never entered matching.
         """
-        if self.is_matched or self.is_failed:
-            return True
-
-        # Some filtered reasons still count toward rate (we tried to match)
-        if self.filtered_reason in (
-            FilteredReason.DATE_MISMATCH,
-            FilteredReason.LEAGUE_NOT_ENABLED,
-        ):
-            return True
-
-        return False
+        return self.is_matched or self.is_failed or self.is_excluded
 
 
 # =============================================================================
@@ -372,15 +372,10 @@ class MatchOutcome:
 # =============================================================================
 
 FILTERED_DISPLAY: dict[FilteredReason, str] = {
-    FilteredReason.NO_GAME_INDICATOR: "No game indicator (vs/@/at)",
-    FilteredReason.PLACEHOLDER: "Placeholder stream (no event info)",
-    FilteredReason.INCLUDE_REGEX_MISS: "Did not match inclusion pattern",
-    FilteredReason.EXCLUDE_REGEX_MATCH: "Matched exclusion pattern",
-    FilteredReason.EVENT_PAST: "Event already completed",
-    FilteredReason.EVENT_FINAL: "Event is final (excluded)",
-    FilteredReason.EVENT_OUTSIDE_WINDOW: "Outside lookahead window",
-    FilteredReason.DATE_MISMATCH: "Stream date doesn't match event",
-    FilteredReason.LEAGUE_NOT_ENABLED: "League not enabled",
+    FilteredReason.NOT_EVENT: "Not an event stream",
+    FilteredReason.INCLUDE_REGEX: "Didn't match include regex",
+    FilteredReason.EXCLUDE_REGEX: "Matched exclude regex",
+    FilteredReason.LEAGUE_NOT_INCLUDED: "League not in group",
 }
 
 FAILED_DISPLAY: dict[FailedReason, str] = {
@@ -393,6 +388,7 @@ FAILED_DISPLAY: dict[FailedReason, str] = {
     FailedReason.AMBIGUOUS_LEAGUE: "Multiple leagues possible",
     FailedReason.NO_EVENT_FOUND: "No scheduled event found",
     FailedReason.NO_EVENT_CARD_MATCH: "No matching event card",
+    FailedReason.DATE_MISMATCH: "Stream date doesn't match event",
 }
 
 METHOD_DISPLAY: dict[MatchMethod, str] = {
@@ -406,9 +402,10 @@ METHOD_DISPLAY: dict[MatchMethod, str] = {
 }
 
 EXCLUDED_DISPLAY: dict[ExcludedReason, str] = {
-    ExcludedReason.EVENT_PAST: "Event already ended",
+    ExcludedReason.LEAGUE_NOT_INCLUDED: "League not in group",
     ExcludedReason.EVENT_FINAL: "Event is final",
-    ExcludedReason.BEFORE_CREATE_WINDOW: "Before create window",
+    ExcludedReason.EVENT_PAST: "Event already ended",
+    ExcludedReason.BEFORE_WINDOW: "Before create window",
 }
 
 
@@ -430,6 +427,9 @@ def get_display_text(outcome: MatchOutcome) -> str:
     elif outcome.is_excluded:
         reason_text = EXCLUDED_DISPLAY.get(outcome.excluded_reason, str(outcome.excluded_reason))
         method_text = METHOD_DISPLAY.get(outcome.match_method, "")
+        # Add league context for LEAGUE_NOT_INCLUDED
+        if outcome.excluded_reason == ExcludedReason.LEAGUE_NOT_INCLUDED and outcome.found_league_name:
+            return f"Found in {outcome.found_league_name} (not in group)"
         if method_text:
             return f"{reason_text} (matched via {method_text})"
         return reason_text
@@ -438,13 +438,7 @@ def get_display_text(outcome: MatchOutcome) -> str:
         return FAILED_DISPLAY.get(outcome.failed_reason, str(outcome.failed_reason))
 
     elif outcome.is_filtered:
-        text = FILTERED_DISPLAY.get(outcome.filtered_reason, str(outcome.filtered_reason))
-        if (
-            outcome.filtered_reason == FilteredReason.LEAGUE_NOT_ENABLED
-            and outcome.found_league_name
-        ):
-            return f"Found in {outcome.found_league_name} (not enabled)"
-        return text
+        return FILTERED_DISPLAY.get(outcome.filtered_reason, str(outcome.filtered_reason))
 
     return str(outcome)
 
@@ -507,21 +501,8 @@ def log_result(
 
     elif outcome.is_filtered:
         reason = outcome.filtered_reason.value if outcome.filtered_reason else "unknown"
-
-        # Some filtered reasons are debug-level (expected high volume)
-        if outcome.filtered_reason in (
-            FilteredReason.NO_GAME_INDICATOR,
-            FilteredReason.PLACEHOLDER,
-            FilteredReason.INCLUDE_REGEX_MISS,
-            FilteredReason.EXCLUDE_REGEX_MATCH,
-        ):
-            logger.debug(f"[FILTERED:{reason}] {display_name}")
-        else:
-            detail = outcome.detail or ""
-            if detail:
-                logger.info(f"[FILTERED:{reason}] {display_name} | {detail}")
-            else:
-                logger.info(f"[FILTERED:{reason}] {display_name}")
+        # All filtered reasons are debug-level (expected high volume, pre-match)
+        logger.debug(f"[FILTERED:{reason}] {display_name}")
 
 
 def format_result_summary(

@@ -339,7 +339,7 @@ class StreamMatcher:
 
         if not event_card_leagues:
             return MatchOutcome.filtered(
-                FilteredReason.LEAGUE_NOT_ENABLED,
+                FilteredReason.LEAGUE_NOT_INCLUDED,
                 stream_name=classified.normalized.original,
                 stream_id=stream_id,
                 detail="No event card leagues configured",

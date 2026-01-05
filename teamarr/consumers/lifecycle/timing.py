@@ -242,7 +242,7 @@ class ChannelLifecycleManager:
         if self.create_timing != "stream_available":
             create_threshold = self._calculate_create_threshold(event)
             if now < create_threshold:
-                return ExcludedReason.BEFORE_CREATE_WINDOW
+                return ExcludedReason.BEFORE_WINDOW
 
         # Event is within the lifecycle window
         return None

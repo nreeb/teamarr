@@ -131,7 +131,7 @@ class TeamMatcher:
         """
         if classified.category != StreamCategory.TEAM_VS_TEAM:
             return MatchOutcome.filtered(
-                FilteredReason.NO_GAME_INDICATOR,
+                FilteredReason.NOT_EVENT,
                 stream_name=classified.normalized.original,
                 stream_id=stream_id,
             )
@@ -200,7 +200,7 @@ class TeamMatcher:
         Strategy:
         1. Check cache
         2. Detect league hint from stream name
-           - If hint not in enabled_leagues → FILTERED:LEAGUE_NOT_ENABLED
+           - If hint not in enabled_leagues → FILTERED:LEAGUE_NOT_INCLUDED
            - If hint in enabled_leagues → search only that league
         3. If no hint, search all enabled leagues
         4. Match and cache
@@ -220,7 +220,7 @@ class TeamMatcher:
         """
         if classified.category != StreamCategory.TEAM_VS_TEAM:
             return MatchOutcome.filtered(
-                FilteredReason.NO_GAME_INDICATOR,
+                FilteredReason.NOT_EVENT,
                 stream_name=classified.normalized.original,
                 stream_id=stream_id,
             )
@@ -250,10 +250,9 @@ class TeamMatcher:
             if league_hint not in enabled_leagues:
                 # Stream is for a league we're not tracking
                 return MatchOutcome.filtered(
-                    FilteredReason.LEAGUE_NOT_ENABLED,
+                    FilteredReason.LEAGUE_NOT_INCLUDED,
                     stream_name=ctx.stream_name,
                     stream_id=stream_id,
-                    found_league=league_hint,
                     detail=f"League '{league_hint}' not in enabled leagues",
                 )
             # Narrow search to hinted league

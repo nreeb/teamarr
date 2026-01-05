@@ -93,7 +93,7 @@ class EventCardMatcher:
         """
         if classified.category != StreamCategory.EVENT_CARD:
             return MatchOutcome.filtered(
-                FilteredReason.NO_GAME_INDICATOR,
+                FilteredReason.NOT_EVENT,
                 stream_name=classified.normalized.original,
                 stream_id=stream_id,
                 detail="Not an event card stream",
