@@ -50,25 +50,20 @@ class OffseasonFillerTemplate:
 class FillerConfig:
     """Configuration for filler generation.
 
-    Populated from database templates table.
+    Populated from database templates table. No hardcoded defaults -
+    schema.sql provides all default values.
     """
 
     # Pregame settings
     pregame_enabled: bool = True
     pregame_template: FillerTemplate = field(
-        default_factory=lambda: FillerTemplate(
-            title="Pregame Coverage",
-            description="{team_name} vs {opponent.next} starts at {game_time.next}",
-        )
+        default_factory=lambda: FillerTemplate(title="", description="")
     )
 
     # Postgame settings
     postgame_enabled: bool = True
     postgame_template: FillerTemplate = field(
-        default_factory=lambda: FillerTemplate(
-            title="Postgame Recap",
-            description="{team_name} {result_text.last} {final_score.last}",
-        )
+        default_factory=lambda: FillerTemplate(title="", description="")
     )
     postgame_conditional: ConditionalFillerTemplate = field(
         default_factory=ConditionalFillerTemplate
@@ -77,19 +72,16 @@ class FillerConfig:
     # Idle settings
     idle_enabled: bool = True
     idle_template: FillerTemplate = field(
-        default_factory=lambda: FillerTemplate(
-            title="{team_name} Programming",
-            description="Next game: {game_date.next} vs {opponent.next}",
-        )
+        default_factory=lambda: FillerTemplate(title="", description="")
     )
     idle_conditional: ConditionalFillerTemplate = field(default_factory=ConditionalFillerTemplate)
     idle_offseason: OffseasonFillerTemplate = field(default_factory=OffseasonFillerTemplate)
 
     # Category for filler content
-    category: str = "Sports"
+    category: str = ""
 
     # XMLTV categories (list for multiple categories)
-    xmltv_categories: list[str] = field(default_factory=lambda: ["Sports"])
+    xmltv_categories: list[str] = field(default_factory=list)
     # Whether categories apply to filler ('all') or just events ('events')
     categories_apply_to: str = "events"
 

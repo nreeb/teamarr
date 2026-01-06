@@ -150,7 +150,7 @@ class TemplateConfig:
     game_duration_mode: str = "sport"  # 'sport', 'default', 'custom'
     game_duration_override: float | None = None
 
-    # XMLTV metadata
-    xmltv_flags: dict = field(default_factory=lambda: {"new": True, "live": False, "date": False})
-    xmltv_categories: list[str] = field(default_factory=lambda: ["Sports"])
+    # XMLTV metadata (no hardcoded defaults - schema.sql provides them)
+    xmltv_flags: dict = field(default_factory=dict)
+    xmltv_categories: list[str] = field(default_factory=list)
     categories_apply_to: str = "events"  # 'all' or 'events'

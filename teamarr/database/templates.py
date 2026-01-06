@@ -417,23 +417,21 @@ def template_to_filler_config(template: Template) -> FillerConfig:
         OffseasonFillerTemplate,
     )
 
-    # Build pregame template from fallback
+    # Build pregame template from fallback (no hardcoded defaults - schema provides them)
     pregame_fb = template.pregame_fallback or {}
-    pregame_desc_default = "{team_name} vs {opponent.next} at {game_time.next}"
     pregame_template = FillerTemplate(
-        title=pregame_fb.get("title", "Pregame Coverage"),
+        title=pregame_fb.get("title", ""),
         subtitle=pregame_fb.get("subtitle"),
-        description=pregame_fb.get("description", pregame_desc_default),
+        description=pregame_fb.get("description", ""),
         art_url=pregame_fb.get("art_url"),
     )
 
-    # Build postgame template from fallback
+    # Build postgame template from fallback (no hardcoded defaults - schema provides them)
     postgame_fb = template.postgame_fallback or {}
-    postgame_desc_default = "{team_name} {result_text.last} {final_score.last}"
     postgame_template = FillerTemplate(
-        title=postgame_fb.get("title", "Postgame Recap"),
+        title=postgame_fb.get("title", ""),
         subtitle=postgame_fb.get("subtitle"),
-        description=postgame_fb.get("description", postgame_desc_default),
+        description=postgame_fb.get("description", ""),
         art_url=postgame_fb.get("art_url"),
     )
 
@@ -445,12 +443,12 @@ def template_to_filler_config(template: Template) -> FillerConfig:
         description_not_final=pg_cond.get("description_not_final"),
     )
 
-    # Build idle template
+    # Build idle template (no hardcoded defaults - schema provides them)
     idle_ct = template.idle_content or {}
     idle_template = FillerTemplate(
-        title=idle_ct.get("title", "{team_name} Programming"),
+        title=idle_ct.get("title", ""),
         subtitle=idle_ct.get("subtitle"),
-        description=idle_ct.get("description", "Next game: {game_date.next} vs {opponent.next}"),
+        description=idle_ct.get("description", ""),
         art_url=idle_ct.get("art_url"),
     )
 
@@ -473,9 +471,9 @@ def template_to_filler_config(template: Template) -> FillerConfig:
         description=idle_off.get("description"),
     )
 
-    # Get category from xmltv_categories
-    categories = template.xmltv_categories or ["Sports"]
-    category = categories[0] if categories else "Sports"
+    # Get category from xmltv_categories (no hardcoded defaults - schema provides them)
+    categories = template.xmltv_categories or []
+    category = categories[0] if categories else ""
 
     return FillerConfig(
         pregame_enabled=template.pregame_enabled,
@@ -506,22 +504,23 @@ def template_to_programme_config(template: Template) -> TemplateConfig:
     """
     from teamarr.core import TemplateConfig
 
-    # Get category from xmltv_categories
-    categories = template.xmltv_categories or ["Sports"]
-    category = categories[0] if categories else "Sports"
+    # Get category from xmltv_categories (no hardcoded defaults - schema provides them)
+    categories = template.xmltv_categories or []
+    category = categories[0] if categories else ""
 
     return TemplateConfig(
-        title_format=template.title_format or "{team_name} {sport}",
-        description_format=template.description_template or "{matchup} | {venue_full}",
-        subtitle_format=template.subtitle_template or "{venue_full}",
+        # No hardcoded defaults - schema provides them
+        title_format=template.title_format or "",
+        description_format=template.description_template or "",
+        subtitle_format=template.subtitle_template or "",
         category=category,
         program_art_url=template.program_art_url,
         conditional_descriptions=template.conditional_descriptions or [],
         # V1 Parity: Duration override support
         game_duration_mode=template.game_duration_mode or "sport",
         game_duration_override=template.game_duration_override,
-        # XMLTV metadata
-        xmltv_flags=template.xmltv_flags or {"new": True, "live": False, "date": False},
+        # XMLTV metadata (schema defaults: new=true, live=false, date=false)
+        xmltv_flags=template.xmltv_flags or {},
         xmltv_categories=categories,
         categories_apply_to=template.categories_apply_to or "events",
     )
@@ -539,21 +538,19 @@ def template_to_event_config(template: Template) -> EventTemplateConfig:
     Returns:
         EventTemplateConfig ready for EventEPGGenerator
     """
-    # Get category from xmltv_categories
-    categories = template.xmltv_categories or ["Sports"]
-
-    # Default channel name format
-    channel_name_default = "{away_team_abbrev} @ {home_team_abbrev}"
+    # Get category from xmltv_categories (no hardcoded defaults - schema provides them)
+    categories = template.xmltv_categories or []
 
     return EventTemplateConfig(
-        title_format=template.title_format or "{away_team} @ {home_team}",
-        channel_name_format=template.event_channel_name or channel_name_default,
-        description_format=template.description_template or "{matchup} | {venue_full}",
-        subtitle_format=template.subtitle_template or "{venue_city}",
-        category=categories[0] if categories else "Sports",
+        # No hardcoded defaults - schema provides them
+        title_format=template.title_format or "",
+        channel_name_format=template.event_channel_name or "",
+        description_format=template.description_template or "",
+        subtitle_format=template.subtitle_template or "",
+        category=categories[0] if categories else "",
         program_art_url=template.program_art_url,
         event_channel_logo_url=template.event_channel_logo_url,
-        xmltv_flags=template.xmltv_flags or {"new": True, "live": False, "date": False},
+        xmltv_flags=template.xmltv_flags or {},
         xmltv_categories=categories,
         conditional_descriptions=template.conditional_descriptions or [],
     )

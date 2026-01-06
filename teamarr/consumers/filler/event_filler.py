@@ -26,35 +26,29 @@ class EventFillerConfig:
     """Configuration for event-based filler.
 
     Simpler than FillerConfig - no idle/offseason since event channels
-    are single-event focused.
+    are single-event focused. No hardcoded defaults - schema.sql provides them.
     """
 
     # Pregame settings
     pregame_enabled: bool = True
     pregame_template: FillerTemplate = field(
-        default_factory=lambda: FillerTemplate(
-            title="Pregame Coverage",
-            description="{away_team} @ {home_team} | {game_time} | {venue_full}",
-        )
+        default_factory=lambda: FillerTemplate(title="", description="")
     )
 
     # Postgame settings
     postgame_enabled: bool = True
     postgame_template: FillerTemplate = field(
-        default_factory=lambda: FillerTemplate(
-            title="Postgame Recap",
-            description="{away_team} @ {home_team} | Final",
-        )
+        default_factory=lambda: FillerTemplate(title="", description="")
     )
     postgame_conditional: ConditionalFillerTemplate = field(
         default_factory=ConditionalFillerTemplate
     )
 
     # Category for filler content
-    category: str = "Sports"
+    category: str = ""
 
     # XMLTV categories (list for multiple categories)
-    xmltv_categories: list[str] = field(default_factory=lambda: ["Sports"])
+    xmltv_categories: list[str] = field(default_factory=list)
     # Whether categories apply to filler ('all') or just events ('events')
     categories_apply_to: str = "events"
 
@@ -378,23 +372,21 @@ def template_to_event_filler_config(template) -> EventFillerConfig:
     Returns:
         EventFillerConfig ready for EventFillerGenerator
     """
-    # Build pregame template from fallback
+    # Build pregame template from fallback (no hardcoded defaults - schema provides them)
     pregame_fb = getattr(template, "pregame_fallback", None) or {}
     pregame_template = FillerTemplate(
-        title=pregame_fb.get("title", "Pregame Coverage"),
+        title=pregame_fb.get("title", ""),
         subtitle=pregame_fb.get("subtitle"),
-        description=pregame_fb.get(
-            "description", "{away_team} @ {home_team} | {game_time} | {venue_full}"
-        ),
+        description=pregame_fb.get("description", ""),
         art_url=pregame_fb.get("art_url"),
     )
 
-    # Build postgame template from fallback
+    # Build postgame template from fallback (no hardcoded defaults - schema provides them)
     postgame_fb = getattr(template, "postgame_fallback", None) or {}
     postgame_template = FillerTemplate(
-        title=postgame_fb.get("title", "Postgame Recap"),
+        title=postgame_fb.get("title", ""),
         subtitle=postgame_fb.get("subtitle"),
-        description=postgame_fb.get("description", "{away_team} @ {home_team} | Final"),
+        description=postgame_fb.get("description", ""),
         art_url=postgame_fb.get("art_url"),
     )
 
@@ -406,9 +398,9 @@ def template_to_event_filler_config(template) -> EventFillerConfig:
         description_not_final=pg_cond.get("description_not_final"),
     )
 
-    # Get category from xmltv_categories
-    categories = getattr(template, "xmltv_categories", None) or ["Sports"]
-    category = categories[0] if categories else "Sports"
+    # Get category from xmltv_categories (no hardcoded defaults - schema provides them)
+    categories = getattr(template, "xmltv_categories", None) or []
+    category = categories[0] if categories else ""
 
     return EventFillerConfig(
         pregame_enabled=getattr(template, "pregame_enabled", True),

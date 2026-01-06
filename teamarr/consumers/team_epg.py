@@ -468,6 +468,10 @@ class TeamEPGGenerator:
         # Load filler config from database if template_id is set
         filler_config = self._load_filler_config(options)
 
+        # Skip filler generation if no template loaded
+        if filler_config is None:
+            return []
+
         return self._filler_generator.generate(
             events=events,
             team_id=team_id,
@@ -508,14 +512,12 @@ class TeamEPGGenerator:
                     f"Failed to load filler config for template {options.template_id}: {e}"
                 )
 
-        # Default filler config - WARN because user's template settings are not being used
+        # No template loaded - return None to signal generation should be skipped
         logger.warning(
-            "Using hardcoded filler defaults - user's template filler settings ignored. "
-            "This happens when template_id is not set or template loading failed."
+            "No template loaded - skipping filler generation. "
+            "Assign a template to the team to enable EPG generation."
         )
-        return FillerConfig(
-            category=options.template.category if options.template else "Sports",
-        )
+        return None
 
     def _load_programme_template(self, template_id: int) -> TemplateConfig | None:
         """Load main programme template from database.
