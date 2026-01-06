@@ -129,10 +129,10 @@ class TSDBProvider(SportsProvider):
         today = date.today()
         seen_ids: set[str] = set()
 
-        # 1. Scan past days for .last variable resolution (use provider cache)
+        # 1. Scan past days for .last variable resolution
         for i in range(self.DAYS_BACK, 0, -1):
             target_date = today - timedelta(days=i)
-            team_events = self._get_events_for_team(league, target_date, team_name, is_past=True)
+            team_events = self._get_events_for_team(league, target_date, team_name)
             for event in team_events:
                 if event.id not in seen_ids:
                     seen_ids.add(event.id)
@@ -141,7 +141,7 @@ class TSDBProvider(SportsProvider):
         # 2. Scan future days (including today)
         for i in range(days_ahead):
             target_date = today + timedelta(days=i)
-            team_events = self._get_events_for_team(league, target_date, team_name, is_past=False)
+            team_events = self._get_events_for_team(league, target_date, team_name)
             for event in team_events:
                 if event.id not in seen_ids:
                     seen_ids.add(event.id)
@@ -156,43 +156,24 @@ class TSDBProvider(SportsProvider):
         league: str,
         target_date: date,
         team_name: str,
-        is_past: bool = False,
     ) -> list[Event]:
         """Get events for a team on a specific date.
 
-        For past dates, uses persistent SQLite cache (final results don't change).
-        For future dates, fetches fresh data.
+        Service layer handles caching - provider is pure fetch.
         """
-        from teamarr.database.provider_cache import cache_events, get_cached_events
-
-        # For past events, check persistent cache first
-        if is_past:
-            cached = get_cached_events("tsdb", league, target_date)
-            if cached is not None:
-                return [e for e in cached if self._team_in_event(team_name, e)]
-
-        # Fetch from API
         date_str = target_date.strftime("%Y-%m-%d")
         data = self._client.get_events_by_date(league, date_str)
         if not data or not data.get("events"):
-            # Cache empty result for past dates too
-            if is_past:
-                cache_events("tsdb", league, target_date, [])
             return []
 
-        # Parse all events
-        all_events = []
+        # Parse and filter for this team
+        team_events = []
         for event_data in data["events"]:
             event = self._parse_event(event_data, league)
-            if event:
-                all_events.append(event)
+            if event and self._team_in_event(team_name, event):
+                team_events.append(event)
 
-        # Cache past events (they're final)
-        if is_past:
-            cache_events("tsdb", league, target_date, all_events)
-
-        # Filter for this team
-        return [e for e in all_events if self._team_in_event(team_name, e)]
+        return team_events
 
     def _team_in_event(self, team_name: str, event: Event) -> bool:
         """Check if team is playing in this event."""

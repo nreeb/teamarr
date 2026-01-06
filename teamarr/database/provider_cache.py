@@ -1,111 +1,12 @@
-"""Persistent cache for provider events.
+"""Serialization helpers for caching dataclass objects.
 
-Stores past events in SQLite for .last variable resolution.
-Past events are final (scores don't change), so cache indefinitely.
-Cleanup entries older than 180 days periodically.
+Used by SportsDataService to serialize Event, Team, TeamStats to/from
+JSON for storage in PersistentTTLCache (SQLite-backed).
 """
 
-import json
-import logging
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime
 
 from teamarr.core import Event, EventStatus, Team, TeamStats, Venue
-from teamarr.database.connection import get_db
-
-logger = logging.getLogger(__name__)
-
-# Max age for cached entries (cleanup older ones)
-CACHE_MAX_AGE_DAYS = 180
-
-
-def get_cached_events(provider: str, league: str, event_date: date) -> list[Event] | None:
-    """Get cached events for a provider/league/date.
-
-    Returns None if not cached (caller should fetch from API).
-    Returns empty list if cached but no events on that date.
-    """
-    date_str = event_date.isoformat()
-
-    with get_db() as conn:
-        row = conn.execute(
-            """
-            SELECT events_json FROM provider_events_cache
-            WHERE provider = ? AND league = ? AND event_date = ?
-            """,
-            (provider, league, date_str),
-        ).fetchone()
-
-    if row is None:
-        return None
-
-    try:
-        events_data = json.loads(row["events_json"])
-        return [dict_to_event(e) for e in events_data]
-    except (json.JSONDecodeError, KeyError, TypeError) as e:
-        logger.warning(f"Failed to deserialize cached events: {e}")
-        return None
-
-
-def cache_events(provider: str, league: str, event_date: date, events: list[Event]) -> None:
-    """Cache events for a provider/league/date.
-
-    Only cache past dates (today and future should be fetched fresh).
-    """
-    # Only cache past dates
-    if event_date >= date.today():
-        return
-
-    date_str = event_date.isoformat()
-    events_json = json.dumps([event_to_dict(e) for e in events])
-
-    with get_db() as conn:
-        conn.execute(
-            """
-            INSERT OR REPLACE INTO provider_events_cache
-            (provider, league, event_date, events_json, created_at)
-            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-            """,
-            (provider, league, date_str, events_json),
-        )
-
-
-def cleanup_old_entries() -> int:
-    """Delete cache entries older than CACHE_MAX_AGE_DAYS.
-
-    Returns number of entries deleted.
-    """
-    cutoff_date = (date.today() - timedelta(days=CACHE_MAX_AGE_DAYS)).isoformat()
-
-    with get_db() as conn:
-        cursor = conn.execute(
-            "DELETE FROM provider_events_cache WHERE event_date < ?",
-            (cutoff_date,),
-        )
-        return cursor.rowcount
-
-
-def get_cache_stats() -> dict:
-    """Get cache statistics."""
-    with get_db() as conn:
-        row = conn.execute(
-            """
-            SELECT
-                COUNT(*) as total_entries,
-                COUNT(DISTINCT provider) as providers,
-                COUNT(DISTINCT league) as leagues,
-                MIN(event_date) as oldest_date,
-                MAX(event_date) as newest_date
-            FROM provider_events_cache
-            """
-        ).fetchone()
-
-    return {
-        "total_entries": row["total_entries"],
-        "providers": row["providers"],
-        "leagues": row["leagues"],
-        "oldest_date": row["oldest_date"],
-        "newest_date": row["newest_date"],
-    }
 
 
 def event_to_dict(event: Event) -> dict:
