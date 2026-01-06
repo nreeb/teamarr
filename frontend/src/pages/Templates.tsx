@@ -245,11 +245,11 @@ export function Templates() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Usage</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="w-[40%]">Name</TableHead>
+                  <TableHead className="w-[80px]">Type</TableHead>
+                  <TableHead className="w-[100px]">Usage</TableHead>
+                  <TableHead className="w-[100px]">Created</TableHead>
+                  <TableHead className="w-[160px] text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

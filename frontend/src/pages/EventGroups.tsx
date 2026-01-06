@@ -654,22 +654,22 @@ export function EventGroups() {
                   <Card className="p-3 shadow-lg border min-w-[200px]">
                     <div className="text-xs font-medium text-muted-foreground mb-2">Filter Breakdown</div>
                     <div className="space-y-1">
+                      {stats.filteredNotEvent > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span>Not an event stream</span>
+                          <span className="font-medium">{stats.filteredNotEvent}</span>
+                        </div>
+                      )}
                       {stats.filteredIncludeRegex > 0 && (
                         <div className="flex justify-between text-sm">
-                          <span>Include regex</span>
+                          <span>Didn't match include regex</span>
                           <span className="font-medium">{stats.filteredIncludeRegex}</span>
                         </div>
                       )}
                       {stats.filteredExcludeRegex > 0 && (
                         <div className="flex justify-between text-sm">
-                          <span>Exclude regex</span>
+                          <span>Matched exclude regex</span>
                           <span className="font-medium">{stats.filteredExcludeRegex}</span>
-                        </div>
-                      )}
-                      {stats.filteredNotEvent > 0 && (
-                        <div className="flex justify-between text-sm">
-                          <span>Placeholders</span>
-                          <span className="font-medium">{stats.filteredNotEvent}</span>
                         </div>
                       )}
                       <div className="flex justify-between text-sm font-medium pt-1 border-t">
@@ -701,13 +701,13 @@ export function EventGroups() {
                       )}
                       {stats.excludedEventFinal > 0 && (
                         <div className="flex justify-between text-sm">
-                          <span>Event final</span>
+                          <span>Event is final</span>
                           <span className="font-medium">{stats.excludedEventFinal}</span>
                         </div>
                       )}
                       {stats.excludedEventPast > 0 && (
                         <div className="flex justify-between text-sm">
-                          <span>Event past</span>
+                          <span>Event already ended</span>
                           <span className="font-medium">{stats.excludedEventPast}</span>
                         </div>
                       )}
