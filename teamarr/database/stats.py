@@ -702,7 +702,8 @@ def get_matched_streams(
     params.append(limit)
 
     rows = conn.execute(query, params).fetchall()
-    return [dict(row) for row in rows]
+    # Convert from_cache from SQLite integer (0/1) to boolean
+    return [{**dict(row), "from_cache": bool(row["from_cache"])} for row in rows]
 
 
 def get_failed_matches(
