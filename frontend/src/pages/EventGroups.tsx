@@ -1370,63 +1370,60 @@ export function EventGroups() {
           )}
       </div>
 
-      {/* Team Aliases Section */}
-      <div className="mt-6">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-semibold">Team Aliases</h2>
-            <Badge variant="secondary" className="text-xs">
-              {aliases?.length ?? 0} aliases
-            </Badge>
-          </div>
+      {/* Team Aliases Section - Compact like V1 */}
+      <div className="mt-4">
+        <div className="flex items-center gap-2 mb-1.5">
+          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Team Aliases</h3>
+          <span className="text-[0.65rem] text-muted-foreground/70">({aliases?.length ?? 0})</span>
           <Button
-            variant="secondary"
+            variant="ghost"
             size="sm"
+            className="h-5 px-1.5 text-xs ml-auto"
             onClick={() => {
               setAliasForm({ alias: "", league: "", team_id: "", team_name: "" })
               setAliasLeagueTeams([])
               setShowAliasModal(true)
             }}
           >
-            <Plus className="h-4 w-4 mr-1" />
-            Add Alias
+            <Plus className="h-3 w-3 mr-0.5" />
+            Add
           </Button>
         </div>
 
         {aliases && aliases.length > 0 ? (
-          <div className="border rounded-lg overflow-hidden">
+          <div className="border rounded overflow-hidden">
             <Table>
               <TableHeader>
-                <TableRow className="h-8">
-                  <TableHead className="text-xs">Alias</TableHead>
-                  <TableHead className="text-xs">League</TableHead>
-                  <TableHead className="text-xs">Maps To</TableHead>
-                  <TableHead className="text-xs w-12"></TableHead>
+                <TableRow className="h-6 bg-muted/30">
+                  <TableHead className="text-[0.65rem] py-1 font-medium">Alias</TableHead>
+                  <TableHead className="text-[0.65rem] py-1 font-medium">League</TableHead>
+                  <TableHead className="text-[0.65rem] py-1 font-medium">Maps To</TableHead>
+                  <TableHead className="text-[0.65rem] py-1 w-8"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {aliases.map((alias) => (
-                  <TableRow key={alias.id} className="h-9">
-                    <TableCell className="font-mono text-sm">{alias.alias}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="text-xs">
+                  <TableRow key={alias.id} className="h-7">
+                    <TableCell className="py-1 font-mono text-xs">{alias.alias}</TableCell>
+                    <TableCell className="py-1">
+                      <Badge variant="outline" className="text-[0.6rem] px-1 py-0 h-4">
                         {alias.league.toUpperCase()}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm">{alias.team_name}</TableCell>
-                    <TableCell>
+                    <TableCell className="py-1 text-xs">{alias.team_name}</TableCell>
+                    <TableCell className="py-1">
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7"
+                        className="h-5 w-5"
                         onClick={() => handleDeleteAlias(alias.id)}
                         disabled={aliasDeleting === alias.id}
-                        title="Delete alias"
+                        title="Delete"
                       >
                         {aliasDeleting === alias.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <Loader2 className="h-3 w-3 animate-spin" />
                         ) : (
-                          <Trash2 className="h-4 w-4 text-destructive" />
+                          <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
                         )}
                       </Button>
                     </TableCell>
@@ -1436,9 +1433,9 @@ export function EventGroups() {
             </Table>
           </div>
         ) : (
-          <div className="border rounded-lg p-4 text-sm text-muted-foreground">
-            No aliases defined. Aliases help match stream names to teams when automatic matching fails.
-          </div>
+          <p className="text-xs text-muted-foreground/70 italic">
+            No aliases defined. Aliases help match stream names to teams.
+          </p>
         )}
       </div>
 
