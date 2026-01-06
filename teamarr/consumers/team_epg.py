@@ -182,6 +182,16 @@ class TeamEPGGenerator:
         if additional_leagues:
             leagues_to_fetch.extend(lg for lg in additional_leagues if lg != league)
 
+        # Ensure schedule_days_ahead > output_days_ahead for accurate "next game" info
+        # on the last days of the EPG window. Add 7-day buffer minimum.
+        min_schedule_days = options.output_days_ahead + 7
+        effective_schedule_days = max(options.schedule_days_ahead, min_schedule_days)
+        if effective_schedule_days != options.schedule_days_ahead:
+            logger.debug(
+                f"Extended schedule fetch from {options.schedule_days_ahead} to "
+                f"{effective_schedule_days} days for accurate 'next game' info"
+            )
+
         # Fetch team schedule from all leagues (parallel for multi-league teams)
         all_events: list[Event] = []
         seen_event_ids: set = set()
@@ -190,7 +200,7 @@ class TeamEPGGenerator:
             return self._service.get_team_schedule(
                 team_id=team_id,
                 league=lg,
-                days_ahead=options.schedule_days_ahead,
+                days_ahead=effective_schedule_days,
             )
 
         # Single league: fetch directly (no thread overhead)
