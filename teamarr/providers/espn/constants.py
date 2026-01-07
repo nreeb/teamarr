@@ -8,6 +8,10 @@ STATUS_MAP = {
     "STATUS_END_PERIOD": "live",
     "STATUS_FINAL": "final",
     "STATUS_FINAL_OT": "final",
+    "STATUS_FULL_TIME": "final",  # Soccer
+    "STATUS_FULL_TIME_ET": "final",  # Soccer extra time
+    "STATUS_FULL_PEN": "final",  # Soccer penalties
+    "STATUS_ABANDONED": "cancelled",  # Soccer
     "STATUS_POSTPONED": "postponed",
     "STATUS_CANCELED": "cancelled",
     "STATUS_DELAYED": "scheduled",
