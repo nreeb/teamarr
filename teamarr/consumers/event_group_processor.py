@@ -1101,8 +1101,18 @@ class EventGroupProcessor:
                     result.errors.append(f"Channel error: {error}")
 
                 # Step 5: Generate XMLTV from matched streams
+                # Filter out streams excluded by lifecycle (event_final, event_past, etc.)
+                excluded_event_ids = {
+                    excl.get("event_id") for excl in lifecycle_result.excluded
+                    if excl.get("event_id")
+                }
+                xmltv_streams = [
+                    ms for ms in matched_streams
+                    if ms.get("event") and ms["event"].id not in excluded_event_ids
+                ]
+
                 xmltv_content, programmes_total, event_programmes, pregame, postgame = (
-                    self._generate_xmltv(matched_streams, group, conn)
+                    self._generate_xmltv(xmltv_streams, group, conn)
                 )
                 result.programmes_generated = programmes_total
                 result.events_count = event_programmes
