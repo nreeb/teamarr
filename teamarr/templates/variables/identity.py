@@ -185,21 +185,10 @@ def extract_league_name(ctx: TemplateContext, game_ctx: GameContext | None) -> s
     name="sport",
     category=Category.IDENTITY,
     suffix_rules=SuffixRules.BASE_ONLY,
-    description="Sport name (e.g., 'football', 'basketball')",
+    description="Sport name in title case (e.g., 'Football', 'Basketball')",
 )
 def extract_sport(ctx: TemplateContext, game_ctx: GameContext | None) -> str:
     return ctx.team_config.sport or ""
-
-
-@register_variable(
-    name="sport_title",
-    category=Category.IDENTITY,
-    suffix_rules=SuffixRules.BASE_ONLY,
-    description="Sport name title case (e.g., 'Football', 'Basketball')",
-)
-def extract_sport_title(ctx: TemplateContext, game_ctx: GameContext | None) -> str:
-    sport = ctx.team_config.sport or ""
-    return sport.title()
 
 
 @register_variable(

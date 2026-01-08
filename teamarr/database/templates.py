@@ -576,7 +576,7 @@ def seed_default_templates(conn: Connection) -> None:
         conn,
         name="Default Team",
         template_type="team",
-        title_format="{team_name} {sport_title}",
+        title_format="{team_name} {sport}",
         subtitle_template="{venue_full}",
         pregame_fallback={
             "title": "Pregame Coverage",
