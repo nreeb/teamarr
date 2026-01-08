@@ -101,6 +101,14 @@ def _add_programme(root: Element, programme: Programme) -> None:
         icon_elem = SubElement(prog_elem, "icon")
         icon_elem.set("src", programme.icon)
 
+    # Add video element if enabled (only for non-filler programmes)
+    # Note: Teamarr does not detect actual stream resolution - this is user-configured
+    video = programme.xmltv_video or {}
+    if video.get("enabled") and not programme.filler_type:
+        video_elem = SubElement(prog_elem, "video")
+        if video.get("quality"):
+            SubElement(video_elem, "quality").text = video["quality"]
+
     # Add new tag if enabled (only for non-filler programmes)
     if flags.get("new") and not programme.filler_type:
         SubElement(prog_elem, "new")

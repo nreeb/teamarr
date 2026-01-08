@@ -75,6 +75,7 @@ const DEFAULT_FORM: TemplateCreate = {
   game_duration_mode: "sport",
   game_duration_override: null,
   xmltv_flags: { new: true, live: false, date: false },
+  xmltv_video: { enabled: false, quality: "HDTV" },
   xmltv_categories: ["Sports"],
   categories_apply_to: "events",
   pregame_enabled: true,
@@ -176,6 +177,7 @@ export function TemplateForm() {
         game_duration_mode: template.game_duration_mode || "sport",
         game_duration_override: template.game_duration_override,
         xmltv_flags: template.xmltv_flags || { new: true, live: false, date: false },
+        xmltv_video: template.xmltv_video || { enabled: false, quality: "HDTV" },
         xmltv_categories: template.xmltv_categories || ["Sports"],
         categories_apply_to: template.categories_apply_to || "events",
         pregame_enabled: template.pregame_enabled ?? true,
@@ -2181,6 +2183,51 @@ function XmltvTab({ formData, setFormData, resolveTemplate: _resolveTemplate }: 
               <p className="text-xs text-muted-foreground">Adds &lt;date&gt; tag with air date (YYYYMMDD) to events</p>
             </div>
           </label>
+        </CardContent>
+      </Card>
+
+      {/* Video Quality */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">📺 Video Quality</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            XMLTV video element for EPG clients that support quality metadata.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-md p-3 text-xs text-amber-600 dark:text-amber-400">
+            <strong>Note:</strong> Teamarr does not detect actual stream resolution. This setting will apply to <strong>all</strong> channels using this template, regardless of their actual quality.
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <Checkbox
+              checked={formData.xmltv_video?.enabled || false}
+              onClick={() => setFormData(prev => ({
+                ...prev,
+                xmltv_video: { ...prev.xmltv_video, enabled: !prev.xmltv_video?.enabled }
+              }))}
+            />
+            <div>
+              <span>Include Video Element</span>
+              <p className="text-xs text-muted-foreground">Adds &lt;video&gt;&lt;quality&gt; element</p>
+            </div>
+          </label>
+          {formData.xmltv_video?.enabled && (
+            <div className="pt-2">
+              <label className="text-xs font-medium">Quality</label>
+              <select
+                className="w-full mt-1 px-2 py-1.5 text-sm border rounded-md bg-background"
+                value={formData.xmltv_video?.quality || "HDTV"}
+                onChange={(e) => setFormData(prev => ({
+                  ...prev,
+                  xmltv_video: { ...prev.xmltv_video, quality: e.target.value }
+                }))}
+              >
+                <option value="SDTV">SDTV</option>
+                <option value="HDTV">HDTV</option>
+                <option value="UHD">UHD (4K)</option>
+              </select>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

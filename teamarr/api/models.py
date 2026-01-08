@@ -150,6 +150,7 @@ class TemplateCreate(BaseModel):
 
     # XMLTV metadata
     xmltv_flags: dict | None = None
+    xmltv_video: dict | None = None
     xmltv_categories: list[str] | None = None
     categories_apply_to: str = "events"
 
@@ -193,6 +194,7 @@ class TemplateUpdate(BaseModel):
 
     # XMLTV metadata
     xmltv_flags: dict | None = None
+    xmltv_video: dict | None = None
     xmltv_categories: list[str] | None = None
     categories_apply_to: str | None = None
 
@@ -244,6 +246,7 @@ class TemplateFullResponse(TemplateResponse):
     """Full template response including JSON fields."""
 
     xmltv_flags: dict | None = None
+    xmltv_video: dict | None = None
     xmltv_categories: list[str] | None = None
     categories_apply_to: str | None = None
     pregame_periods: list[dict] | None = None

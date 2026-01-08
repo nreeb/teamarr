@@ -48,6 +48,12 @@ export interface XmltvFlags {
   date: boolean
 }
 
+// XMLTV video element
+export interface XmltvVideo {
+  enabled: boolean
+  quality: string  // "SDTV", "HDTV", "UHD"
+}
+
 export interface Template {
   id: number
   name: string
@@ -67,6 +73,7 @@ export interface Template {
 
   // XMLTV
   xmltv_flags: XmltvFlags | null
+  xmltv_video: XmltvVideo | null
   xmltv_categories: string[] | null
   categories_apply_to: string
 
@@ -118,6 +125,7 @@ export interface TemplateCreate {
 
   // XMLTV
   xmltv_flags?: XmltvFlags | null
+  xmltv_video?: XmltvVideo | null
   xmltv_categories?: string[] | null
   categories_apply_to?: string
 

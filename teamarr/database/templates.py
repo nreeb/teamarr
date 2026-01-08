@@ -50,6 +50,7 @@ class Template:
 
     # XMLTV metadata
     xmltv_flags: dict = field(default_factory=lambda: {"new": True, "live": False, "date": False})
+    xmltv_video: dict = field(default_factory=lambda: {"enabled": False, "quality": "HDTV"})
     xmltv_categories: list[str] = field(default_factory=lambda: ["Sports"])
     categories_apply_to: str = "events"  # 'all' or 'events'
 
@@ -112,6 +113,7 @@ class EventTemplateConfig:
 
     # XMLTV metadata
     xmltv_flags: dict = field(default_factory=lambda: {"new": True, "live": False, "date": False})
+    xmltv_video: dict = field(default_factory=lambda: {"enabled": False, "quality": "HDTV"})
     xmltv_categories: list[str] = field(default_factory=lambda: ["Sports"])
 
     # Conditional descriptions (evaluated against single event)
@@ -148,6 +150,7 @@ def _row_to_template(row: Row) -> Template:
         game_duration_mode=row["game_duration_mode"] or "sport",
         game_duration_override=row["game_duration_override"],
         xmltv_flags=_parse_json(row["xmltv_flags"], {"new": True, "live": False, "date": False}),
+        xmltv_video=_parse_json(row["xmltv_video"], {"enabled": False, "quality": "HDTV"}),
         xmltv_categories=_parse_json(row["xmltv_categories"], ["Sports"]),
         categories_apply_to=row["categories_apply_to"] or "events",
         pregame_enabled=bool(row["pregame_enabled"]),
@@ -293,6 +296,7 @@ def create_template(
     # JSON fields need serialization
     json_fields = {
         "xmltv_flags",
+        "xmltv_video",
         "xmltv_categories",
         "pregame_periods",
         "pregame_fallback",
@@ -343,6 +347,7 @@ def update_template(conn: Connection, template_id: int, **kwargs) -> bool:
     # JSON fields need serialization
     json_fields = {
         "xmltv_flags",
+        "xmltv_video",
         "xmltv_categories",
         "pregame_periods",
         "pregame_fallback",
@@ -516,6 +521,7 @@ def template_to_programme_config(template: Template) -> TemplateConfig:
         game_duration_override=template.game_duration_override,
         # XMLTV metadata (schema defaults: new=true, live=false, date=false)
         xmltv_flags=template.xmltv_flags or {},
+        xmltv_video=template.xmltv_video or {},
         xmltv_categories=categories,
         categories_apply_to=template.categories_apply_to or "events",
     )
@@ -545,6 +551,7 @@ def template_to_event_config(template: Template) -> EventTemplateConfig:
         program_art_url=template.program_art_url,
         event_channel_logo_url=template.event_channel_logo_url,
         xmltv_flags=template.xmltv_flags or {},
+        xmltv_video=template.xmltv_video or {},
         xmltv_categories=categories,
         conditional_descriptions=template.conditional_descriptions or [],
     )

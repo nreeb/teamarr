@@ -629,6 +629,19 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
         logger.info("Schema upgraded to version 18 (settings.duration_volleyball)")
         current_version = 18
 
+    # Version 19: Add xmltv_video to templates
+    # Video quality metadata for XMLTV output (HD/SD/aspect ratio)
+    if current_version < 19:
+        _add_column_if_not_exists(
+            conn,
+            "templates",
+            "xmltv_video",
+            """JSON DEFAULT '{"enabled": false, "quality": "HDTV"}'""",
+        )
+        conn.execute("UPDATE settings SET schema_version = 19 WHERE id = 1")
+        logger.info("Schema upgraded to version 19 (templates.xmltv_video)")
+        current_version = 19
+
 
 def _rename_filtered_no_match_to_failed_count(conn: sqlite3.Connection) -> None:
     """Rename filtered_no_match column to failed_count.

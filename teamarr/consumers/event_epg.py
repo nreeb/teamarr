@@ -219,6 +219,7 @@ class EventEPGGenerator:
             icon=icon,
             categories=resolved_categories,
             xmltv_flags=options.template.xmltv_flags,
+            xmltv_video=options.template.xmltv_video,
         )
 
     # Keywords for detecting UFC prelim streams

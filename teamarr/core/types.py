@@ -127,6 +127,8 @@ class Programme:
     categories: list[str] = field(default_factory=list)
     # XMLTV flags: new, live, date
     xmltv_flags: dict = field(default_factory=dict)
+    # XMLTV video: enabled, quality (HDTV/SDTV), aspect (16:9/4:3)
+    xmltv_video: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -150,5 +152,6 @@ class TemplateConfig:
 
     # XMLTV metadata (no hardcoded defaults - schema.sql provides them)
     xmltv_flags: dict = field(default_factory=dict)
+    xmltv_video: dict = field(default_factory=dict)
     xmltv_categories: list[str] = field(default_factory=list)
     categories_apply_to: str = "events"  # 'all' or 'events'

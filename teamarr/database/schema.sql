@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS templates (
 
     -- XMLTV Metadata
     xmltv_flags JSON DEFAULT '{"new": true, "live": false, "date": false}',
+    xmltv_video JSON DEFAULT '{"enabled": false, "quality": "HDTV"}',
     xmltv_categories JSON DEFAULT '["Sports"]',
     categories_apply_to TEXT DEFAULT 'events' CHECK(categories_apply_to IN ('all', 'events')),
 
@@ -248,7 +249,7 @@ CREATE TABLE IF NOT EXISTS settings (
     stream_filter_exclude_patterns JSON DEFAULT '[]',
 
     -- Schema Version
-    schema_version INTEGER DEFAULT 18
+    schema_version INTEGER DEFAULT 19
 );
 
 -- Insert default settings
