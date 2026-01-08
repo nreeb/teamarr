@@ -109,15 +109,40 @@ def test_dispatcharr_connection(request: ConnectionTestRequest | None = None):
 
 @router.get("/dispatcharr/status")
 def get_dispatcharr_status() -> dict:
-    """Get current Dispatcharr connection status."""
+    """Get current Dispatcharr connection status.
+
+    Actually tests the connection to verify it works, not just that
+    settings are configured.
+
+    Returns:
+        configured: Settings are filled in (enabled, url, username)
+        connected: Connection test succeeded
+        error: Error message if connection failed (only present on failure)
+    """
     from teamarr.dispatcharr import get_factory
 
     try:
         factory = get_factory(get_db)
-        return {
-            "configured": factory.is_configured,
-            "connected": factory.is_connected,
+
+        if not factory.is_configured:
+            return {
+                "configured": False,
+                "connected": False,
+            }
+
+        # Actually test the connection to verify it works
+        result = factory.test_connection()
+
+        response = {
+            "configured": True,
+            "connected": result.success,
         }
+
+        if not result.success and result.error:
+            response["error"] = result.error
+
+        return response
+
     except RuntimeError:
         return {
             "configured": False,

@@ -143,6 +143,7 @@ export interface SchedulerStatus {
 export interface DispatcharrStatus {
   configured: boolean
   connected: boolean
+  error?: string  // Present when configured but connection failed
 }
 
 export interface EPGSource {

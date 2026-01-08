@@ -8,6 +8,7 @@ import {
   Play,
   CheckCircle,
   XCircle,
+  AlertTriangle,
   Database,
   Plus,
   Trash2,
@@ -1149,6 +1150,10 @@ export function Settings() {
                 <Badge variant="success" className="gap-1">
                   <CheckCircle className="h-3 w-3" /> Connected
                 </Badge>
+              ) : dispatcharrStatus.data?.configured && dispatcharrStatus.data?.error ? (
+                <Badge variant="destructive" className="gap-1" title={dispatcharrStatus.data.error}>
+                  <AlertTriangle className="h-3 w-3" /> Error
+                </Badge>
               ) : dispatcharrStatus.data?.configured ? (
                 <Badge variant="warning" className="gap-1">
                   <XCircle className="h-3 w-3" /> Disconnected
@@ -1160,6 +1165,17 @@ export function Settings() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Connection error banner */}
+          {dispatcharrStatus.data?.configured && dispatcharrStatus.data?.error && (
+            <div className="flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+              <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+              <div className="text-sm">
+                <p className="font-medium text-destructive">Connection Failed</p>
+                <p className="text-muted-foreground">{dispatcharrStatus.data.error}</p>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center gap-2">
             <Switch
               checked={dispatcharr.enabled ?? false}
