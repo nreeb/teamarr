@@ -616,11 +616,11 @@ class TeamProcessor:
 
 
 def get_all_team_xmltv(conn: Connection, team_ids: list[int] | None = None) -> list[str]:
-    """Get all stored XMLTV content for teams.
+    """Get all stored XMLTV content for enabled teams.
 
     Args:
         conn: Database connection
-        team_ids: Optional list of team IDs to filter (None = all)
+        team_ids: Optional list of team IDs to filter (None = all enabled)
 
     Returns:
         List of XMLTV content strings
@@ -629,11 +629,20 @@ def get_all_team_xmltv(conn: Connection, team_ids: list[int] | None = None) -> l
         if team_ids:
             placeholders = ",".join("?" * len(team_ids))
             cursor = conn.execute(
-                f"SELECT xmltv_content FROM team_epg_xmltv WHERE team_id IN ({placeholders})",
+                f"""SELECT x.xmltv_content FROM team_epg_xmltv x
+                    JOIN teams t ON x.team_id = t.id
+                    WHERE t.id IN ({placeholders}) AND t.enabled = 1
+                    AND x.xmltv_content IS NOT NULL AND x.xmltv_content != ''""",
                 team_ids,
             )
         else:
-            cursor = conn.execute("SELECT xmltv_content FROM team_epg_xmltv")
+            # Get XMLTV for all enabled teams only
+            cursor = conn.execute(
+                """SELECT x.xmltv_content FROM team_epg_xmltv x
+                   JOIN teams t ON x.team_id = t.id
+                   WHERE t.enabled = 1
+                   AND x.xmltv_content IS NOT NULL AND x.xmltv_content != ''"""
+            )
 
         return [row["xmltv_content"] for row in cursor.fetchall()]
     except Exception as e:

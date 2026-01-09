@@ -200,6 +200,11 @@ def update_team(team_id: int, team: TeamUpdate):
         cursor = conn.execute(f"UPDATE teams SET {set_clause} WHERE id = ?", values)
         if cursor.rowcount == 0:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team not found")
+
+        # Clean up XMLTV content when team is disabled
+        if updates.get("enabled") is False:
+            conn.execute("DELETE FROM team_epg_xmltv WHERE team_id = ?", (team_id,))
+
         cursor = conn.execute("SELECT * FROM teams WHERE id = ?", (team_id,))
         return _row_to_response(cursor.fetchone())
 

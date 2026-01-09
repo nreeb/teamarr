@@ -342,7 +342,8 @@ def get_live_stats(
                 SELECT x.xmltv_content
                 FROM team_epg_xmltv x
                 JOIN teams t ON x.team_id = t.id
-                WHERE t.active = 1
+                WHERE t.enabled = 1
+                AND x.xmltv_content IS NOT NULL AND x.xmltv_content != ''
             """)
             for row in cursor.fetchall():
                 if row["xmltv_content"]:
@@ -350,10 +351,15 @@ def get_live_stats(
                         row["xmltv_content"], stats["team"], now, today, user_tz, team_seen
                     )
 
-        # Fetch event EPG XMLTV content
+        # Fetch event EPG XMLTV content (only enabled groups)
         if epg_type is None or epg_type == "event":
             event_seen: set[tuple[str, str, str]] = set()
-            cursor = conn.execute("SELECT xmltv_content FROM event_epg_xmltv")
+            cursor = conn.execute("""
+                SELECT x.xmltv_content FROM event_epg_xmltv x
+                JOIN event_epg_groups g ON x.group_id = g.id
+                WHERE g.enabled = 1
+                AND x.xmltv_content IS NOT NULL AND x.xmltv_content != ''
+            """)
             for row in cursor.fetchall():
                 if row["xmltv_content"]:
                     _parse_xmltv_for_live_stats(

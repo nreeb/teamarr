@@ -634,6 +634,10 @@ def update_group_by_id(group_id: int, request: GroupUpdate):
             clear_exclude_teams=request.clear_exclude_teams,
         )
 
+        # Clean up XMLTV content when group is disabled
+        if request.enabled is False:
+            conn.execute("DELETE FROM event_epg_xmltv WHERE group_id = ?", (group_id,))
+
         group = get_group(conn, group_id)
         channel_count = get_group_channel_count(conn, group_id)
 

@@ -32,6 +32,43 @@ from teamarr.utilities.logging import setup_logging
 logger = logging.getLogger(__name__)
 
 
+def _cleanup_orphaned_xmltv(conn) -> None:
+    """Clean up XMLTV content for disabled or deleted teams/groups.
+
+    Called on startup to ensure no stale XMLTV data persists.
+    """
+    # Delete XMLTV for disabled teams
+    cursor = conn.execute("""
+        DELETE FROM team_epg_xmltv
+        WHERE team_id IN (SELECT id FROM teams WHERE enabled = 0)
+    """)
+    if cursor.rowcount > 0:
+        logger.info(f"Cleaned up XMLTV for {cursor.rowcount} disabled teams")
+
+    # Delete XMLTV for disabled groups
+    cursor = conn.execute("""
+        DELETE FROM event_epg_xmltv
+        WHERE group_id IN (SELECT id FROM event_epg_groups WHERE enabled = 0)
+    """)
+    if cursor.rowcount > 0:
+        logger.info(f"Cleaned up XMLTV for {cursor.rowcount} disabled groups")
+
+    # Delete orphaned XMLTV (team/group no longer exists)
+    cursor = conn.execute("""
+        DELETE FROM team_epg_xmltv
+        WHERE team_id NOT IN (SELECT id FROM teams)
+    """)
+    if cursor.rowcount > 0:
+        logger.info(f"Cleaned up {cursor.rowcount} orphaned team XMLTV entries")
+
+    cursor = conn.execute("""
+        DELETE FROM event_epg_xmltv
+        WHERE group_id NOT IN (SELECT id FROM event_epg_groups)
+    """)
+    if cursor.rowcount > 0:
+        logger.info(f"Cleaned up {cursor.rowcount} orphaned group XMLTV entries")
+
+
 def _run_startup_tasks():
     """Run startup tasks in background thread."""
     from teamarr.database import get_db
@@ -157,6 +194,9 @@ async def lifespan(app: FastAPI):
 
     with get_db() as conn:
         cleanup_stuck_runs(conn)
+
+        # Clean up orphaned XMLTV content (disabled teams/groups, deleted entries)
+        _cleanup_orphaned_xmltv(conn)
 
     # Start background startup tasks (cache refresh, etc.)
     startup_thread = threading.Thread(target=_run_startup_tasks, daemon=True)

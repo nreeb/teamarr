@@ -454,12 +454,19 @@ def match_streams(
 
 
 def _get_combined_xmltv() -> str:
-    """Get combined XMLTV content from all teams."""
+    """Get combined XMLTV content from all enabled teams."""
     from teamarr.database.settings import get_display_settings
     from teamarr.utilities.xmltv import merge_xmltv_content
 
     with get_db() as conn:
-        rows = conn.execute("SELECT xmltv_content FROM team_epg_xmltv ORDER BY team_id").fetchall()
+        # Only get XMLTV for enabled teams
+        rows = conn.execute(
+            """SELECT x.xmltv_content FROM team_epg_xmltv x
+               JOIN teams t ON x.team_id = t.id
+               WHERE t.enabled = 1
+               AND x.xmltv_content IS NOT NULL AND x.xmltv_content != ''
+               ORDER BY t.id"""
+        ).fetchall()
         display_settings = get_display_settings(conn)
 
     if not rows:
