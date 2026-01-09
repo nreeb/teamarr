@@ -366,6 +366,51 @@ LEAGUE_HINT_PATTERNS: list[tuple[str, str]] = [
 
 
 # =============================================================================
+# SPORT HINT PATTERNS
+# Patterns to detect sport type from stream name.
+# Unlike league hints which are start-anchored, these can match anywhere.
+# Returns sport name matching leagues.sport column values.
+#
+# Format: (pattern, sport_name)
+# Patterns are case-insensitive, checked in order
+# =============================================================================
+
+SPORT_HINT_PATTERNS: list[tuple[str, str]] = [
+    # Hockey variants - must come before generic patterns
+    (r"\b(ice\s+)?hockey\b", "Hockey"),
+    (r"\bnhl\b", "Hockey"),
+    (r"\bahl\b", "Hockey"),
+    (r"\bpwhl\b", "Hockey"),
+    # Football variants
+    (r"\b(american\s+)?football\b", "Football"),
+    (r"\bnfl\b", "Football"),
+    (r"\bncaaf\b", "Football"),
+    # Basketball
+    (r"\bbasketball\b", "Basketball"),
+    (r"\bnba\b", "Basketball"),
+    (r"\bncaab\b", "Basketball"),
+    (r"\bncaam\b", "Basketball"),
+    (r"\bncaaw\b", "Basketball"),
+    # Soccer/Football (association)
+    (r"\bsoccer\b", "Soccer"),
+    (r"\bfootball\b(?!\s*(nfl|american|college))", "Soccer"),  # "Football" without NFL context = Soccer
+    # Baseball
+    (r"\bbaseball\b", "Baseball"),
+    (r"\bmlb\b", "Baseball"),
+    # Lacrosse
+    (r"\blacrosse\b", "Lacrosse"),
+    (r"\bnll\b", "Lacrosse"),
+    (r"\bpll\b", "Lacrosse"),
+    # Cricket
+    (r"\bcricket\b", "Cricket"),
+    (r"\bipl\b", "Cricket"),
+    (r"\bt20\b", "Cricket"),
+    # Volleyball
+    (r"\bvolleyball\b", "Volleyball"),
+]
+
+
+# =============================================================================
 # EVENT CARD KEYWORDS
 # Keywords that identify event card streams (UFC, boxing) within their league.
 # Used by EventCardMatcher to validate streams.

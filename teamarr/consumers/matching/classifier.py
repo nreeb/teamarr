@@ -19,6 +19,7 @@ from teamarr.utilities.constants import (
     GAME_SEPARATORS,
     LEAGUE_HINT_PATTERNS,
     PLACEHOLDER_PATTERNS,
+    SPORT_HINT_PATTERNS,
 )
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,9 @@ class ClassifiedStream:
 
     # Detected league hint (for any category)
     league_hint: str | None = None
+
+    # Detected sport hint (e.g., "Hockey", "Football")
+    sport_hint: str | None = None
 
     # Track if custom regex was used
     custom_regex_used: bool = False
@@ -300,6 +304,35 @@ def detect_league_hint(text: str) -> str | None:
     return None
 
 
+def detect_sport_hint(text: str) -> str | None:
+    """Detect sport type from stream name.
+
+    Unlike league hints which only match at start of string,
+    sport hints can match anywhere (e.g., "Ice Hockey" in the middle).
+
+    Examples:
+        "US (BTN+) | Ice Hockey (W): Minnesota at Wisconsin" → "Hockey"
+        "ESPN: NFL Sunday Football" → "Football"
+        "Basketball: Lakers vs Celtics" → "Basketball"
+
+    Args:
+        text: Stream name (should be normalized)
+
+    Returns:
+        Sport name matching leagues.sport column if detected, None otherwise
+    """
+    if not text:
+        return None
+
+    text_lower = text.lower()
+
+    for pattern, sport in SPORT_HINT_PATTERNS:
+        if re.search(pattern, text_lower, re.IGNORECASE):
+            return sport
+
+    return None
+
+
 # =============================================================================
 # EVENT CARD DETECTION
 # =============================================================================
@@ -411,8 +444,9 @@ def classify_stream(
             normalized=normalized,
         )
 
-    # Detect league hint (useful for all categories)
+    # Detect league and sport hints (useful for all categories)
     league_hint = detect_league_hint(text)
+    sport_hint = detect_sport_hint(text)
 
     # Step 3: Check for event card
     if is_event_card(text, league_event_type):
@@ -422,6 +456,7 @@ def classify_stream(
             normalized=normalized,
             event_hint=event_hint,
             league_hint=league_hint,
+            sport_hint=sport_hint,
         )
 
     # Step 4: Try custom regex for team extraction (if configured)
@@ -435,6 +470,7 @@ def classify_stream(
                 team2=team2,
                 separator_found="custom_regex",
                 league_hint=league_hint,
+                sport_hint=sport_hint,
                 custom_regex_used=True,
             )
 
@@ -452,6 +488,7 @@ def classify_stream(
                 team2=team2,
                 separator_found=separator,
                 league_hint=league_hint,
+                sport_hint=sport_hint,
             )
 
     # Step 6: Default to placeholder if we can't classify
@@ -459,6 +496,7 @@ def classify_stream(
         category=StreamCategory.PLACEHOLDER,
         normalized=normalized,
         league_hint=league_hint,
+        sport_hint=sport_hint,
     )
 
 

@@ -391,6 +391,12 @@ class TeamMatcher:
                 if ctx.classified.normalized.extracted_date != event_date:
                     continue
 
+            # Check for sport mismatch from stream (if detected)
+            # e.g., "Ice Hockey" in stream name should not match NFL events
+            if ctx.classified.sport_hint:
+                if event.sport != ctx.classified.sport_hint:
+                    continue
+
             # Try to match teams
             match_result = self._match_teams_to_event(team1_normalized, team2_normalized, event)
 
@@ -474,6 +480,12 @@ class TeamMatcher:
             # Check for date mismatch from stream (if extracted)
             if ctx.classified.normalized.extracted_date:
                 if ctx.classified.normalized.extracted_date != event_date:
+                    continue
+
+            # Check for sport mismatch from stream (if detected)
+            # e.g., "Ice Hockey" in stream name should not match NFL events
+            if ctx.classified.sport_hint:
+                if event.sport != ctx.classified.sport_hint:
                     continue
 
             # Try to match teams

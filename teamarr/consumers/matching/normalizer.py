@@ -155,7 +155,9 @@ def apply_city_translations(text: str) -> str:
 # Date patterns to extract and mask
 _MONTHS = r"Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec"
 DATE_PATTERNS = [
-    # 12/31/25, 12/31/2025
+    # ISO format: 2026-01-09 (YYYY-MM-DD) - must be before MM/DD/YYYY pattern
+    (r"\b(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})\b", "DATE_MASK_ISO"),
+    # 12/31/25, 12/31/2025 (MM/DD/YY or MM/DD/YYYY)
     (r"\b(\d{1,2})[/\-](\d{1,2})[/\-](\d{2,4})\b", "DATE_MASK"),
     # Dec 31, December 31
     (rf"\b({_MONTHS})[a-z]*\s+(\d{{1,2}})(?:st|nd|rd|th)?\b", "DATE_MASK"),
@@ -195,8 +197,9 @@ def extract_and_mask_datetime(text: str) -> tuple[str, date | None, time | None]
     for pattern, mask in DATE_PATTERNS:
         match = re.search(pattern, result, re.IGNORECASE)
         if match:
-            extracted_date = _parse_date_match(match)
-            result = re.sub(pattern, f" {mask} ", result, count=1, flags=re.IGNORECASE)
+            is_iso = mask == "DATE_MASK_ISO"
+            extracted_date = _parse_date_match(match, is_iso=is_iso)
+            result = re.sub(pattern, " DATE_MASK ", result, count=1, flags=re.IGNORECASE)
             break
 
     # Extract and mask times
@@ -213,8 +216,13 @@ def extract_and_mask_datetime(text: str) -> tuple[str, date | None, time | None]
     return result, extracted_date, extracted_time
 
 
-def _parse_date_match(match: re.Match) -> date | None:
-    """Parse a date from regex match."""
+def _parse_date_match(match: re.Match, is_iso: bool = False) -> date | None:
+    """Parse a date from regex match.
+
+    Args:
+        match: Regex match object
+        is_iso: True if pattern matched ISO format (YYYY-MM-DD)
+    """
     try:
         groups = match.groups()
         text = match.group(0)
@@ -248,15 +256,22 @@ def _parse_date_match(match: re.Match) -> date | None:
                     return date(year, month_num, day)
                 return None
 
-        # Numeric date pattern (MM/DD/YY or MM/DD/YYYY)
+        # Numeric date patterns
         if len(groups) >= 3:
-            month = int(groups[0])
-            day = int(groups[1])
-            year = int(groups[2])
+            if is_iso:
+                # ISO format: YYYY-MM-DD
+                year = int(groups[0])
+                month = int(groups[1])
+                day = int(groups[2])
+            else:
+                # US format: MM/DD/YY or MM/DD/YYYY
+                month = int(groups[0])
+                day = int(groups[1])
+                year = int(groups[2])
 
-            # Handle 2-digit year
-            if year < 100:
-                year += 2000 if year < 50 else 1900
+                # Handle 2-digit year
+                if year < 100:
+                    year += 2000 if year < 50 else 1900
 
             return date(year, month, day)
 
