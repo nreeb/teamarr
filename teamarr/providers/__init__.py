@@ -56,11 +56,28 @@ def _get_tsdb_api_key() -> str | None:
     return None
 
 
+def _create_tsdb_team_name_resolver() -> callable:
+    """Create a team name resolver callback for TSDB provider.
+
+    This callback accesses the database, keeping DB access at the factory
+    boundary rather than inside the provider layer.
+    """
+    from teamarr.database import get_db
+    from teamarr.database.team_cache import get_team_name_by_id
+
+    def resolver(team_id: str, league: str) -> str | None:
+        with get_db() as conn:
+            return get_team_name_by_id(conn, team_id, league, provider="tsdb")
+
+    return resolver
+
+
 def _create_tsdb_provider() -> TSDBProvider:
     """Factory for TSDB provider with injected dependencies."""
     return TSDBProvider(
         league_mapping_source=ProviderRegistry.get_league_mapping_source(),
         api_key=_get_tsdb_api_key(),
+        team_name_resolver=_create_tsdb_team_name_resolver(),
     )
 
 

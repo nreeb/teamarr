@@ -5,6 +5,7 @@ Used as fallback for leagues not supported by ESPN.
 """
 
 import logging
+from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
 
 from teamarr.core import (
@@ -19,6 +20,10 @@ from teamarr.core import (
 from teamarr.providers.tsdb.client import TSDBClient
 
 logger = logging.getLogger(__name__)
+
+# Type alias for team name resolver callback
+# Takes (team_id, league) -> team_name or None
+TeamNameResolver = Callable[[str, str], str | None]
 
 
 class TSDBProvider(SportsProvider):
@@ -35,12 +40,14 @@ class TSDBProvider(SportsProvider):
         league_mapping_source: LeagueMappingSource | None = None,
         client: TSDBClient | None = None,
         api_key: str | None = None,
+        team_name_resolver: TeamNameResolver | None = None,
     ):
         self._league_mapping_source = league_mapping_source
         self._client = client or TSDBClient(
             league_mapping_source=league_mapping_source,
             api_key=api_key,
         )
+        self._team_name_resolver = team_name_resolver
 
     @property
     def name(self) -> str:
@@ -180,16 +187,19 @@ class TSDBProvider(SportsProvider):
         return team_name in (event.home_team.name, event.away_team.name)
 
     def _get_team_name(self, team_id: str, league: str) -> str | None:
-        """Get team name from ID using seeded database cache.
+        """Get team name from ID using injected resolver.
 
-        Teams are seeded from tsdb_seed.json on startup and refreshed
-        weekly via cache refresh. No API calls needed.
+        Teams are resolved via callback injected at construction time,
+        which typically queries the seeded database cache.
         """
-        from teamarr.database import get_db
-        from teamarr.database.team_cache import get_team_name_by_id
+        if not self._team_name_resolver:
+            logger.warning(
+                f"No team_name_resolver configured for TSDB provider. "
+                f"Cannot resolve team {team_id} in league {league}."
+            )
+            return None
 
-        with get_db() as conn:
-            team_name = get_team_name_by_id(conn, team_id, league, provider="tsdb")
+        team_name = self._team_name_resolver(team_id, league)
 
         if team_name:
             return team_name
