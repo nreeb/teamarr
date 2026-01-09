@@ -1394,78 +1394,30 @@ export function Settings() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="bg-muted/50 rounded-lg p-4 space-y-3">
-            <p className="text-sm font-medium">Setup Instructions:</p>
-            <ol className="text-sm text-muted-foreground list-decimal list-inside space-y-1">
-              <li>Add a volume mount in docker-compose.yml: <code className="bg-secondary px-1 rounded">- ./v1-data:/v1-data:ro</code></li>
-              <li>Copy your V1 <code className="bg-secondary px-1 rounded">teamarr.db</code> to the v1-data folder</li>
-              <li>Enter the container path below and run migration</li>
-            </ol>
-          </div>
-
-          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 space-y-2">
-            <p className="text-sm font-medium text-blue-400">Migration Order (Recommended):</p>
-            <ol className="text-sm text-muted-foreground list-decimal list-inside space-y-1">
-              <li><strong>Templates first</strong> — Creates the templates that teams and groups reference</li>
-              <li><strong>Teams second</strong> — Imports team channels with template assignments</li>
-              <li><strong>Event Groups last</strong> — Imports groups with parent/child relationships</li>
-            </ol>
+          {/* V1 Migration disabled for beta */}
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4 space-y-2">
+            <p className="text-sm font-medium text-amber-400">Temporarily Disabled</p>
+            <p className="text-sm text-muted-foreground">
+              V1 migration is temporarily disabled while we fix some edge cases in the migration logic.
+              Please manually recreate your templates, teams, and event groups in V2 for now.
+            </p>
             <p className="text-xs text-muted-foreground mt-2">
-              Or use "Migrate All" to run all three in the correct order automatically.
+              This feature will be re-enabled in a future release.
             </p>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="v1-db-path">V1 Database Path</Label>
-            <Input
-              id="v1-db-path"
-              value={v1DbPath}
-              onChange={(e) => setV1DbPath(e.target.value)}
-              placeholder="/v1-data/teamarr.db"
-              className="font-mono text-sm"
-            />
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Button
-              onClick={() => handleMigrateV1("all")}
-              disabled={!!isMigrating}
-            >
-              {isMigrating === "all" ? (
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-              ) : (
-                <ArrowRight className="h-4 w-4 mr-1" />
-              )}
+          <div className="flex flex-wrap gap-2 opacity-50">
+            <Button disabled>
+              <ArrowRight className="h-4 w-4 mr-1" />
               Migrate All
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => handleMigrateV1("templates")}
-              disabled={!!isMigrating}
-            >
-              {isMigrating === "templates" ? (
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-              ) : null}
+            <Button variant="outline" disabled>
               Templates Only
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => handleMigrateV1("teams")}
-              disabled={!!isMigrating}
-            >
-              {isMigrating === "teams" ? (
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-              ) : null}
+            <Button variant="outline" disabled>
               Teams Only
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => handleMigrateV1("groups")}
-              disabled={!!isMigrating}
-            >
-              {isMigrating === "groups" ? (
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-              ) : null}
+            <Button variant="outline" disabled>
               Event Groups Only
             </Button>
           </div>

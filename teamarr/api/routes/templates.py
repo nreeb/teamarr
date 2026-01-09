@@ -333,7 +333,20 @@ def migrate_v1_templates(request: V1MigrateRequest):
 
     Converts V1 template format to V2's restructured format.
     Skips migration if V2 already has templates with the same name.
+
+    NOTE: Disabled for beta - migration logic needs fixes before release.
     """
+    # TODO: Fix V1 migration before release
+    # Known issues:
+    # - Field mapping incomplete for some V1 edge cases
+    # - Conditional descriptions format mismatch
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="V1 template migration is temporarily disabled for beta. "
+        "Please manually recreate templates in V2, or wait for a future release.",
+    )
+
+    # Original implementation preserved below for future fix
     v1_path = Path(request.v1_db_path)
 
     if not v1_path.exists():
