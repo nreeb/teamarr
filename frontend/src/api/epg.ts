@@ -236,6 +236,16 @@ export interface FailedMatchesResponse {
   failures: FailedMatch[]
 }
 
+// Common type for streams that can be corrected (used by Event Matcher)
+export interface CorrectableStream {
+  group_id: number
+  stream_id: number | null
+  stream_name: string
+  group_name: string | null
+  league_hint: string | null  // detected_league for failed, league for matched
+  current_event_id?: string | null  // Only for matched streams (to show what it's currently matched to)
+}
+
 export async function getFailedMatches(
   runId?: number,
   groupId?: number,

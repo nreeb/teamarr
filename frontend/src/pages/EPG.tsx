@@ -54,7 +54,7 @@ import {
   correctStreamMatch,
 } from "@/api/epg"
 import { getLeagues } from "@/api/teams"
-import type { FailedMatch, EventSearchResult } from "@/api/epg"
+import type { FailedMatch, MatchedStream, EventSearchResult, CorrectableStream } from "@/api/epg"
 import type { CachedLeague } from "@/api/teams"
 
 function formatDuration(ms: number | null): string {
@@ -138,7 +138,7 @@ export function EPG() {
   const [eventMatcherOpen, setEventMatcherOpen] = useState(false)
 
   // Event matcher state
-  const [matcherStream, setMatcherStream] = useState<FailedMatch | null>(null)
+  const [matcherStream, setMatcherStream] = useState<CorrectableStream | null>(null)
   const [matcherLeague, setMatcherLeague] = useState("")
   const [matcherEvents, setMatcherEvents] = useState<EventSearchResult[]>([])
   const [matcherLoading, setMatcherLoading] = useState(false)
@@ -256,12 +256,48 @@ export function EPG() {
     }
   }
 
-  const handleOpenEventMatcher = (failedMatch: FailedMatch) => {
-    setMatcherStream(failedMatch)
-    setMatcherLeague(failedMatch.detected_league ?? "")
+  // Open event matcher for correcting a stream (works with both failed and matched)
+  const handleOpenEventMatcher = (stream: FailedMatch | MatchedStream) => {
+    // Convert to CorrectableStream
+    const correctable: CorrectableStream = {
+      group_id: stream.group_id,
+      stream_id: stream.stream_id,
+      stream_name: stream.stream_name,
+      group_name: stream.group_name,
+      league_hint: "detected_league" in stream ? stream.detected_league : stream.league,
+      current_event_id: "event_id" in stream ? stream.event_id : null,
+    }
+    setMatcherStream(correctable)
+    setMatcherLeague(correctable.league_hint ?? "")
     setMatcherEvents([])
     setSelectedEventId(null)
     setEventMatcherOpen(true)
+  }
+
+  // Mark a stream as "no event" (skip it in future matching)
+  const handleMarkAsNoEvent = async () => {
+    if (!matcherStream) return
+    if (matcherStream.stream_id === null) {
+      toast.error("Cannot correct: stream_id is missing")
+      return
+    }
+
+    setMatcherSubmitting(true)
+    try {
+      await correctStreamMatch({
+        group_id: matcherStream.group_id,
+        stream_id: matcherStream.stream_id,
+        stream_name: matcherStream.stream_name,
+        correct_event_id: null,
+        correct_league: null,
+      })
+      toast.success("Stream marked as 'no event' - will be skipped")
+      setEventMatcherOpen(false)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to mark as no event")
+    } finally {
+      setMatcherSubmitting(false)
+    }
   }
 
   const handleSearchEvents = async () => {
@@ -847,11 +883,12 @@ export function EPG() {
               <Table className="table-fixed w-full">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[30%]">Stream Name</TableHead>
-                    <TableHead className="w-[25%]">Event</TableHead>
-                    <TableHead className="w-[80px]">League</TableHead>
-                    <TableHead className="w-[120px]">Method</TableHead>
-                    <TableHead className="w-[20%]">Group</TableHead>
+                    <TableHead className="w-[28%]">Stream Name</TableHead>
+                    <TableHead className="w-[23%]">Event</TableHead>
+                    <TableHead className="w-[70px]">League</TableHead>
+                    <TableHead className="w-[100px]">Method</TableHead>
+                    <TableHead className="w-[18%]">Group</TableHead>
+                    <TableHead className="w-[60px]">Fix</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -882,6 +919,16 @@ export function EPG() {
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm truncate" title={stream.group_name ?? undefined}>
                         {stream.group_name}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenEventMatcher(stream)}
+                          title="Correct this match"
+                        >
+                          <AlertTriangle className="h-4 w-4" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -930,8 +977,8 @@ export function EPG() {
                     <TableHead className="w-[30%]">Stream Name</TableHead>
                     <TableHead className="w-[100px]">Reason</TableHead>
                     <TableHead className="w-[25%]">Detected Teams</TableHead>
-                    <TableHead className="w-[20%]">Group</TableHead>
-                    <TableHead className="w-[60px]">Actions</TableHead>
+                    <TableHead className="w-[18%]">Group</TableHead>
+                    <TableHead className="w-[60px]">Fix</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -969,9 +1016,9 @@ export function EPG() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleOpenEventMatcher(failure)}
-                          title="Match stream to event"
+                          title="Fix this stream's match"
                         >
-                          <Plus className="h-4 w-4" />
+                          <AlertTriangle className="h-4 w-4" />
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -996,9 +1043,13 @@ export function EPG() {
       <Dialog open={eventMatcherOpen} onOpenChange={setEventMatcherOpen}>
         <DialogContent onClose={() => setEventMatcherOpen(false)} className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle>Match Stream to Event</DialogTitle>
+            <DialogTitle>
+              {matcherStream?.current_event_id ? "Correct Stream Match" : "Match Stream to Event"}
+            </DialogTitle>
             <DialogDescription>
-              Select the correct event for this stream
+              {matcherStream?.current_event_id
+                ? "This stream is currently matched incorrectly. Select the correct event or skip it."
+                : "Select the correct event for this stream, or skip it if it shouldn't match."}
             </DialogDescription>
           </DialogHeader>
 
@@ -1010,11 +1061,18 @@ export function EPG() {
                 <p className="font-medium text-sm truncate" title={matcherStream.stream_name}>
                   {matcherStream.stream_name}
                 </p>
-                {matcherStream.group_name && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Group: {matcherStream.group_name}
-                  </p>
-                )}
+                <div className="flex items-center gap-4 mt-1">
+                  {matcherStream.group_name && (
+                    <p className="text-xs text-muted-foreground">
+                      Group: {matcherStream.group_name}
+                    </p>
+                  )}
+                  {matcherStream.current_event_id && (
+                    <Badge variant="warning" className="text-xs">
+                      Currently matched (incorrect)
+                    </Badge>
+                  )}
+                </div>
               </div>
             )}
 
@@ -1114,23 +1172,38 @@ export function EPG() {
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEventMatcherOpen(false)}>
-              Cancel
-            </Button>
+          <DialogFooter className="flex justify-between sm:justify-between">
             <Button
-              onClick={handleApplyCorrection}
-              disabled={!selectedEventId || matcherSubmitting}
+              variant="destructive"
+              onClick={handleMarkAsNoEvent}
+              disabled={matcherSubmitting}
+              title="Mark this stream to be skipped (no event match)"
             >
               {matcherSubmitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Applying...
-                </>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
-                "Apply Match"
+                <XCircle className="h-4 w-4 mr-2" />
               )}
+              Skip Stream
             </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setEventMatcherOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleApplyCorrection}
+                disabled={!selectedEventId || matcherSubmitting}
+              >
+                {matcherSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Applying...
+                  </>
+                ) : (
+                  "Apply Match"
+                )}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
