@@ -113,17 +113,17 @@ def trigger_refresh():
 
                 result = svc.refresh(progress_callback=progress_callback)
 
-                if result.get("success"):
+                if result.success:
                     complete_refresh(
                         {
                             "success": True,
-                            "leagues_count": result.get("leagues_count", 0),
-                            "teams_count": result.get("teams_count", 0),
-                            "duration_seconds": result.get("duration_seconds", 0),
+                            "leagues_count": result.leagues_added,
+                            "teams_count": result.teams_added,
+                            "duration_seconds": result.duration_seconds,
                         }
                     )
                 else:
-                    fail_refresh(result.get("error", "Unknown error"))
+                    fail_refresh("; ".join(result.errors) if result.errors else "Unknown error")
 
                 progress_queue.put(get_refresh_status())
 
