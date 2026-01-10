@@ -103,14 +103,20 @@ def update_status(
     total: int | None = None,
     item_name: str | None = None,
 ) -> None:
-    """Update generation status."""
+    """Update generation status.
+
+    Progress percentage is monotonically increasing - once set to a value,
+    it cannot go backwards. This prevents display glitches from race conditions.
+    """
     with _status_lock:
         if status is not None:
             _status.status = status
         if message is not None:
             _status.message = message
         if percent is not None:
-            _status.percent = percent
+            # Never allow progress to go backwards
+            if percent > _status.percent:
+                _status.percent = percent
         if phase is not None:
             _status.phase = phase
         if current is not None:

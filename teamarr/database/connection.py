@@ -350,6 +350,7 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
     - 15: Renamed filtered_no_match -> failed_count (clearer stat categories)
     - 16-22: Various additions (see individual migrations)
     - 23: Added default_channel_profile_ids to settings
+    - 24: Added excluded and exclusion_reason to epg_matched_streams
     """
     # Get current schema version
     try:
@@ -674,6 +675,19 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
         conn.execute("UPDATE settings SET schema_version = 23 WHERE id = 1")
         logger.info("Schema upgraded to version 23 (default_channel_profile_ids)")
         current_version = 23
+
+    # Version 24: Add excluded and exclusion_reason to epg_matched_streams
+    # Streams matched but excluded (wrong league) now tracked in matched_streams table
+    if current_version < 24:
+        _add_column_if_not_exists(
+            conn, "epg_matched_streams", "excluded", "BOOLEAN DEFAULT 0"
+        )
+        _add_column_if_not_exists(
+            conn, "epg_matched_streams", "exclusion_reason", "TEXT"
+        )
+        conn.execute("UPDATE settings SET schema_version = 24 WHERE id = 1")
+        logger.info("Schema upgraded to version 24 (epg_matched_streams excluded columns)")
+        current_version = 24
 
 
 def _rename_filtered_no_match_to_failed_count(conn: sqlite3.Connection) -> None:
