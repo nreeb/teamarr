@@ -255,7 +255,7 @@ CREATE TABLE IF NOT EXISTS settings (
     stream_filter_exclude_patterns JSON DEFAULT '[]',
 
     -- Schema Version
-    schema_version INTEGER DEFAULT 20
+    schema_version INTEGER DEFAULT 24
 );
 
 -- Insert default settings

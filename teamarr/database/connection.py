@@ -370,6 +370,13 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
     # Migration: Add origin_match_method to epg_matched_streams (for cache hit origin tracking)
     _add_column_if_not_exists(conn, "epg_matched_streams", "origin_match_method", "TEXT")
 
+    # Migration: Add excluded columns to epg_matched_streams (unconditionally, to handle edge cases)
+    # These columns track matched-but-excluded streams (wrong league, etc.)
+    _add_column_if_not_exists(
+        conn, "epg_matched_streams", "excluded", "BOOLEAN DEFAULT 0"
+    )
+    _add_column_if_not_exists(conn, "epg_matched_streams", "exclusion_reason", "TEXT")
+
     # Version 3: teams.league (TEXT) -> teams.primary_league + teams.leagues (JSON array)
     if current_version < 3:
         if _migrate_teams_to_leagues_array(conn):
