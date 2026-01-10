@@ -13,7 +13,7 @@ import logging
 import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from sqlite3 import Connection
 from typing import Any
@@ -445,6 +445,7 @@ class TeamProcessor:
         in the EPG generator, which is critical for thread-safety during
         parallel processing.
         """
+        from teamarr.database.settings import get_all_settings
         from teamarr.database.templates import (
             get_template,
             template_to_filler_config,
@@ -452,19 +453,10 @@ class TeamProcessor:
         )
 
         # Load global settings
-        row = conn.execute("SELECT * FROM settings WHERE id = 1").fetchone()
-        settings = dict(row) if row else {}
+        all_settings = get_all_settings(conn)
 
-        # Sport durations
-        sport_durations = {
-            "basketball": settings.get("duration_basketball", 3.0),
-            "football": settings.get("duration_football", 3.5),
-            "hockey": settings.get("duration_hockey", 3.0),
-            "baseball": settings.get("duration_baseball", 3.5),
-            "soccer": settings.get("duration_soccer", 2.5),
-            "mma": settings.get("duration_mma", 5.0),
-            "boxing": settings.get("duration_boxing", 4.0),
-        }
+        # Sport durations - dynamically loaded from DurationSettings dataclass
+        sport_durations = asdict(all_settings.durations)
 
         # Pre-load template and filler config (avoids DB access in parallel threads)
         template_config = None
@@ -487,18 +479,18 @@ class TeamProcessor:
             )
 
         return TeamEPGOptions(
-            schedule_days_ahead=settings.get("team_schedule_days_ahead", 30),
-            output_days_ahead=settings.get("epg_output_days_ahead", 14),
-            lookback_hours=settings.get("epg_lookback_hours", 6),
-            default_duration_hours=settings.get("duration_default", 3.0),
+            schedule_days_ahead=all_settings.epg.team_schedule_days_ahead,
+            output_days_ahead=all_settings.epg.epg_output_days_ahead,
+            lookback_hours=all_settings.epg.epg_lookback_hours,
+            default_duration_hours=all_settings.durations.default,
             sport_durations=sport_durations,
-            epg_timezone=settings.get("epg_timezone", "America/New_York"),
-            midnight_crossover_mode=settings.get("midnight_crossover_mode", "postgame"),
+            epg_timezone=all_settings.epg.epg_timezone,
+            midnight_crossover_mode=all_settings.epg.midnight_crossover_mode,
             template_id=team.template_id,
             template=template_config,  # Pre-loaded template
             filler_config=filler_config,  # Pre-loaded filler config
             filler_enabled=True,
-            include_final_events=settings.get("include_final_events", False),
+            include_final_events=all_settings.epg.include_final_events,
         )
 
     def _get_team(self, conn: Connection, team_id: int) -> TeamConfig | None:

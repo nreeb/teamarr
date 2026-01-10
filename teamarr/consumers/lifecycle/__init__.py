@@ -12,6 +12,7 @@ EPG Association Flow:
 """
 
 import logging
+from dataclasses import asdict
 from sqlite3 import Connection
 from typing import Any
 
@@ -88,23 +89,8 @@ def create_lifecycle_service(
         lifecycle = get_lifecycle_settings(conn)
         all_settings = get_all_settings(conn)
 
-    # Build sport durations dict from settings
-    durations = all_settings.durations
-    sport_durations = {
-        "basketball": durations.basketball,
-        "football": durations.football,
-        "hockey": durations.hockey,
-        "baseball": durations.baseball,
-        "soccer": durations.soccer,
-        "mma": durations.mma,
-        "rugby": durations.rugby,
-        "boxing": durations.boxing,
-        "tennis": durations.tennis,
-        "golf": durations.golf,
-        "racing": durations.racing,
-        "cricket": durations.cricket,
-        "volleyball": durations.volleyball,
-    }
+    # Build sport durations dict from settings - dynamically from DurationSettings
+    sport_durations = asdict(all_settings.durations)
 
     channel_manager = None
     logo_manager = None
@@ -133,7 +119,7 @@ def create_lifecycle_service(
         epg_manager=epg_manager,
         create_timing=lifecycle["create_timing"],
         delete_timing=lifecycle["delete_timing"],
-        default_duration_hours=durations.default,
+        default_duration_hours=all_settings.durations.default,
         sport_durations=sport_durations,
         include_final_events=all_settings.epg.include_final_events,
     )

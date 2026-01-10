@@ -126,23 +126,9 @@ class EPGSettingsModel(BaseModel):
 # DURATION SETTINGS
 # =============================================================================
 
-
-class DurationSettingsModel(BaseModel):
-    """Game duration settings (in hours)."""
-
-    default: float = 3.0
-    basketball: float = 3.0
-    football: float = 3.5
-    hockey: float = 3.0
-    baseball: float = 3.5
-    soccer: float = 2.5
-    mma: float = 5.0
-    rugby: float = 2.5
-    boxing: float = 4.0
-    tennis: float = 3.0
-    golf: float = 6.0
-    racing: float = 3.0
-    cricket: float = 4.0
+# Dynamic dict - sports are defined in teamarr/database/settings/types.py DurationSettings
+# No need to duplicate field definitions here
+DurationSettingsModel = dict[str, float]
 
 
 # =============================================================================

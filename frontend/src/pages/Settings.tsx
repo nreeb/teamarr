@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { toast } from "sonner"
 import cronstrue from "cronstrue"
+import { getSportDisplayName } from "@/lib/utils"
 import {
   Loader2,
   Save,
@@ -1044,16 +1045,16 @@ export function Settings() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Game Durations</CardTitle>
-          <CardDescription>Default game durations by sport (in hours)</CardDescription>
+          <CardTitle>Default Durations</CardTitle>
+          <CardDescription>Default event durations by sport (in hours)</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-4 gap-4">
             {durations &&
               Object.entries(durations).map(([sport, hours]) => (
                 <div key={sport} className="space-y-1">
-                  <Label htmlFor={`duration-${sport}`} className="capitalize">
-                    {sport}
+                  <Label htmlFor={`duration-${sport}`}>
+                    {getSportDisplayName(sport)}
                   </Label>
                   <Input
                     id={`duration-${sport}`}

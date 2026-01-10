@@ -14,7 +14,7 @@ This is the main entry point for event-based EPG generation.
 
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, timedelta
 from sqlite3 import Connection
 from typing import Any, Callable
@@ -1999,21 +1999,14 @@ class EventGroupProcessor:
         return xmltv_content, len(programmes), event_programmes_count, pregame_count, postgame_count
 
     def _load_sport_durations(self, conn: Connection) -> dict[str, float]:
-        """Load sport duration settings from database."""
-        row = conn.execute("SELECT * FROM settings WHERE id = 1").fetchone()
-        if not row:
-            return {}
+        """Load sport duration settings from database.
 
-        settings = dict(row)
-        return {
-            "basketball": settings.get("duration_basketball", 3.0),
-            "football": settings.get("duration_football", 3.5),
-            "hockey": settings.get("duration_hockey", 3.0),
-            "baseball": settings.get("duration_baseball", 3.5),
-            "soccer": settings.get("duration_soccer", 2.5),
-            "mma": settings.get("duration_mma", 4.0),
-            "boxing": settings.get("duration_boxing", 4.0),
-        }
+        Dynamically loads all sports from DurationSettings dataclass.
+        """
+        from teamarr.database.settings import get_all_settings
+
+        all_settings = get_all_settings(conn)
+        return asdict(all_settings.durations)
 
     def _load_lookback_hours(self, conn: Connection) -> int:
         """Load EPG lookback hours setting from database."""

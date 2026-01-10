@@ -6,6 +6,8 @@ Provides REST API for:
 - Scheduler status and control
 """
 
+from dataclasses import asdict
+
 from fastapi import APIRouter
 
 from teamarr.database import get_db
@@ -89,21 +91,7 @@ def get_settings():
             midnight_crossover_mode=settings.epg.midnight_crossover_mode,
             cron_expression=settings.epg.cron_expression,
         ),
-        durations=DurationSettingsModel(
-            default=settings.durations.default,
-            basketball=settings.durations.basketball,
-            football=settings.durations.football,
-            hockey=settings.durations.hockey,
-            baseball=settings.durations.baseball,
-            soccer=settings.durations.soccer,
-            mma=settings.durations.mma,
-            rugby=settings.durations.rugby,
-            boxing=settings.durations.boxing,
-            tennis=settings.durations.tennis,
-            golf=settings.durations.golf,
-            racing=settings.durations.racing,
-            cricket=settings.durations.cricket,
-        ),
+        durations=asdict(settings.durations),
         display=DisplaySettingsModel(
             time_format=settings.display.time_format,
             show_timezone=settings.display.show_timezone,

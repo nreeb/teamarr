@@ -36,22 +36,9 @@ export interface EPGSettings {
 // Note: team_schedule_days_ahead default is 30 (for Team EPG)
 // Note: event_match_days_ahead default is 3 (for Event Groups)
 
-export interface DurationSettings {
-  default: number
-  basketball: number
-  football: number
-  hockey: number
-  baseball: number
-  soccer: number
-  mma: number
-  rugby: number
-  boxing: number
-  tennis: number
-  golf: number
-  racing: number
-  cricket: number
-  volleyball: number
-}
+// Dynamic dict - sports are defined in backend DurationSettings dataclass
+// No need to duplicate field definitions here
+export type DurationSettings = Record<string, number>
 
 export interface ReconciliationSettings {
   reconcile_on_epg_generation: boolean

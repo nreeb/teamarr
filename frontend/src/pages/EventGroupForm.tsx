@@ -11,7 +11,7 @@ import { Select } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
-import { cn } from "@/lib/utils"
+import { cn, getSportDisplayName } from "@/lib/utils"
 import {
   useGroup,
   useGroups,
@@ -81,21 +81,6 @@ async function createChannelProfile(name: string): Promise<ChannelProfile | null
   return response.json()
 }
 
-// Sport display names
-const SPORT_NAMES: Record<string, string> = {
-  football: "Football",
-  basketball: "Basketball",
-  hockey: "Hockey",
-  baseball: "Baseball",
-  soccer: "Soccer",
-  mma: "MMA",
-  boxing: "Boxing",
-  tennis: "Tennis",
-  golf: "Golf",
-  racing: "Racing",
-  cricket: "Cricket",
-  rugby: "Rugby",
-}
 
 export function EventGroupForm() {
   const { groupId } = useParams<{ groupId: string }>()
@@ -526,7 +511,7 @@ export function EventGroupForm() {
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {Object.keys(leaguesBySport).sort((a, b) =>
-                    (SPORT_NAMES[a] || a).localeCompare(SPORT_NAMES[b] || b)
+                    getSportDisplayName(a).localeCompare(getSportDisplayName(b))
                   ).map((sport) => (
                     <Button
                       key={sport}
@@ -537,7 +522,7 @@ export function EventGroupForm() {
                         setSelectedLeague(null)
                       }}
                     >
-                      {SPORT_NAMES[sport] || sport}
+                      {getSportDisplayName(sport)}
                     </Button>
                   ))}
                 </div>
@@ -717,7 +702,7 @@ export function EventGroupForm() {
                           />
                           <div className="flex-1">
                             <div className="font-medium text-sm">
-                              {SPORT_NAMES[sport] || sport}
+                              {getSportDisplayName(sport)}
                             </div>
                             <div className="text-xs text-muted-foreground">
                               All {leagues.length} leagues (EPL, La Liga, Bundesliga, Serie A, Ligue 1, MLS, Champions League, etc.)
@@ -732,7 +717,7 @@ export function EventGroupForm() {
                       <div key={sport}>
                         <div className="flex items-center justify-between px-3 py-2 bg-muted/50 sticky top-0">
                           <span className="font-medium text-sm">
-                            {SPORT_NAMES[sport] || sport} ({displayLeagues.length})
+                            {getSportDisplayName(sport)} ({displayLeagues.length})
                           </span>
                           <Button
                             variant="ghost"
@@ -1057,7 +1042,7 @@ export function EventGroupForm() {
                                   indeterminate={someInSportSelected}
                                 />
                                 <div className="flex-1">
-                                  <div className="font-medium text-sm">{SPORT_NAMES[sport] || sport}</div>
+                                  <div className="font-medium text-sm">{getSportDisplayName(sport)}</div>
                                   <div className="text-xs text-muted-foreground">
                                     All {leagues.length} leagues (EPL, La Liga, Bundesliga, etc.)
                                   </div>
@@ -1071,7 +1056,7 @@ export function EventGroupForm() {
                             <div key={sport}>
                               <div className="flex items-center justify-between px-3 py-2 bg-muted/50 sticky top-0">
                                 <span className="font-medium text-sm">
-                                  {SPORT_NAMES[sport] || sport} ({displayLeagues.length})
+                                  {getSportDisplayName(sport)} ({displayLeagues.length})
                                 </span>
                                 <Button
                                   type="button"

@@ -1,12 +1,13 @@
 """Duration, display, and reconciliation settings endpoints."""
 
+from dataclasses import asdict
+
 from fastapi import APIRouter, HTTPException, status
 
 from teamarr.database import get_db
 
 from .models import (
     DisplaySettingsModel,
-    DurationSettingsModel,
     ReconciliationSettingsModel,
 )
 
@@ -18,72 +19,40 @@ router = APIRouter()
 # =============================================================================
 
 
-@router.get("/settings/durations", response_model=DurationSettingsModel)
-def get_duration_settings():
-    """Get game duration settings."""
+@router.get("/settings/durations")
+def get_duration_settings() -> dict[str, float]:
+    """Get game duration settings.
+
+    Returns all sports and their default durations in hours.
+    Sports are defined in DurationSettings dataclass - adding a new sport
+    there automatically exposes it here.
+    """
     from teamarr.database.settings import get_all_settings
 
     with get_db() as conn:
         settings = get_all_settings(conn)
 
-    return DurationSettingsModel(
-        default=settings.durations.default,
-        basketball=settings.durations.basketball,
-        football=settings.durations.football,
-        hockey=settings.durations.hockey,
-        baseball=settings.durations.baseball,
-        soccer=settings.durations.soccer,
-        mma=settings.durations.mma,
-        rugby=settings.durations.rugby,
-        boxing=settings.durations.boxing,
-        tennis=settings.durations.tennis,
-        golf=settings.durations.golf,
-        racing=settings.durations.racing,
-        cricket=settings.durations.cricket,
-    )
+    return asdict(settings.durations)
 
 
-@router.put("/settings/durations", response_model=DurationSettingsModel)
-def update_duration_settings(update: DurationSettingsModel):
-    """Update game duration settings."""
-    from teamarr.database.settings import get_all_settings, update_duration_settings
+@router.put("/settings/durations")
+def update_duration_settings(update: dict[str, float]) -> dict[str, float]:
+    """Update game duration settings.
+
+    Accepts a dict of sport names to duration hours.
+    Only known sports (defined in DurationSettings) will be updated.
+    """
+    from teamarr.database.settings import get_all_settings
+    from teamarr.database.settings import update_duration_settings as db_update
 
     with get_db() as conn:
-        update_duration_settings(
-            conn,
-            default=update.default,
-            basketball=update.basketball,
-            football=update.football,
-            hockey=update.hockey,
-            baseball=update.baseball,
-            soccer=update.soccer,
-            mma=update.mma,
-            rugby=update.rugby,
-            boxing=update.boxing,
-            tennis=update.tennis,
-            golf=update.golf,
-            racing=update.racing,
-            cricket=update.cricket,
-        )
+        # Pass all values from the update dict as kwargs
+        db_update(conn, **update)
 
     with get_db() as conn:
         settings = get_all_settings(conn)
 
-    return DurationSettingsModel(
-        default=settings.durations.default,
-        basketball=settings.durations.basketball,
-        football=settings.durations.football,
-        hockey=settings.durations.hockey,
-        baseball=settings.durations.baseball,
-        soccer=settings.durations.soccer,
-        mma=settings.durations.mma,
-        rugby=settings.durations.rugby,
-        boxing=settings.durations.boxing,
-        tennis=settings.durations.tennis,
-        golf=settings.durations.golf,
-        racing=settings.durations.racing,
-        cricket=settings.durations.cricket,
-    )
+    return asdict(settings.durations)
 
 
 # =============================================================================
