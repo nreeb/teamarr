@@ -169,6 +169,17 @@ TEAM_ALIASES: dict[str, str] = {
     "cards": "st louis cardinals",
     "cards": "saint louis cardinals",
     "jays": "toronto blue jays",
+    # College Basketball - ESPN uses short forms
+    "appalachian state": "app state",
+    "miami-oh": "miami ohio",
+    "miami (oh)": "miami ohio",
+    "miami oh": "miami ohio",
+    "utrgv": "ut rio grande valley",
+    "ut rio grande": "ut rio grande valley",
+    "tamu-cc": "texas a m corpus christi",
+    "tamu cc": "texas a m corpus christi",
+    "texas a&m-cc": "texas a m corpus christi",
+    "texas a&m-corpus christi": "texas a m corpus christi",
 }
 
 

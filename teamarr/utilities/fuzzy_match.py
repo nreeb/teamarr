@@ -245,16 +245,19 @@ class FuzzyMatcher:
         """Generate all searchable patterns for a team.
 
         Returns patterns in priority order (most specific first).
-        Patterns are normalized (accents stripped) to match normalized stream text.
+        Patterns are normalized to match how stream text is normalized.
         """
         patterns = []
         seen = set()
 
         def add(value: str | None) -> None:
             if value:
-                # Normalize: strip accents (é→e, ü→u) and lowercase
-                # This matches how stream text is normalized for comparison
+                # Normalize: strip accents (é→e, ü→u), lowercase
                 normalized = unidecode(value).lower().strip()
+                # Remove punctuation (hyphens become spaces) - matches normalize_for_matching
+                normalized = re.sub(r"[^\w\s]", " ", normalized)
+                # Clean up whitespace
+                normalized = " ".join(normalized.split())
                 if normalized and normalized not in seen and len(normalized) >= 2:
                     seen.add(normalized)
                     patterns.append(normalized)

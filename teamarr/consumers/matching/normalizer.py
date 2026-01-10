@@ -389,8 +389,8 @@ def normalize_for_matching(text: str) -> str:
     # Lowercase
     text = text.lower()
 
-    # Remove punctuation except spaces and hyphens
-    text = re.sub(r"[^\w\s\-]", " ", text)
+    # Remove punctuation except spaces (hyphens become spaces for matching)
+    text = re.sub(r"[^\w\s]", " ", text)
 
     # Normalize whitespace
     text = " ".join(text.split())
