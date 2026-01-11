@@ -1749,6 +1749,9 @@ class EventGroupProcessor:
                 if match_method and hasattr(match_method, "value"):
                     match_method = match_method.value  # Convert enum to string
                 confidence = getattr(result, "confidence", None)
+                origin_method = getattr(result, "origin_match_method", None)
+                if origin_method and hasattr(origin_method, "value"):
+                    origin_method = origin_method.value  # Convert enum to string
 
                 matched_list.append(
                     MatchedStream(
@@ -1766,7 +1769,7 @@ class EventGroupProcessor:
                         from_cache=getattr(result, "from_cache", False),
                         match_method=match_method,
                         confidence=confidence,
-                        origin_match_method=getattr(result, "origin_match_method", None),
+                        origin_match_method=origin_method,
                     )
                 )
             elif result.matched and not result.included:
@@ -1775,7 +1778,12 @@ class EventGroupProcessor:
                 if result.event and result.event.start_time:
                     event_date = result.event.start_time.strftime("%Y-%m-%d %H:%M")
                 match_method = getattr(result, "match_method", None)
+                if match_method and hasattr(match_method, "value"):
+                    match_method = match_method.value  # Convert enum to string
                 confidence = getattr(result, "confidence", None)
+                origin_method = getattr(result, "origin_match_method", None)
+                if origin_method and hasattr(origin_method, "value"):
+                    origin_method = origin_method.value  # Convert enum to string
 
                 matched_list.append(
                     MatchedStream(
@@ -1795,7 +1803,7 @@ class EventGroupProcessor:
                         exclusion_reason=result.exclusion_reason or "excluded_league",
                         match_method=match_method,
                         confidence=confidence,
-                        origin_match_method=getattr(result, "origin_match_method", None),
+                        origin_match_method=origin_method,
                     )
                 )
             elif result.is_exception:
