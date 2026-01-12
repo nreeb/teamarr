@@ -785,8 +785,12 @@ class ChannelLifecycleService:
                         dispatcharr_logo_id = logo_result.logo.get("id")
 
                 # Create channel with channel_profile_ids
-                # Note: empty [] means "all profiles" in Dispatcharr (default behavior)
-                # Group profiles fallback to settings defaults in process_matched_streams()
+                # Dispatcharr profile semantics (as of commit 6b873be):
+                #   [] = NO profiles
+                #   [0] = ALL profiles (sentinel)
+                #   [1, 2, ...] = specific profile IDs
+                # If no profiles configured, default to ALL profiles for backwards compatibility
+                effective_profile_ids = channel_profile_ids if channel_profile_ids else [0]
                 create_result = self._channel_manager.create_channel(
                     name=channel_name,
                     channel_number=channel_number,
@@ -794,7 +798,7 @@ class ChannelLifecycleService:
                     tvg_id=tvg_id,
                     channel_group_id=channel_group_id,
                     logo_id=dispatcharr_logo_id,
-                    channel_profile_ids=channel_profile_ids if channel_profile_ids else None,
+                    channel_profile_ids=effective_profile_ids,
                 )
 
                 if not create_result.success:

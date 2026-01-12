@@ -17,7 +17,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
-import { Loader2, Tv, Eye, Plus, Check, AlertCircle, X, Info } from "lucide-react"
+import { Loader2, Tv, Eye, Plus, Check, AlertCircle, Info } from "lucide-react"
 import { LeaguePicker } from "@/components/LeaguePicker"
 
 // Types
@@ -327,8 +327,6 @@ export function EventGroupImport() {
     setBulkChannelGroupId(null)
     setBulkChannelProfileIds([])
     setBulkEnabled(true)
-    setBulkSport("")
-    setBulkLeagueSearch("")
     setShowBulkModal(true)
   }
 

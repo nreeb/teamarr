@@ -1315,7 +1315,7 @@ export function Settings() {
                 )
               })}
               {(dispatcharr.default_channel_profile_ids ?? []).length === 0 && (
-                <span className="text-sm text-muted-foreground">No default profiles (channels will be added to all profiles)</span>
+                <span className="text-sm text-muted-foreground">No profiles selected (defaults to all profiles)</span>
               )}
             </div>
             <Select
@@ -1341,7 +1341,7 @@ export function Settings() {
                 ))}
             </Select>
             <p className="text-xs text-muted-foreground">
-              Default profiles for new event channels. If empty, channels will be added to all profiles.
+              Default profiles for new event channels. If none selected, channels are added to all profiles.
             </p>
           </div>
 

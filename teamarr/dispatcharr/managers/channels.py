@@ -220,9 +220,10 @@ class ChannelManager:
     ) -> OperationResult:
         """Create a new channel in Dispatcharr.
 
-        Note: channel_profile_ids works for non-empty lists. Empty list []
-        is treated as "add to all" by Dispatcharr, so caller must handle
-        the "no profiles" case separately via remove_from_profile().
+        Dispatcharr profile semantics (as of commit 6b873be):
+          [] = NO profiles
+          [0] = ALL profiles (sentinel value)
+          [1, 2, ...] = specific profile IDs
 
         Args:
             name: Channel name (e.g., "Giants @ Cowboys")
@@ -231,9 +232,8 @@ class ChannelManager:
             tvg_id: TVG ID for XMLTV EPG matching
             channel_group_id: Optional group to assign channel to
             logo_id: Optional logo ID
-            channel_profile_ids: List of profile IDs to add channel to.
-                If None, defaults to all profiles. If empty [], also defaults
-                to all (Dispatcharr behavior) - caller must remove if needed.
+            channel_profile_ids: List of profile IDs. Use [0] for all profiles,
+                [] for no profiles, or specific IDs like [1, 2].
 
         Returns:
             OperationResult with success status and created channel data
