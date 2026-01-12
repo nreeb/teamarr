@@ -273,6 +273,16 @@ export function EventGroupForm() {
     }
   }, [isEdit, defaultProfileIds])
 
+  // Sync selectedLeague/selectedLeagues to formData.leagues during create
+  // This ensures the UI shows correct mode badge and Multi-Sport Settings appear
+  useEffect(() => {
+    if (!isEdit && groupMode === "single" && selectedLeague) {
+      setFormData(prev => ({ ...prev, leagues: [selectedLeague] }))
+    } else if (!isEdit && groupMode === "multi") {
+      setFormData(prev => ({ ...prev, leagues: Array.from(selectedLeagues) }))
+    }
+  }, [selectedLeague, selectedLeagues, isEdit, groupMode])
+
   // Group leagues by sport
   const leaguesBySport = useMemo(() => {
     if (!cachedLeagues) return {}
