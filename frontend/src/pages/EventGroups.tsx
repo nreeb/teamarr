@@ -42,16 +42,17 @@ import { FilterSelect } from "@/components/ui/filter-select"
 import { Select } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import {
+  useBulkUpdateGroups,
   useGroups,
   useDeleteGroup,
   useToggleGroup,
   usePreviewGroup,
   useReorderGroups,
-  useUpdateGroup,
 } from "@/hooks/useGroups"
 import { useTemplates } from "@/hooks/useTemplates"
 import type { EventGroup, PreviewGroupResponse, TeamFilterEntry } from "@/api/types"
 import { TeamPicker } from "@/components/TeamPicker"
+import { LeaguePicker } from "@/components/LeaguePicker"
 import { getUniqueSports, filterLeaguesBySport } from "@/lib/utils"
 
 // Fetch leagues for logo lookup, sport mapping, and display alias
@@ -68,6 +69,13 @@ async function fetchChannelGroups(): Promise<{ id: number; name: string }[]> {
   if (!response.ok) return []
   const data = await response.json()
   return data.groups || []
+}
+
+// Fetch Dispatcharr channel profiles
+async function fetchChannelProfiles(): Promise<{ id: number; name: string }[]> {
+  const response = await fetch("/api/v1/dispatcharr/channel-profiles")
+  if (!response.ok) return []
+  return response.json()
 }
 
 // ============================================================================
@@ -137,9 +145,10 @@ export function EventGroups() {
   const { data: templates } = useTemplates()
   const { data: cachedLeagues } = useQuery({ queryKey: ["leagues"], queryFn: fetchLeagues })
   const { data: channelGroups } = useQuery({ queryKey: ["dispatcharr-channel-groups"], queryFn: fetchChannelGroups })
+  const { data: channelProfiles } = useQuery({ queryKey: ["dispatcharr-channel-profiles"], queryFn: fetchChannelProfiles })
   const deleteMutation = useDeleteGroup()
   const toggleMutation = useToggleGroup()
-  const updateMutation = useUpdateGroup()
+  const bulkUpdateMutation = useBulkUpdateGroups()
   const previewMutation = usePreviewGroup()
   const reorderMutation = useReorderGroups()
 
@@ -199,8 +208,19 @@ export function EventGroups() {
 
   const [deleteConfirm, setDeleteConfirm] = useState<EventGroup | null>(null)
   const [showBulkDelete, setShowBulkDelete] = useState(false)
-  const [showBulkTemplate, setShowBulkTemplate] = useState(false)
-  const [bulkTemplateId, setBulkTemplateId] = useState<number | null>(null)
+  const [showBulkEdit, setShowBulkEdit] = useState(false)
+  // Bulk edit form state - checkboxes control which fields to update
+  const [bulkEditLeaguesEnabled, setBulkEditLeaguesEnabled] = useState(false)
+  const [bulkEditLeagues, setBulkEditLeagues] = useState<string[]>([])
+  const [bulkEditTemplateEnabled, setBulkEditTemplateEnabled] = useState(false)
+  const [bulkEditTemplateId, setBulkEditTemplateId] = useState<number | null>(null)
+  const [bulkEditClearTemplate, setBulkEditClearTemplate] = useState(false)
+  const [bulkEditChannelGroupEnabled, setBulkEditChannelGroupEnabled] = useState(false)
+  const [bulkEditChannelGroupId, setBulkEditChannelGroupId] = useState<number | null>(null)
+  const [bulkEditClearChannelGroup, setBulkEditClearChannelGroup] = useState(false)
+  const [bulkEditProfilesEnabled, setBulkEditProfilesEnabled] = useState(false)
+  const [bulkEditProfileIds, setBulkEditProfileIds] = useState<number[]>([])
+  const [bulkEditClearProfiles, setBulkEditClearProfiles] = useState(false)
 
   // Column sorting state
   type SortColumn = "name" | "sport" | "template" | "matched" | "status" | null
@@ -639,24 +659,82 @@ export function EventGroups() {
     setShowBulkDelete(false)
   }
 
-  const handleBulkAssignTemplate = async () => {
+  // Check if selection has mixed group_modes (single vs multi)
+  const hasMixedModes = useMemo(() => {
+    if (!data?.groups || selectedIds.size === 0) return false
+    const selectedGroups = data.groups.filter(g => selectedIds.has(g.id))
+    const modes = new Set(selectedGroups.map(g => g.group_mode))
+    return modes.size > 1
+  }, [data?.groups, selectedIds])
+
+  // Reset bulk edit form state
+  const resetBulkEditForm = () => {
+    setBulkEditLeaguesEnabled(false)
+    setBulkEditLeagues([])
+    setBulkEditTemplateEnabled(false)
+    setBulkEditTemplateId(null)
+    setBulkEditClearTemplate(false)
+    setBulkEditChannelGroupEnabled(false)
+    setBulkEditChannelGroupId(null)
+    setBulkEditClearChannelGroup(false)
+    setBulkEditProfilesEnabled(false)
+    setBulkEditProfileIds([])
+    setBulkEditClearProfiles(false)
+  }
+
+  const handleBulkEdit = async () => {
     const ids = Array.from(selectedIds)
-    let succeeded = 0
-    for (const id of ids) {
-      try {
-        await updateMutation.mutateAsync({
-          groupId: id,
-          data: { template_id: bulkTemplateId, clear_template: bulkTemplateId === null },
-        })
-        succeeded++
-      } catch {
-        // Continue with others
+
+    // Build request with only enabled fields
+    const request: {
+      group_ids: number[]
+      leagues?: string[]
+      template_id?: number | null
+      channel_group_id?: number | null
+      channel_profile_ids?: number[]
+      clear_template?: boolean
+      clear_channel_group_id?: boolean
+      clear_channel_profile_ids?: boolean
+    } = { group_ids: ids }
+
+    if (bulkEditLeaguesEnabled && bulkEditLeagues.length > 0) {
+      request.leagues = bulkEditLeagues
+    }
+    if (bulkEditTemplateEnabled) {
+      if (bulkEditClearTemplate) {
+        request.clear_template = true
+      } else if (bulkEditTemplateId) {
+        request.template_id = bulkEditTemplateId
       }
     }
-    toast.success(`Assigned template to ${succeeded} groups`)
-    setSelectedIds(new Set())
-    setShowBulkTemplate(false)
-    setBulkTemplateId(null)
+    if (bulkEditChannelGroupEnabled) {
+      if (bulkEditClearChannelGroup) {
+        request.clear_channel_group_id = true
+      } else if (bulkEditChannelGroupId) {
+        request.channel_group_id = bulkEditChannelGroupId
+      }
+    }
+    if (bulkEditProfilesEnabled) {
+      if (bulkEditClearProfiles) {
+        request.clear_channel_profile_ids = true
+      } else {
+        request.channel_profile_ids = bulkEditProfileIds
+      }
+    }
+
+    try {
+      const result = await bulkUpdateMutation.mutateAsync(request)
+      if (result.total_failed > 0) {
+        toast.warning(`Updated ${result.total_updated} groups, ${result.total_failed} failed`)
+      } else {
+        toast.success(`Updated ${result.total_updated} groups`)
+      }
+      setSelectedIds(new Set())
+      setShowBulkEdit(false)
+      resetBulkEditForm()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update groups")
+    }
   }
 
   const clearFilters = () => {
@@ -901,8 +979,15 @@ export function EventGroups() {
                 <Button variant="outline" size="sm" onClick={() => handleBulkToggle(false)}>
                   Disable
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => setShowBulkTemplate(true)}>
-                  Assign Template
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowBulkEdit(true)}
+                  disabled={hasMixedModes}
+                  title={hasMixedModes ? "Cannot edit groups with different modes (single/multi)" : "Edit selected groups"}
+                >
+                  <Pencil className="h-3 w-3 mr-1" />
+                  Edit
                 </Button>
                 <Button variant="destructive" size="sm" onClick={() => setShowBulkDelete(true)}>
                   <Trash2 className="h-3 w-3 mr-1" />
@@ -1572,37 +1657,190 @@ export function EventGroups() {
         </DialogContent>
       </Dialog>
 
-      {/* Bulk Assign Template Dialog */}
-      <Dialog open={showBulkTemplate} onOpenChange={setShowBulkTemplate}>
-        <DialogContent onClose={() => setShowBulkTemplate(false)}>
+      {/* Bulk Edit Dialog */}
+      <Dialog open={showBulkEdit} onOpenChange={(open) => {
+        setShowBulkEdit(open)
+        if (!open) resetBulkEditForm()
+      }}>
+        <DialogContent onClose={() => setShowBulkEdit(false)} className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Assign Template</DialogTitle>
+            <DialogTitle>Bulk Edit ({selectedIds.size} groups)</DialogTitle>
             <DialogDescription>
-              Assign a template to {selectedIds.size} selected group{selectedIds.size !== 1 && "s"}.
+              Only checked fields will be updated. Use "Clear" to remove values.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <Select
-              value={bulkTemplateId?.toString() ?? ""}
-              onChange={(e) =>
-                setBulkTemplateId(e.target.value ? parseInt(e.target.value) : null)
-              }
-            >
-              <option value="">Unassigned (Default)</option>
-              {eventTemplates.map((template) => (
-                <option key={template.id} value={template.id.toString()}>
-                  {template.name}
-                </option>
-              ))}
-            </Select>
+          <div className="space-y-4 py-4 px-1 max-h-[60vh] overflow-y-auto">
+            {/* Leagues */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={bulkEditLeaguesEnabled}
+                  onCheckedChange={(checked) => setBulkEditLeaguesEnabled(!!checked)}
+                />
+                <label className="text-sm font-medium">Leagues</label>
+              </div>
+              {bulkEditLeaguesEnabled && (
+                <LeaguePicker
+                  selectedLeagues={bulkEditLeagues}
+                  onSelectionChange={setBulkEditLeagues}
+                  maxHeight="max-h-48"
+                  maxBadges={5}
+                />
+              )}
+            </div>
+
+            {/* Template */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={bulkEditTemplateEnabled}
+                  onCheckedChange={(checked) => {
+                    setBulkEditTemplateEnabled(!!checked)
+                    if (!checked) {
+                      setBulkEditTemplateId(null)
+                      setBulkEditClearTemplate(false)
+                    }
+                  }}
+                />
+                <label className="text-sm font-medium">Template</label>
+              </div>
+              {bulkEditTemplateEnabled && (
+                <>
+                  <Select
+                    value={bulkEditClearTemplate ? "" : (bulkEditTemplateId?.toString() ?? "")}
+                    onChange={(e) => {
+                      setBulkEditTemplateId(e.target.value ? parseInt(e.target.value) : null)
+                      setBulkEditClearTemplate(false)
+                    }}
+                    disabled={bulkEditClearTemplate}
+                  >
+                    <option value="">Select template...</option>
+                    {eventTemplates.map((template) => (
+                      <option key={template.id} value={template.id.toString()}>
+                        {template.name}
+                      </option>
+                    ))}
+                  </Select>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={bulkEditClearTemplate}
+                      onCheckedChange={(checked) => {
+                        setBulkEditClearTemplate(!!checked)
+                        if (checked) setBulkEditTemplateId(null)
+                      }}
+                    />
+                    <label className="text-xs text-muted-foreground">Clear (unassign template)</label>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Channel Group */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={bulkEditChannelGroupEnabled}
+                  onCheckedChange={(checked) => {
+                    setBulkEditChannelGroupEnabled(!!checked)
+                    if (!checked) {
+                      setBulkEditChannelGroupId(null)
+                      setBulkEditClearChannelGroup(false)
+                    }
+                  }}
+                />
+                <label className="text-sm font-medium">Channel Group</label>
+              </div>
+              {bulkEditChannelGroupEnabled && (
+                <>
+                  <Select
+                    value={bulkEditClearChannelGroup ? "" : (bulkEditChannelGroupId?.toString() ?? "")}
+                    onChange={(e) => {
+                      setBulkEditChannelGroupId(e.target.value ? parseInt(e.target.value) : null)
+                      setBulkEditClearChannelGroup(false)
+                    }}
+                    disabled={bulkEditClearChannelGroup}
+                  >
+                    <option value="">Select channel group...</option>
+                    {channelGroups?.map((group) => (
+                      <option key={group.id} value={group.id.toString()}>
+                        {group.name}
+                      </option>
+                    ))}
+                  </Select>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={bulkEditClearChannelGroup}
+                      onCheckedChange={(checked) => {
+                        setBulkEditClearChannelGroup(!!checked)
+                        if (checked) setBulkEditChannelGroupId(null)
+                      }}
+                    />
+                    <label className="text-xs text-muted-foreground">Clear (remove from channel group)</label>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Channel Profiles */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={bulkEditProfilesEnabled}
+                  onCheckedChange={(checked) => {
+                    setBulkEditProfilesEnabled(!!checked)
+                    if (!checked) {
+                      setBulkEditProfileIds([])
+                      setBulkEditClearProfiles(false)
+                    }
+                  }}
+                />
+                <label className="text-sm font-medium">Channel Profiles</label>
+              </div>
+              {bulkEditProfilesEnabled && (
+                <>
+                  <div className="space-y-1">
+                    {channelProfiles?.map((profile) => (
+                      <div key={profile.id} className="flex items-center gap-2">
+                        <Checkbox
+                          checked={bulkEditProfileIds.includes(profile.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setBulkEditProfileIds([...bulkEditProfileIds, profile.id])
+                            } else {
+                              setBulkEditProfileIds(bulkEditProfileIds.filter(id => id !== profile.id))
+                            }
+                            setBulkEditClearProfiles(false)
+                          }}
+                          disabled={bulkEditClearProfiles}
+                        />
+                        <label className="text-sm">{profile.name}</label>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={bulkEditClearProfiles}
+                      onCheckedChange={(checked) => {
+                        setBulkEditClearProfiles(!!checked)
+                        if (checked) setBulkEditProfileIds([])
+                      }}
+                    />
+                    <label className="text-xs text-muted-foreground">Clear (remove all profiles)</label>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowBulkTemplate(false)}>
+            <Button variant="outline" onClick={() => setShowBulkEdit(false)}>
               Cancel
             </Button>
-            <Button onClick={handleBulkAssignTemplate} disabled={updateMutation.isPending}>
-              {updateMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Assign
+            <Button
+              onClick={handleBulkEdit}
+              disabled={bulkUpdateMutation.isPending || (!bulkEditLeaguesEnabled && !bulkEditTemplateEnabled && !bulkEditChannelGroupEnabled && !bulkEditProfilesEnabled)}
+            >
+              {bulkUpdateMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Apply to {selectedIds.size} groups
             </Button>
           </DialogFooter>
         </DialogContent>

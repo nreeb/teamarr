@@ -134,6 +134,31 @@ export interface EventGroupListResponse {
   total: number
 }
 
+export interface BulkGroupUpdateRequest {
+  group_ids: number[]
+  leagues?: string[]
+  template_id?: number | null
+  channel_group_id?: number | null
+  channel_profile_ids?: number[]
+  clear_template?: boolean
+  clear_channel_group_id?: boolean
+  clear_channel_profile_ids?: boolean
+}
+
+export interface BulkGroupUpdateResult {
+  group_id: number
+  name: string
+  success: boolean
+  error?: string
+}
+
+export interface BulkGroupUpdateResponse {
+  results: BulkGroupUpdateResult[]
+  total_requested: number
+  total_updated: number
+  total_failed: number
+}
+
 export interface Template {
   id: number
   name: string

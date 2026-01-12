@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { Loader2, Tv, Eye, Plus, Check, AlertCircle, X, Info } from "lucide-react"
+import { LeaguePicker } from "@/components/LeaguePicker"
 
 // Types
 interface M3UAccount {
@@ -49,13 +50,6 @@ interface SelectedGroup {
   m3u_group_id: number
   m3u_group_name: string
   stream_count?: number
-}
-
-interface CachedLeague {
-  slug: string
-  name: string
-  sport: string
-  logo_url?: string
 }
 
 interface Template {
@@ -101,11 +95,6 @@ async function fetchEnabledGroups(): Promise<EnabledGroup[]> {
   return response.groups
 }
 
-async function fetchLeagues(): Promise<CachedLeague[]> {
-  const response = await api.get<{ leagues: CachedLeague[] }>("/cache/leagues")
-  return response.leagues
-}
-
 async function fetchTemplates(): Promise<Template[]> {
   const response = await api.get<{ templates: Template[] }>("/templates")
   return response.templates
@@ -148,8 +137,6 @@ export function EventGroupImport() {
   const [bulkChannelProfileIds, setBulkChannelProfileIds] = useState<number[]>([])
   const [bulkEnabled, setBulkEnabled] = useState(true)
   const [bulkImporting, setBulkImporting] = useState(false)
-  const [bulkSport, setBulkSport] = useState<string>("")
-  const [bulkLeagueSearch, setBulkLeagueSearch] = useState("")
 
   // Queries
   const accountsQuery = useQuery({
@@ -172,11 +159,6 @@ export function EventGroupImport() {
     queryKey: ["dispatcharr-group-streams", selectedAccount?.id, previewGroup?.id],
     queryFn: () => fetchGroupStreams(selectedAccount!.id, previewGroup!.id),
     enabled: !!selectedAccount && !!previewGroup,
-  })
-
-  const leaguesQuery = useQuery({
-    queryKey: ["cached-leagues"],
-    queryFn: fetchLeagues,
   })
 
   const templatesQuery = useQuery({
@@ -219,20 +201,6 @@ export function EventGroupImport() {
   // Check if all visible selectable groups are selected
   const allVisibleSelected = selectedAccount && selectableGroups.length > 0 &&
     selectableGroups.every((g) => selectedGroups.has(`${selectedAccount.id}:${g.id}`))
-
-  // Group leagues by sport
-  const leaguesBySport = useMemo(() => {
-    if (!leaguesQuery.data) return {}
-    const grouped: Record<string, CachedLeague[]> = {}
-    for (const league of leaguesQuery.data) {
-      const sport = league.sport || "Other"
-      if (!grouped[sport]) grouped[sport] = []
-      grouped[sport].push(league)
-    }
-    return grouped
-  }, [leaguesQuery.data])
-
-  const sports = Object.keys(leaguesBySport).sort()
 
   // Filter templates by type
   const eventTemplates = (templatesQuery.data ?? []).filter(
@@ -672,7 +640,7 @@ export function EventGroupImport() {
 
       {/* Bulk Import Modal */}
       <Dialog open={showBulkModal} onOpenChange={setShowBulkModal}>
-        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col" onClose={() => setShowBulkModal(false)}>
+        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col" onClose={() => setShowBulkModal(false)}>
           <DialogHeader>
             <DialogTitle>Import {selectedGroups.size} Groups</DialogTitle>
             <DialogDescription>
@@ -685,7 +653,7 @@ export function EventGroupImport() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto space-y-6">
+          <div className="flex-1 overflow-y-auto space-y-6 px-1">
             {/* Group Type */}
             <div className="space-y-3">
               <Label className="text-sm font-medium">Group Type</Label>
@@ -735,106 +703,13 @@ export function EventGroupImport() {
                 {bulkMode === "single" ? "League" : "Leagues"}
               </Label>
 
-              {bulkMode === "single" ? (
-                <div className="space-y-2">
-                  <Select
-                    value={bulkSport}
-                    onChange={(e) => {
-                      setBulkSport(e.target.value)
-                      setBulkLeagues(new Set())
-                    }}
-                  >
-                    <option value="">Select sport...</option>
-                    {sports.map((sport) => (
-                      <option key={sport} value={sport}>{sport}</option>
-                    ))}
-                  </Select>
-                  {bulkSport && (
-                    <Select
-                      value={bulkLeagues.size === 1 ? Array.from(bulkLeagues)[0] : ""}
-                      onChange={(e) => setBulkLeagues(new Set(e.target.value ? [e.target.value] : []))}
-                    >
-                      <option value="">Select league...</option>
-                      {(leaguesBySport[bulkSport] || []).map((league) => (
-                        <option key={league.slug} value={league.slug}>{league.name}</option>
-                      ))}
-                    </Select>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <Input
-                    placeholder="Search leagues..."
-                    value={bulkLeagueSearch}
-                    onChange={(e) => setBulkLeagueSearch(e.target.value)}
-                  />
-                  {bulkLeagues.size > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {Array.from(bulkLeagues).map((slug) => {
-                        const league = leaguesQuery.data?.find((l) => l.slug === slug)
-                        return (
-                          <Badge key={slug} variant="secondary" className="gap-1">
-                            {league?.name || slug}
-                            <button
-                              onClick={() => {
-                                const newLeagues = new Set(bulkLeagues)
-                                newLeagues.delete(slug)
-                                setBulkLeagues(newLeagues)
-                              }}
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </Badge>
-                        )
-                      })}
-                    </div>
-                  )}
-                  <div className="max-h-48 overflow-y-auto border rounded-md divide-y">
-                    {sports
-                      .filter((sport) =>
-                        !bulkLeagueSearch ||
-                        sport.toLowerCase().includes(bulkLeagueSearch.toLowerCase()) ||
-                        leaguesBySport[sport].some((l) =>
-                          l.name.toLowerCase().includes(bulkLeagueSearch.toLowerCase())
-                        )
-                      )
-                      .map((sport) => {
-                        const leagues = leaguesBySport[sport].filter((l) =>
-                          !bulkLeagueSearch ||
-                          l.name.toLowerCase().includes(bulkLeagueSearch.toLowerCase())
-                        )
-                        if (leagues.length === 0) return null
-                        return (
-                          <div key={sport} className="p-2">
-                            <div className="text-xs font-medium text-muted-foreground mb-1">{sport}</div>
-                            <div className="space-y-1">
-                              {leagues.map((league) => (
-                                <label
-                                  key={league.slug}
-                                  className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-1 rounded"
-                                >
-                                  <Checkbox
-                                    checked={bulkLeagues.has(league.slug)}
-                                    onClick={() => {
-                                      const newLeagues = new Set(bulkLeagues)
-                                      if (newLeagues.has(league.slug)) {
-                                        newLeagues.delete(league.slug)
-                                      } else {
-                                        newLeagues.add(league.slug)
-                                      }
-                                      setBulkLeagues(newLeagues)
-                                    }}
-                                  />
-                                  {league.name}
-                                </label>
-                              ))}
-                            </div>
-                          </div>
-                        )
-                      })}
-                  </div>
-                </div>
-              )}
+              <LeaguePicker
+                selectedLeagues={Array.from(bulkLeagues)}
+                onSelectionChange={(leagues) => setBulkLeagues(new Set(leagues))}
+                singleSelect={bulkMode === "single"}
+                maxHeight="max-h-48"
+                maxBadges={5}
+              />
             </div>
 
             {/* Settings */}

@@ -279,6 +279,43 @@ class BulkGroupCreateResponse(BaseModel):
     total_failed: int
 
 
+class BulkGroupUpdateRequest(BaseModel):
+    """Bulk update event EPG groups request.
+
+    Only provided (non-None) fields will be updated.
+    Use clear_* flags to explicitly set fields to NULL.
+    """
+
+    group_ids: list[int] = Field(..., min_length=1)
+    # Fields to update (only non-None values are applied)
+    leagues: list[str] | None = None
+    template_id: int | None = None
+    channel_group_id: int | None = None
+    channel_profile_ids: list[int] | None = None
+    # Clear flags for nullable fields
+    clear_template: bool = False
+    clear_channel_group_id: bool = False
+    clear_channel_profile_ids: bool = False
+
+
+class BulkGroupUpdateResult(BaseModel):
+    """Result of a single group update in bulk."""
+
+    group_id: int
+    name: str
+    success: bool
+    error: str | None = None
+
+
+class BulkGroupUpdateResponse(BaseModel):
+    """Response from bulk group update."""
+
+    results: list[BulkGroupUpdateResult]
+    total_requested: int
+    total_updated: int
+    total_failed: int
+
+
 # =============================================================================
 # VALIDATION
 # =============================================================================
@@ -611,6 +648,74 @@ def create_groups_bulk(request: BulkGroupCreateRequest):
         created=results,
         total_requested=len(request.groups),
         total_created=total_created,
+        total_failed=total_failed,
+    )
+
+
+@router.put("/bulk", response_model=BulkGroupUpdateResponse)
+def update_groups_bulk(request: BulkGroupUpdateRequest):
+    """Bulk update event EPG groups with shared settings.
+
+    Only provided (non-None) fields will be updated across all selected groups.
+    Use clear_* flags to explicitly set fields to NULL.
+
+    Note: All groups must have the same group_mode (single/multi) - the frontend
+    should prevent mixed selections.
+    """
+    from teamarr.database.groups import get_group, update_group
+
+    results: list[BulkGroupUpdateResult] = []
+    total_updated = 0
+    total_failed = 0
+
+    with get_db() as conn:
+        for group_id in request.group_ids:
+            try:
+                # Verify group exists
+                group = get_group(conn, group_id)
+                if not group:
+                    results.append(BulkGroupUpdateResult(
+                        group_id=group_id,
+                        name=f"Group {group_id}",
+                        success=False,
+                        error="Group not found",
+                    ))
+                    total_failed += 1
+                    continue
+
+                # Update the group with provided fields
+                update_group(
+                    conn,
+                    group_id,
+                    leagues=request.leagues,
+                    template_id=request.template_id,
+                    channel_group_id=request.channel_group_id,
+                    channel_profile_ids=request.channel_profile_ids,
+                    clear_template=request.clear_template,
+                    clear_channel_group_id=request.clear_channel_group_id,
+                    clear_channel_profile_ids=request.clear_channel_profile_ids,
+                )
+
+                results.append(BulkGroupUpdateResult(
+                    group_id=group_id,
+                    name=group.name,
+                    success=True,
+                ))
+                total_updated += 1
+
+            except Exception as e:
+                results.append(BulkGroupUpdateResult(
+                    group_id=group_id,
+                    name=f"Group {group_id}",
+                    success=False,
+                    error=str(e),
+                ))
+                total_failed += 1
+
+    return BulkGroupUpdateResponse(
+        results=results,
+        total_requested=len(request.group_ids),
+        total_updated=total_updated,
         total_failed=total_failed,
     )
 

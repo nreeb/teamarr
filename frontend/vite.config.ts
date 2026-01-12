@@ -15,7 +15,7 @@ export default defineConfig({
     host: true,  // Expose to network
     proxy: {
       '/api': {
-        target: 'http://localhost:9198',
+        target: 'http://localhost:9195',
         // Disable buffering for SSE streams
         configure: (proxy) => {
           proxy.on('proxyRes', (proxyRes) => {
@@ -26,7 +26,7 @@ export default defineConfig({
           })
         },
       },
-      '/health': 'http://localhost:9198',
+      '/health': 'http://localhost:9195',
     },
   },
   build: {

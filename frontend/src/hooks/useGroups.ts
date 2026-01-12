@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
+  bulkUpdateGroups,
   createGroup,
   deleteGroup,
   disableGroup,
@@ -11,7 +12,7 @@ import {
   reorderGroups,
   updateGroup,
 } from "@/api/groups"
-import type { EventGroupCreate, EventGroupUpdate } from "@/api/types"
+import type { BulkGroupUpdateRequest, EventGroupCreate, EventGroupUpdate } from "@/api/types"
 
 export function useGroups(includeDisabled = false) {
   return useQuery({
@@ -98,6 +99,17 @@ export function useReorderGroups() {
   return useMutation({
     mutationFn: (groups: { group_id: number; sort_order: number }[]) =>
       reorderGroups(groups),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["groups"] })
+    },
+  })
+}
+
+export function useBulkUpdateGroups() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: BulkGroupUpdateRequest) => bulkUpdateGroups(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["groups"] })
     },

@@ -11,7 +11,7 @@ import { Select } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
-import { cn, getSportDisplayName } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 import {
   useGroup,
   useGroups,
@@ -21,6 +21,7 @@ import {
 import { useTemplates } from "@/hooks/useTemplates"
 import type { EventGroupCreate, EventGroupUpdate } from "@/api/types"
 import { TeamPicker } from "@/components/TeamPicker"
+import { LeaguePicker } from "@/components/LeaguePicker"
 
 // Group mode
 type GroupMode = "single" | "multi" | null
@@ -126,8 +127,7 @@ export function EventGroupForm() {
     team_filter_mode: "include",
   })
 
-  // Single-league selection
-  const [selectedSport, setSelectedSport] = useState<string | null>(null)
+  // Single-league selection (stores the slug for single-league mode during creation)
   const [selectedLeague, setSelectedLeague] = useState<string | null>(null)
 
   // Track if this is a child group (inherits settings from parent)
@@ -135,7 +135,6 @@ export function EventGroupForm() {
 
   // Multi-league selection
   const [selectedLeagues, setSelectedLeagues] = useState<Set<string>>(new Set())
-  const [leagueSearch, setLeagueSearch] = useState("")
 
   // Fetch existing group if editing
   const { data: group, isLoading: isLoadingGroup } = useGroup(
@@ -150,7 +149,7 @@ export function EventGroupForm() {
   const eventTemplates = templates?.filter(t => t.template_type === "event") || []
 
   // Fetch leagues
-  const { data: cachedLeagues, isLoading: isLoadingLeagues } = useQuery({
+  const { data: cachedLeagues } = useQuery({
     queryKey: ["leagues"],
     queryFn: fetchLeagues,
   })
@@ -248,9 +247,6 @@ export function EventGroupForm() {
         // Single league mode - use first league
         if (group.leagues.length > 0) {
           setSelectedLeague(group.leagues[0])
-          // Try to find sport from cached leagues
-          const league = cachedLeagues?.find(l => l.slug === group.leagues[0])
-          if (league) setSelectedSport(league.sport)
         }
       } else {
         // Multi league mode
@@ -281,24 +277,6 @@ export function EventGroupForm() {
       setFormData(prev => ({ ...prev, leagues: Array.from(selectedLeagues) }))
     }
   }, [selectedLeague, selectedLeagues, isEdit, groupMode])
-
-  // Group leagues by sport
-  const leaguesBySport = useMemo(() => {
-    if (!cachedLeagues) return {}
-    const grouped: Record<string, CachedLeague[]> = {}
-    for (const league of cachedLeagues) {
-      // Skip leagues without names
-      if (!league.name) continue
-      const sport = league.sport || "other"
-      if (!grouped[sport]) grouped[sport] = []
-      grouped[sport].push(league)
-    }
-    // Sort leagues within each sport
-    for (const sport of Object.keys(grouped)) {
-      grouped[sport].sort((a, b) => (a.name || "").localeCompare(b.name || ""))
-    }
-    return grouped
-  }, [cachedLeagues])
 
   // Filtered channel groups based on search
   const filteredChannelGroups = useMemo(() => {
@@ -398,66 +376,6 @@ export function EventGroupForm() {
     }
   }
 
-  const toggleLeague = (slug: string) => {
-    setSelectedLeagues(prev => {
-      const next = new Set(prev)
-      if (next.has(slug)) {
-        next.delete(slug)
-      } else {
-        next.add(slug)
-      }
-      return next
-    })
-  }
-
-  const selectAllInSport = (sport: string) => {
-    const sportLeagues = leaguesBySport[sport] || []
-    setSelectedLeagues(prev => {
-      const next = new Set(prev)
-      for (const league of sportLeagues) {
-        next.add(league.slug)
-      }
-      return next
-    })
-  }
-
-  const clearAllInSport = (sport: string) => {
-    const sportLeagues = leaguesBySport[sport] || []
-    const slugs = new Set(sportLeagues.map(l => l.slug))
-    setSelectedLeagues(prev => {
-      const next = new Set(prev)
-      for (const slug of slugs) {
-        next.delete(slug)
-      }
-      return next
-    })
-  }
-
-  // Global select/clear all
-  const selectAllLeagues = () => {
-    const allSlugs = cachedLeagues?.map(l => l.slug) || []
-    setSelectedLeagues(new Set(allSlugs))
-  }
-
-  const clearAllLeagues = () => {
-    setSelectedLeagues(new Set())
-  }
-
-  // Check if all leagues in a sport are selected
-  const isSportFullySelected = (sport: string) => {
-    const sportLeagues = leaguesBySport[sport] || []
-    return sportLeagues.length > 0 && sportLeagues.every(l => selectedLeagues.has(l.slug))
-  }
-
-  // Toggle entire sport (for consolidated sports like Soccer)
-  const toggleSport = (sport: string) => {
-    if (isSportFullySelected(sport)) {
-      clearAllInSport(sport)
-    } else {
-      selectAllInSport(sport)
-    }
-  }
-
   if (isEdit && isLoadingGroup) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -537,58 +455,13 @@ export function EventGroupForm() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Sport Selection */}
-            <div className="space-y-2">
-              <Label>Sport</Label>
-              {isLoadingLeagues ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Loading sports...
-                </div>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {Object.keys(leaguesBySport).sort((a, b) =>
-                    getSportDisplayName(a).localeCompare(getSportDisplayName(b))
-                  ).map((sport) => (
-                    <Button
-                      key={sport}
-                      variant={selectedSport === sport ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => {
-                        setSelectedSport(sport)
-                        setSelectedLeague(null)
-                      }}
-                    >
-                      {getSportDisplayName(sport)}
-                    </Button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* League Selection */}
-            {selectedSport && leaguesBySport[selectedSport] && (
-              <div className="space-y-2">
-                <Label>League ({leaguesBySport[selectedSport].length} available)</Label>
-                <div className="max-h-72 overflow-y-auto grid grid-cols-3 gap-1 border rounded-md p-2">
-                  {leaguesBySport[selectedSport].map(league => (
-                    <button
-                      key={league.slug}
-                      className={cn(
-                        "flex items-center gap-2 px-2 py-1.5 rounded text-sm text-left hover:bg-accent",
-                        selectedLeague === league.slug && "bg-primary text-primary-foreground"
-                      )}
-                      onClick={() => setSelectedLeague(league.slug)}
-                    >
-                      {league.logo_url && (
-                        <img src={league.logo_url} alt="" className="h-4 w-4 object-contain" />
-                      )}
-                      <span className="truncate">{league.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+            <LeaguePicker
+              selectedLeagues={selectedLeague ? [selectedLeague] : []}
+              onSelectionChange={(leagues) => setSelectedLeague(leagues[0] || null)}
+              singleSelect
+              maxHeight="max-h-72"
+              showSelectedBadges={false}
+            />
 
             {/* Parent Group Selection */}
             {selectedLeague && eligibleParents.length > 0 && (
@@ -611,7 +484,6 @@ export function EventGroupForm() {
                 </Select>
               </div>
             )}
-
           </CardContent>
         </Card>
       )}
@@ -625,172 +497,12 @@ export function EventGroupForm() {
               Choose which leagues to match streams against. Streams will be matched to events in any selected league.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Search */}
-            <Input
-              placeholder="Search leagues..."
-              value={leagueSearch}
-              onChange={(e) => setLeagueSearch(e.target.value)}
+          <CardContent>
+            <LeaguePicker
+              selectedLeagues={Array.from(selectedLeagues)}
+              onSelectionChange={(leagues) => setSelectedLeagues(new Set(leagues))}
+              maxHeight="max-h-96"
             />
-
-            {/* Selected count and global actions */}
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">
-                {selectedLeagues.size} league{selectedLeagues.size !== 1 ? "s" : ""} selected
-              </span>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={selectAllLeagues}
-                >
-                  Select All
-                </Button>
-                {selectedLeagues.size > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearAllLeagues}
-                  >
-                    Clear All
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* Selected badges */}
-            {selectedLeagues.size > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {Array.from(selectedLeagues).slice(0, 10).map(slug => {
-                  const league = cachedLeagues?.find(l => l.slug === slug)
-                  return (
-                    <Badge key={slug} variant="secondary" className="gap-1">
-                      {league?.logo_url && (
-                        <img src={league.logo_url} alt="" className="h-3 w-3 object-contain" />
-                      )}
-                      {league?.name || slug}
-                      <button onClick={() => toggleLeague(slug)} className="ml-1 hover:bg-muted rounded">
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  )
-                })}
-                {selectedLeagues.size > 10 && (
-                  <Badge variant="outline">+{selectedLeagues.size - 10} more</Badge>
-                )}
-              </div>
-            )}
-
-            {/* League picker by sport */}
-            {isLoadingLeagues ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin" />
-              </div>
-            ) : (
-              <div className="max-h-96 overflow-y-auto border rounded-md divide-y">
-                {Object.entries(leaguesBySport)
-                  .filter(([sport]) =>
-                    !leagueSearch ||
-                    sport.toLowerCase().includes(leagueSearch.toLowerCase()) ||
-                    leaguesBySport[sport].some(l =>
-                      l.slug.toLowerCase().includes(leagueSearch.toLowerCase()) ||
-                      l.name.toLowerCase().includes(leagueSearch.toLowerCase())
-                    )
-                  )
-                  .sort(([a], [b]) => a.localeCompare(b))
-                  .map(([sport, leagues]) => {
-                    const sportLeaguesFiltered = leagueSearch
-                      ? leagues.filter(l =>
-                          l.slug.toLowerCase().includes(leagueSearch.toLowerCase()) ||
-                          l.name.toLowerCase().includes(leagueSearch.toLowerCase())
-                        )
-                      : leagues
-
-                    // For search, if no individual leagues match but sport name matches, show all
-                    const displayLeagues = leagueSearch && sportLeaguesFiltered.length === 0 &&
-                      sport.toLowerCase().includes(leagueSearch.toLowerCase())
-                      ? leagues
-                      : sportLeaguesFiltered
-
-                    if (displayLeagues.length === 0) return null
-
-                    const allSelected = isSportFullySelected(sport)
-                    const someSelected = leagues.some(l => selectedLeagues.has(l.slug)) && !allSelected
-
-                    // Soccer: show as single consolidated checkbox (too many leagues)
-                    if (sport === "soccer") {
-                      return (
-                        <label
-                          key={sport}
-                          className={cn(
-                            "flex items-center gap-3 px-3 py-3 cursor-pointer hover:bg-accent",
-                            allSelected && "bg-primary/10"
-                          )}
-                          onClick={(e) => {
-                            e.preventDefault()
-                            toggleSport(sport)
-                          }}
-                        >
-                          <Checkbox
-                            checked={allSelected}
-                            // @ts-expect-error - indeterminate is valid but not in types
-                            indeterminate={someSelected}
-                            onCheckedChange={() => toggleSport(sport)}
-                          />
-                          <div className="flex-1">
-                            <div className="font-medium text-sm">
-                              {getSportDisplayName(sport)}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              All {leagues.length} leagues (EPL, La Liga, Bundesliga, Serie A, Ligue 1, MLS, Champions League, etc.)
-                            </div>
-                          </div>
-                        </label>
-                      )
-                    }
-
-                    // Other sports: show individual leagues
-                    return (
-                      <div key={sport}>
-                        <div className="flex items-center justify-between px-3 py-2 bg-muted/50 sticky top-0">
-                          <span className="font-medium text-sm">
-                            {getSportDisplayName(sport)} ({displayLeagues.length})
-                          </span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 text-xs"
-                            onClick={() => allSelected ? clearAllInSport(sport) : selectAllInSport(sport)}
-                          >
-                            {allSelected ? "Clear" : "Select All"}
-                          </Button>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-1 p-2">
-                          {displayLeagues.map(league => (
-                            <label
-                              key={league.slug}
-                              className={cn(
-                                "flex items-center gap-2 px-2 py-1.5 rounded text-sm cursor-pointer hover:bg-accent",
-                                selectedLeagues.has(league.slug) && "bg-primary/10"
-                              )}
-                            >
-                              <Checkbox
-                                checked={selectedLeagues.has(league.slug)}
-                                onCheckedChange={() => toggleLeague(league.slug)}
-                              />
-                              {league.logo_url && (
-                                <img src={league.logo_url} alt="" className="h-4 w-4 object-contain" />
-                              )}
-                              <span className="truncate">{league.name}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    )
-                  })}
-              </div>
-            )}
-
           </CardContent>
         </Card>
       )}
@@ -948,205 +660,13 @@ export function EventGroupForm() {
 
               {/* Full league picker for multi-league groups in edit mode */}
               {isEdit && groupMode === "multi" && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label>Matching Leagues</Label>
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs text-muted-foreground mr-2">
-                        {formData.leagues.length} selected
-                      </span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 text-xs"
-                        onClick={() => {
-                          const allSlugs = cachedLeagues?.map(l => l.slug) || []
-                          setFormData({ ...formData, leagues: allSlugs })
-                        }}
-                      >
-                        Select All
-                      </Button>
-                      {formData.leagues.length > 0 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 text-xs"
-                          onClick={() => setFormData({ ...formData, leagues: [] })}
-                        >
-                          Clear
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Search */}
-                  <Input
-                    placeholder="Search leagues..."
-                    value={leagueSearch}
-                    onChange={(e) => setLeagueSearch(e.target.value)}
+                <div className="space-y-2">
+                  <Label>Matching Leagues</Label>
+                  <LeaguePicker
+                    selectedLeagues={formData.leagues}
+                    onSelectionChange={(leagues) => setFormData({ ...formData, leagues })}
+                    maxHeight="max-h-72"
                   />
-
-                  {/* Selected badges */}
-                  {formData.leagues.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {formData.leagues.slice(0, 10).map(slug => {
-                        const league = cachedLeagues?.find(l => l.slug === slug)
-                        return (
-                          <Badge key={slug} variant="secondary" className="gap-1">
-                            {league?.logo_url && (
-                              <img src={league.logo_url} alt="" className="h-3 w-3 object-contain" />
-                            )}
-                            {league?.name || slug}
-                            <button
-                              type="button"
-                              onClick={() => setFormData({
-                                ...formData,
-                                leagues: formData.leagues.filter(l => l !== slug)
-                              })}
-                              className="ml-1 hover:bg-muted rounded"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </Badge>
-                        )
-                      })}
-                      {formData.leagues.length > 10 && (
-                        <Badge variant="outline">+{formData.leagues.length - 10} more</Badge>
-                      )}
-                    </div>
-                  )}
-
-                  {/* League picker by sport */}
-                  {isLoadingLeagues ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin" />
-                    </div>
-                  ) : (
-                    <div className="max-h-72 overflow-y-auto border rounded-md divide-y">
-                      {Object.entries(leaguesBySport)
-                        .filter(([sport]) =>
-                          !leagueSearch ||
-                          sport.toLowerCase().includes(leagueSearch.toLowerCase()) ||
-                          leaguesBySport[sport].some(l =>
-                            l.slug.toLowerCase().includes(leagueSearch.toLowerCase()) ||
-                            l.name.toLowerCase().includes(leagueSearch.toLowerCase())
-                          )
-                        )
-                        .sort(([a], [b]) => a.localeCompare(b))
-                        .map(([sport, leagues]) => {
-                          const sportLeaguesFiltered = leagueSearch
-                            ? leagues.filter(l =>
-                                l.slug.toLowerCase().includes(leagueSearch.toLowerCase()) ||
-                                l.name.toLowerCase().includes(leagueSearch.toLowerCase())
-                              )
-                            : leagues
-
-                          const displayLeagues = leagueSearch && sportLeaguesFiltered.length === 0 &&
-                            sport.toLowerCase().includes(leagueSearch.toLowerCase())
-                            ? leagues
-                            : sportLeaguesFiltered
-
-                          if (displayLeagues.length === 0) return null
-
-                          const allInSportSelected = leagues.every(l => formData.leagues.includes(l.slug))
-                          const someInSportSelected = leagues.some(l => formData.leagues.includes(l.slug)) && !allInSportSelected
-
-                          // Soccer: consolidated checkbox
-                          if (sport === "soccer") {
-                            return (
-                              <label
-                                key={sport}
-                                className={cn(
-                                  "flex items-center gap-3 px-3 py-3 cursor-pointer hover:bg-accent",
-                                  allInSportSelected && "bg-primary/10"
-                                )}
-                                onClick={(e) => {
-                                  e.preventDefault()
-                                  const sportSlugs = leagues.map(l => l.slug)
-                                  if (allInSportSelected) {
-                                    setFormData({ ...formData, leagues: formData.leagues.filter(l => !sportSlugs.includes(l)) })
-                                  } else {
-                                    const newLeagues = [...new Set([...formData.leagues, ...sportSlugs])]
-                                    setFormData({ ...formData, leagues: newLeagues })
-                                  }
-                                }}
-                              >
-                                <Checkbox
-                                  checked={allInSportSelected}
-                                  // @ts-expect-error - indeterminate is valid
-                                  indeterminate={someInSportSelected}
-                                />
-                                <div className="flex-1">
-                                  <div className="font-medium text-sm">{getSportDisplayName(sport)}</div>
-                                  <div className="text-xs text-muted-foreground">
-                                    All {leagues.length} leagues (EPL, La Liga, Bundesliga, etc.)
-                                  </div>
-                                </div>
-                              </label>
-                            )
-                          }
-
-                          // Other sports: individual leagues
-                          return (
-                            <div key={sport}>
-                              <div className="flex items-center justify-between px-3 py-2 bg-muted/50 sticky top-0">
-                                <span className="font-medium text-sm">
-                                  {getSportDisplayName(sport)} ({displayLeagues.length})
-                                </span>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 text-xs"
-                                  onClick={() => {
-                                    const sportSlugs = leagues.map(l => l.slug)
-                                    if (allInSportSelected) {
-                                      setFormData({ ...formData, leagues: formData.leagues.filter(l => !sportSlugs.includes(l)) })
-                                    } else {
-                                      const newLeagues = [...new Set([...formData.leagues, ...sportSlugs])]
-                                      setFormData({ ...formData, leagues: newLeagues })
-                                    }
-                                  }}
-                                >
-                                  {allInSportSelected ? "Clear" : "Select All"}
-                                </Button>
-                              </div>
-                              <div className="grid grid-cols-2 md:grid-cols-3 gap-1 p-2">
-                                {displayLeagues.map(league => {
-                                  const isSelected = formData.leagues.includes(league.slug)
-                                  return (
-                                    <label
-                                      key={league.slug}
-                                      className={cn(
-                                        "flex items-center gap-2 px-2 py-1.5 rounded text-sm cursor-pointer hover:bg-accent",
-                                        isSelected && "bg-primary/10"
-                                      )}
-                                    >
-                                      <Checkbox
-                                        checked={isSelected}
-                                        onCheckedChange={() => {
-                                          if (isSelected) {
-                                            setFormData({ ...formData, leagues: formData.leagues.filter(l => l !== league.slug) })
-                                          } else {
-                                            setFormData({ ...formData, leagues: [...formData.leagues, league.slug] })
-                                          }
-                                        }}
-                                      />
-                                      {league.logo_url && (
-                                        <img src={league.logo_url} alt="" className="h-4 w-4 object-contain" />
-                                      )}
-                                      <span className="truncate">{league.name}</span>
-                                    </label>
-                                  )
-                                })}
-                              </div>
-                            </div>
-                          )
-                        })}
-                    </div>
-                  )}
                 </div>
               )}
 
