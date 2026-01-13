@@ -365,31 +365,31 @@ SAMPLE_DATA: dict[str, dict[str, str]] = {
         "Soccer": "Chelsea",
     },
     "home_team_logo": {
-        "NBA": "",
-        "NFL": "",
-        "MLB": "",
-        "NHL": "",
-        "NCAAM": "",
-        "NCAAF": "",
-        "Soccer": "",
+        "NBA": "https://a.espncdn.com/i/teamlogos/nba/500/8.png",  # Pistons
+        "NFL": "https://a.espncdn.com/i/teamlogos/nfl/500/16.png",  # Vikings
+        "MLB": "https://a.espncdn.com/i/teamlogos/mlb/500/9.png",  # Twins
+        "NHL": "https://a.espncdn.com/i/teamlogos/nhl/500/30.png",  # Wild
+        "NCAAM": "https://a.espncdn.com/i/teamlogos/ncaa/500/127.png",  # Michigan State
+        "NCAAF": "https://a.espncdn.com/i/teamlogos/ncaa/500/127.png",  # Michigan State
+        "Soccer": "https://a.espncdn.com/i/teamlogos/soccer/500/363.png",  # Chelsea
     },
     "home_team_logo.next": {
-        "NBA": "",
-        "NFL": "",
-        "MLB": "",
-        "NHL": "",
-        "NCAAM": "",
-        "NCAAF": "",
-        "Soccer": "",
+        "NBA": "https://a.espncdn.com/i/teamlogos/nba/500/8.png",
+        "NFL": "https://a.espncdn.com/i/teamlogos/nfl/500/16.png",
+        "MLB": "https://a.espncdn.com/i/teamlogos/mlb/500/9.png",
+        "NHL": "https://a.espncdn.com/i/teamlogos/nhl/500/30.png",
+        "NCAAM": "https://a.espncdn.com/i/teamlogos/ncaa/500/127.png",
+        "NCAAF": "https://a.espncdn.com/i/teamlogos/ncaa/500/127.png",
+        "Soccer": "https://a.espncdn.com/i/teamlogos/soccer/500/363.png",
     },
     "home_team_logo.last": {
-        "NBA": "",
-        "NFL": "",
-        "MLB": "",
-        "NHL": "",
-        "NCAAM": "",
-        "NCAAF": "",
-        "Soccer": "",
+        "NBA": "https://a.espncdn.com/i/teamlogos/nba/500/8.png",
+        "NFL": "https://a.espncdn.com/i/teamlogos/nfl/500/16.png",
+        "MLB": "https://a.espncdn.com/i/teamlogos/mlb/500/9.png",
+        "NHL": "https://a.espncdn.com/i/teamlogos/nhl/500/30.png",
+        "NCAAM": "https://a.espncdn.com/i/teamlogos/ncaa/500/127.png",
+        "NCAAF": "https://a.espncdn.com/i/teamlogos/ncaa/500/127.png",
+        "Soccer": "https://a.espncdn.com/i/teamlogos/soccer/500/363.png",
     },
     # Away team
     "away_team": {
@@ -501,31 +501,31 @@ SAMPLE_DATA: dict[str, dict[str, str]] = {
         "Soccer": "Liverpool",
     },
     "away_team_logo": {
-        "NBA": "",
-        "NFL": "",
-        "MLB": "",
-        "NHL": "",
-        "NCAAM": "",
-        "NCAAF": "",
-        "Soccer": "",
+        "NBA": "https://a.espncdn.com/i/teamlogos/nba/500/4.png",  # Bulls
+        "NFL": "https://a.espncdn.com/i/teamlogos/nfl/500/3.png",  # Bears
+        "MLB": "https://a.espncdn.com/i/teamlogos/mlb/500/4.png",  # White Sox
+        "NHL": "https://a.espncdn.com/i/teamlogos/nhl/500/4.png",  # Blackhawks
+        "NCAAM": "https://a.espncdn.com/i/teamlogos/ncaa/500/194.png",  # Ohio State
+        "NCAAF": "https://a.espncdn.com/i/teamlogos/ncaa/500/194.png",  # Ohio State
+        "Soccer": "https://a.espncdn.com/i/teamlogos/soccer/500/382.png",  # Man City
     },
     "away_team_logo.next": {
-        "NBA": "",
-        "NFL": "",
-        "MLB": "",
-        "NHL": "",
-        "NCAAM": "",
-        "NCAAF": "",
-        "Soccer": "",
+        "NBA": "https://a.espncdn.com/i/teamlogos/nba/500/4.png",
+        "NFL": "https://a.espncdn.com/i/teamlogos/nfl/500/3.png",
+        "MLB": "https://a.espncdn.com/i/teamlogos/mlb/500/4.png",
+        "NHL": "https://a.espncdn.com/i/teamlogos/nhl/500/4.png",
+        "NCAAM": "https://a.espncdn.com/i/teamlogos/ncaa/500/194.png",
+        "NCAAF": "https://a.espncdn.com/i/teamlogos/ncaa/500/194.png",
+        "Soccer": "https://a.espncdn.com/i/teamlogos/soccer/500/382.png",
     },
     "away_team_logo.last": {
-        "NBA": "",
-        "NFL": "",
-        "MLB": "",
-        "NHL": "",
-        "NCAAM": "",
-        "NCAAF": "",
-        "Soccer": "",
+        "NBA": "https://a.espncdn.com/i/teamlogos/nba/500/4.png",
+        "NFL": "https://a.espncdn.com/i/teamlogos/nfl/500/3.png",
+        "MLB": "https://a.espncdn.com/i/teamlogos/mlb/500/4.png",
+        "NHL": "https://a.espncdn.com/i/teamlogos/nhl/500/4.png",
+        "NCAAM": "https://a.espncdn.com/i/teamlogos/ncaa/500/194.png",
+        "NCAAF": "https://a.espncdn.com/i/teamlogos/ncaa/500/194.png",
+        "Soccer": "https://a.espncdn.com/i/teamlogos/soccer/500/382.png",
     },
     # Home/away indicators
     "is_home": {
