@@ -181,7 +181,7 @@ CREATE TABLE IF NOT EXISTS settings (
     duration_volleyball REAL DEFAULT 2.5,
 
     -- XMLTV
-    xmltv_generator_name TEXT DEFAULT 'Teamarr v2',
+    xmltv_generator_name TEXT DEFAULT 'Teamarr',
     xmltv_generator_url TEXT DEFAULT 'https://github.com/Pharaoh-Labs/teamarr',
 
     -- Display Preferences

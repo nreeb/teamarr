@@ -1431,7 +1431,7 @@ export function Settings() {
               <Label htmlFor="xmltv-name">XMLTV Generator Name</Label>
               <Input
                 id="xmltv-name"
-                value={display?.xmltv_generator_name ?? "Teamarr v2"}
+                value={display?.xmltv_generator_name ?? "Teamarr"}
                 onChange={(e) => display && setDisplay({ ...display, xmltv_generator_name: e.target.value })}
               />
             </div>
@@ -1439,9 +1439,9 @@ export function Settings() {
               <Label htmlFor="xmltv-url">XMLTV Generator URL</Label>
               <Input
                 id="xmltv-url"
-                value={display?.xmltv_generator_url ?? ""}
+                value={display?.xmltv_generator_url ?? "https://github.com/Pharaoh-Labs/teamarr"}
                 onChange={(e) => display && setDisplay({ ...display, xmltv_generator_url: e.target.value })}
-                placeholder="https://github.com/..."
+                placeholder="https://github.com/Pharaoh-Labs/teamarr"
               />
             </div>
           </div>
