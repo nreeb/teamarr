@@ -20,28 +20,14 @@ import {
 } from "@/hooks/useGroups"
 import { useTemplates } from "@/hooks/useTemplates"
 import type { EventGroupCreate, EventGroupUpdate } from "@/api/types"
+import type { CachedLeague } from "@/api/teams"
+import { getLeagues } from "@/api/teams"
 import { TeamPicker } from "@/components/TeamPicker"
 import { LeaguePicker } from "@/components/LeaguePicker"
 import { ChannelProfileSelector } from "@/components/ChannelProfileSelector"
 
 // Group mode
 type GroupMode = "single" | "multi" | null
-
-// Fetch leagues from cache grouped by sport
-interface CachedLeague {
-  slug: string
-  name: string
-  sport: string
-  logo_url: string | null
-  team_count?: number
-}
-
-async function fetchLeagues(): Promise<CachedLeague[]> {
-  const response = await fetch("/api/v1/cache/leagues")
-  if (!response.ok) return []
-  const data = await response.json()
-  return data.leagues || []
-}
 
 // Dispatcharr channel group
 interface ChannelGroup {
@@ -127,10 +113,11 @@ export function EventGroupForm() {
   const eventTemplates = templates?.filter(t => t.template_type === "event") || []
 
   // Fetch leagues
-  const { data: cachedLeagues } = useQuery({
+  const { data: leaguesResponse } = useQuery({
     queryKey: ["leagues"],
-    queryFn: fetchLeagues,
+    queryFn: () => getLeagues(),
   })
+  const cachedLeagues = leaguesResponse?.leagues
 
   // Fetch channel groups from Dispatcharr
   const { data: channelGroups, refetch: refetchChannelGroups, isError: channelGroupsError, error: channelGroupsErrorMsg } = useQuery({

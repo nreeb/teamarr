@@ -6,22 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn, getSportDisplayName } from "@/lib/utils"
-
-interface CachedLeague {
-  slug: string
-  name: string
-  sport: string
-  logo_url?: string
-  league_alias?: string
-  import_enabled?: boolean
-}
-
-async function fetchLeagues(): Promise<CachedLeague[]> {
-  const response = await fetch("/api/v1/cache/leagues")
-  if (!response.ok) return []
-  const data = await response.json()
-  return data.leagues || []
-}
+import type { CachedLeague } from "@/api/teams"
+import { getLeagues } from "@/api/teams"
 
 interface LeaguePickerProps {
   selectedLeagues: string[]
@@ -45,10 +31,11 @@ export function LeaguePicker({
 }: LeaguePickerProps) {
   const [search, setSearch] = useState("")
   const [expandedSports, setExpandedSports] = useState<Set<string>>(new Set())
-  const { data: cachedLeagues, isLoading } = useQuery({
+  const { data: leaguesResponse, isLoading } = useQuery({
     queryKey: ["cached-leagues"],
-    queryFn: fetchLeagues,
+    queryFn: () => getLeagues(),
   })
+  const cachedLeagues = leaguesResponse?.leagues
 
   // Convert to Set for easier operations
   const selectedSet = useMemo(() => new Set(selectedLeagues), [selectedLeagues])
