@@ -385,8 +385,11 @@ def normalize_stream(stream_name: str) -> NormalizedStream:
 
     original = stream_name
 
+    # Step 0: Normalize newlines to spaces (some streams have literal newlines)
+    text = re.sub(r"[\r\n]+", " ", stream_name)
+
     # Step 1: Fix mojibake
-    text = fix_mojibake(stream_name)
+    text = fix_mojibake(text)
 
     # Step 2: Strip provider prefix
     text, provider_prefix = strip_provider_prefix(text)

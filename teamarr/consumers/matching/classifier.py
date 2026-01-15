@@ -481,6 +481,10 @@ def _clean_team_name(name: str) -> str:
     if not name:
         return ""
 
+    # Normalize newlines and carriage returns to spaces
+    # Some streams have literal newlines: "NFL\n01: Bills vs Broncos"
+    name = re.sub(r"[\r\n]+", " ", name)
+
     # Truncate at "//" which is often used as timezone separator
     # "Indiana Pacers // UK Wed 14 Jan" → "Indiana Pacers"
     if " // " in name:
@@ -501,6 +505,14 @@ def _clean_team_name(name: str) -> str:
 
     # Remove HD, SD, etc.
     name = re.sub(r"\s+\b(HD|SD|FHD|4K|UHD)\b\s*$", "", name, flags=re.IGNORECASE)
+
+    # Remove broadcast network indicators like (CBS), (FOX), (ABC), (NBC), (ESPN)
+    name = re.sub(
+        r"\s*\((CBS|FOX|ABC|NBC|ESPN|ESPN2|TNT|TBS|FS1|FS2|NBCSN|USA|PEACOCK)\)\s*$",
+        "",
+        name,
+        flags=re.IGNORECASE,
+    )
 
     # Strip round/competition indicators at end of team names
     round_pattern = r"""
@@ -546,6 +558,11 @@ def _clean_team_name(name: str) -> str:
     # Strip leading channel numbers like "02 :", "15 :", "142 :"
     name = re.sub(r"^\d+\s*:\s*", "", name)
 
+    # Strip 1-2 digit channel numbers followed by whitespace only (no dash/colon)
+    # "01 Bills" → "Bills", "03 49ers" → "49ers"
+    # Safe because after separator split, a leading 1-2 digit number + space is a channel number
+    name = re.sub(r"^\d{1,2}\s+", "", name)
+
     # Strip numbered channel prefixes like "NFL Game Pass 03:", "ESPN+ 45:"
     name = re.sub(r"^[A-Za-z][A-Za-z\s+]*\d*:\s*", "", name)
 
@@ -554,6 +571,20 @@ def _clean_team_name(name: str) -> str:
     while prev != name:
         prev = name
         name = re.sub(r"^[A-Z][A-Za-z\s]+:\s*", "", name)
+
+    # Strip common league abbreviations at start (even without colon)
+    # "NFL Bills" → "Bills", "NBA 03 Lakers" → "03 Lakers"
+    # This handles streams without pipe separators like "NFL 03 3PM Texans at Patriots"
+    name = re.sub(
+        r"^(NFL|NBA|MLB|NHL|MLS|NCAAF|NCAAB|NCAAW|WNBA|EPL|UCL|UFC|MMA)\s+",
+        "",
+        name,
+        flags=re.IGNORECASE,
+    )
+
+    # Re-strip channel numbers in case league prefix revealed one
+    # "NFL 03 Bills" → after league strip: "03 Bills" → "Bills"
+    name = re.sub(r"^\d{1,2}\s+", "", name)
 
     # Remove leading punctuation and whitespace
     name = re.sub(r"^[\s\-:.,]+", "", name)
