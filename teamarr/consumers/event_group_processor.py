@@ -339,6 +339,11 @@ class EventGroupProcessor:
         # EPG generator for XMLTV output
         self._epg_generator = EventEPGGenerator(self._service)
 
+        # Shared events cache for cross-group reuse in a single generation run
+        # Keys are "league:date" strings, values are lists of events
+        # This avoids redundant API/cache lookups when multiple groups search the same leagues
+        self._shared_events: dict[str, list[Event]] = {}
+
     def process_group(
         self,
         group_id: int,
@@ -514,6 +519,10 @@ class EventGroupProcessor:
         batch_result = BatchProcessingResult()
         self._generation = generation  # Store for use in _do_matching
 
+        # Clear shared events cache at start of new generation run
+        # This ensures fresh data and allows cross-group reuse within this run
+        self._shared_events.clear()
+
         with self._db_factory() as conn:
             groups = get_all_groups(conn, include_disabled=False)
 
@@ -596,8 +605,20 @@ class EventGroupProcessor:
                         return cb
                     stream_cb = make_stream_cb(group.name, processed_count + 1)
 
+                # Create status callback for prefetch progress
+                status_cb = None
+                if progress_callback:
+                    grp_idx = processed_count + 1
+                    def make_status_cb(grp_name: str, idx: int):
+                        def cb(msg: str):
+                            progress_callback(idx, total_groups, f"{grp_name}: {msg}")
+                        return cb
+                    status_cb = make_status_cb(group.name, grp_idx)
+
                 result = self._process_child_group_internal(
-                    conn, group, target_date, stream_progress_callback=stream_cb
+                    conn, group, target_date,
+                    stream_progress_callback=stream_cb,
+                    status_callback=status_cb,
                 )
                 batch_result.results.append(result)
                 # Child groups don't generate their own XMLTV
@@ -725,6 +746,7 @@ class EventGroupProcessor:
         group: EventEPGGroup,
         target_date: date,
         stream_progress_callback: Callable | None = None,
+        status_callback: Callable[[str], None] | None = None,
     ) -> ProcessingResult:
         """Process a child group - adds streams to parent's channels.
 
@@ -736,6 +758,7 @@ class EventGroupProcessor:
             group: Child group to process
             target_date: Target date
             stream_progress_callback: Optional callback(current, total, stream_name, matched)
+            status_callback: Optional callback for status updates
 
         Returns:
             ProcessingResult with stream add details
@@ -825,6 +848,7 @@ class EventGroupProcessor:
             match_result = self._match_streams(
                 streams, group, target_date,
                 stream_progress_callback=stream_progress_callback,
+                status_callback=status_callback,
             )
             result.streams_matched = match_result.matched_count
             result.streams_unmatched = match_result.unmatched_count
@@ -1085,6 +1109,7 @@ class EventGroupProcessor:
             match_result = self._match_streams(
                 streams, group, target_date,
                 stream_progress_callback=stream_progress_callback,
+                status_callback=status_callback,
             )
             result.streams_matched = match_result.matched_count
             result.streams_unmatched = match_result.unmatched_count
@@ -1415,6 +1440,7 @@ class EventGroupProcessor:
         group: EventEPGGroup,
         target_date: date,
         stream_progress_callback: Callable | None = None,
+        status_callback: Callable[[str], None] | None = None,
     ) -> BatchMatchResult:
         """Match streams to events using StreamMatcher.
 
@@ -1430,6 +1456,7 @@ class EventGroupProcessor:
             group: Event EPG group (contains leagues, custom regex, etc.)
             target_date: Date to match events for
             stream_progress_callback: Optional callback(current, total, stream_name, matched)
+            status_callback: Optional callback(status_message) for status updates
         """
         # Get ALL known leagues from the cache to search against
         # This includes all leagues discovered from ESPN/TSDB (287+), not just
@@ -1460,9 +1487,15 @@ class EventGroupProcessor:
             custom_regex_date_enabled=group.custom_regex_date_enabled,
             custom_regex_time=group.custom_regex_time,
             custom_regex_time_enabled=group.custom_regex_time_enabled,
+            shared_events=self._shared_events,  # Reuse events across groups in same run
         )
 
-        result = matcher.match_all(streams, target_date, progress_callback=stream_progress_callback)
+        result = matcher.match_all(
+            streams,
+            target_date,
+            progress_callback=stream_progress_callback,
+            status_callback=status_callback,
+        )
 
         # Purge stale cache entries at end of match
         matcher.purge_stale()
