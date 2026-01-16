@@ -1121,18 +1121,13 @@ class ChannelLifecycleService:
         | Source              | Dispatcharr Field    | Handling                    |
         |---------------------|---------------------|-----------------------------|
         | template            | name                | Template variable resolution|
-        | group.channel_start | channel_number      | Range validation/reassign   |
+        | managed_channels    | channel_number      | DB is source of truth       |
         | group               | channel_group_id    | Simple compare              |
         | current_stream      | streams             | M3U ID lookup               |
         | group               | channel_profile_ids | Add/remove via profile API  |
         | template            | logo_id             | Upload/update if different  |
         | event_id            | tvg_id              | Ensures EPG matching        |
         """
-        from teamarr.database.channel_numbers import (
-            get_group_channel_range,
-            get_next_channel_number,
-            validate_channel_in_range,
-        )
         from teamarr.database.channels import (
             log_channel_history,
             update_managed_channel,
@@ -1162,39 +1157,14 @@ class ChannelLifecycleService:
                 db_updates["channel_name"] = expected_name
                 changes_made.append(f"name: {current_channel.name} → {expected_name}")
 
-            # 2. Check channel number - enforce on every generation
-            # Assign if missing, reassign if out of range
+            # 2. Check channel number - Teamarr DB is source of truth
+            expected_number = int(existing.channel_number) if existing.channel_number else None
             current_number = (
                 int(current_channel.channel_number) if current_channel.channel_number else None
             )
-            if group_id:
-                needs_number = False
-                reason = ""
-
-                if not current_number:
-                    # No number assigned - assign one
-                    needs_number = True
-                    reason = "no number assigned"
-                elif not validate_channel_in_range(conn, group_id, current_number):
-                    # Channel is out of range - reassign
-                    needs_number = True
-                    reason = "out of range"
-
-                if needs_number:
-                    new_number = get_next_channel_number(conn, group_id, auto_assign=False)
-                    if new_number:
-                        update_data["channel_number"] = new_number
-                        db_updates["channel_number"] = new_number
-                        changes_made.append(
-                            f"number: {current_number} → {new_number} ({reason})"
-                        )
-
-                        # Log assignment
-                        range_start, range_end = get_group_channel_range(conn, group_id)
-                        logger.info(
-                            f"Channel '{existing.channel_name}' number assigned: "
-                            f"{current_number} → {new_number} (range {range_start}-{range_end}, {reason})"
-                        )
+            if expected_number and expected_number != current_number:
+                update_data["channel_number"] = expected_number
+                changes_made.append(f"number: {current_number} → {expected_number}")
 
             # 3. Check channel_group_id
             new_group_id = group_config.get("channel_group_id")
