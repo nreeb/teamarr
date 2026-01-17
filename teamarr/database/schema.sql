@@ -118,8 +118,8 @@ CREATE TABLE IF NOT EXISTS teams (
     -- Status
     active BOOLEAN DEFAULT 1,
 
-    -- One entry per team per sport (multi-league consolidated)
-    UNIQUE(provider, provider_team_id, sport),
+    -- One entry per team per league (ESPN reuses IDs across leagues for different teams)
+    UNIQUE(provider, provider_team_id, sport, primary_league),
     FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE SET NULL
 );
 
@@ -275,7 +275,7 @@ CREATE TABLE IF NOT EXISTS settings (
         CHECK(channel_sort_by IN ('sport_league_time', 'time', 'stream_order')),
 
     -- Schema Version
-    schema_version INTEGER DEFAULT 31
+    schema_version INTEGER DEFAULT 32
 );
 
 -- Insert default settings

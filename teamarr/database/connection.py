@@ -794,6 +794,67 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
         logger.info("[MIGRATE] Schema upgraded to version 31 (rugby sport consolidation)")
         current_version = 31
 
+    # Version 32: Change teams UNIQUE constraint to include primary_league
+    # ESPN reuses team IDs across different leagues for completely different teams
+    # e.g., ID 8 is Detroit Pistons (NBA) AND Minnesota Lynx (WNBA)
+    if current_version < 32:
+        _migrate_to_v32(conn)
+        conn.execute("UPDATE settings SET schema_version = 32 WHERE id = 1")
+        logger.info("[MIGRATE] Schema upgraded to version 32 (teams unique constraint fix)")
+        current_version = 32
+
+
+def _migrate_to_v32(conn: sqlite3.Connection) -> None:
+    """Change teams UNIQUE constraint to include primary_league.
+
+    ESPN reuses provider_team_id across different basketball leagues for completely
+    different teams (e.g., ID 8 = Detroit Pistons in NBA, Minnesota Lynx in WNBA).
+    The old constraint UNIQUE(provider, provider_team_id, sport) prevented importing
+    teams from multiple leagues that share IDs.
+
+    New constraint: UNIQUE(provider, provider_team_id, sport, primary_league)
+    """
+    # SQLite doesn't support ALTER TABLE to modify constraints, so we recreate the table
+    conn.executescript("""
+        -- Create new table with updated constraint
+        CREATE TABLE teams_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            provider TEXT NOT NULL DEFAULT 'espn',
+            provider_team_id TEXT NOT NULL,
+            primary_league TEXT NOT NULL,
+            leagues TEXT NOT NULL DEFAULT '[]',
+            sport TEXT NOT NULL,
+            team_name TEXT NOT NULL,
+            team_abbrev TEXT,
+            team_logo_url TEXT,
+            team_color TEXT,
+            channel_id TEXT NOT NULL UNIQUE,
+            channel_logo_url TEXT,
+            template_id INTEGER,
+            active BOOLEAN DEFAULT 1,
+            UNIQUE(provider, provider_team_id, sport, primary_league),
+            FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE SET NULL
+        );
+
+        -- Copy data from old table
+        INSERT INTO teams_new SELECT * FROM teams;
+
+        -- Drop old table
+        DROP TABLE teams;
+
+        -- Rename new table
+        ALTER TABLE teams_new RENAME TO teams;
+
+        -- Recreate indexes
+        CREATE INDEX IF NOT EXISTS idx_teams_channel_id ON teams(channel_id);
+        CREATE INDEX IF NOT EXISTS idx_teams_active ON teams(active);
+        CREATE INDEX IF NOT EXISTS idx_teams_provider ON teams(provider);
+        CREATE INDEX IF NOT EXISTS idx_teams_sport ON teams(sport);
+    """)
+    logger.info("[MIGRATE] Updated teams table UNIQUE constraint to include primary_league")
+
 
 def _migrate_to_v31(conn: sqlite3.Connection) -> None:
     """Consolidate rugby_league and rugby_union into single 'rugby' sport.
