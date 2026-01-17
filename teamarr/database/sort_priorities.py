@@ -357,11 +357,12 @@ def get_sort_priorities_with_channel_counts(
     Returns:
         List of dicts with priority info + display data
     """
+    from teamarr.core.sports import get_sport_display_names_from_db
+
     priorities = get_all_sort_priorities(conn)
 
     # Get sport display names
-    cursor = conn.execute("SELECT sport_code, display_name FROM sports")
-    sport_names = {row["sport_code"]: row["display_name"] for row in cursor.fetchall()}
+    sport_names = get_sport_display_names_from_db(conn)
 
     # Get league display names
     cursor = conn.execute("SELECT league_code, display_name FROM leagues")

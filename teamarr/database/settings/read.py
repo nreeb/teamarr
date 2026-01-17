@@ -140,6 +140,9 @@ def get_all_settings(conn: Connection) -> AllSettings:
             exclude_patterns=json.loads(row["stream_filter_exclude_patterns"] or "[]"),
         ),
         team_filter=TeamFilterSettings(
+            enabled=bool(row["team_filter_enabled"])
+            if row["team_filter_enabled"] is not None
+            else True,
             include_teams=json.loads(row["default_include_teams"])
             if row["default_include_teams"]
             else None,
@@ -341,7 +344,8 @@ def get_team_filter_settings(conn: Connection) -> TeamFilterSettings:
         TeamFilterSettings object with global default team filter
     """
     cursor = conn.execute(
-        """SELECT default_include_teams, default_exclude_teams, default_team_filter_mode
+        """SELECT team_filter_enabled, default_include_teams, default_exclude_teams,
+                  default_team_filter_mode
            FROM settings WHERE id = 1"""
     )
     row = cursor.fetchone()
@@ -350,6 +354,9 @@ def get_team_filter_settings(conn: Connection) -> TeamFilterSettings:
         return TeamFilterSettings()
 
     return TeamFilterSettings(
+        enabled=bool(row["team_filter_enabled"])
+        if row["team_filter_enabled"] is not None
+        else True,
         include_teams=json.loads(row["default_include_teams"])
         if row["default_include_teams"]
         else None,

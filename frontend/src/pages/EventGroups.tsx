@@ -206,7 +206,7 @@ export function EventGroups() {
   const [bulkEditChannelGroupId, setBulkEditChannelGroupId] = useState<number | null>(null)
   const [bulkEditClearChannelGroup, setBulkEditClearChannelGroup] = useState(false)
   const [bulkEditProfilesEnabled, setBulkEditProfilesEnabled] = useState(false)
-  const [bulkEditProfileIds, setBulkEditProfileIds] = useState<number[]>([])
+  const [bulkEditProfileIds, setBulkEditProfileIds] = useState<(number | string)[]>([])
   const [bulkEditUseDefaultProfiles, setBulkEditUseDefaultProfiles] = useState(true)
   const [bulkEditSortOrderEnabled, setBulkEditSortOrderEnabled] = useState(false)
   const [bulkEditSortOrder, setBulkEditSortOrder] = useState<string>("time")
@@ -686,7 +686,7 @@ export function EventGroups() {
       leagues?: string[]
       template_id?: number | null
       channel_group_id?: number | null
-      channel_profile_ids?: number[]
+      channel_profile_ids?: (number | string)[]
       channel_sort_order?: string
       overlap_handling?: string
       clear_template?: boolean

@@ -158,6 +158,7 @@ class DisplaySettingsModel(BaseModel):
 class TeamFilterSettingsModel(BaseModel):
     """Default team filtering settings for event groups."""
 
+    enabled: bool = True  # Master toggle - when False, filtering is skipped
     include_teams: list[dict] | None = None
     exclude_teams: list[dict] | None = None
     mode: str = "include"
@@ -166,6 +167,7 @@ class TeamFilterSettingsModel(BaseModel):
 class TeamFilterSettingsUpdate(BaseModel):
     """Update model for team filter settings."""
 
+    enabled: bool | None = None
     include_teams: list[dict] | None = None
     exclude_teams: list[dict] | None = None
     mode: str | None = None

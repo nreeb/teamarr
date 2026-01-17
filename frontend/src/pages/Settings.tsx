@@ -178,6 +178,7 @@ export function Settings() {
   const [display, setDisplay] = useState<DisplaySettings | null>(null)
   const [reconciliation, setReconciliation] = useState<ReconciliationSettings | null>(null)
   const [teamFilter, setTeamFilter] = useState<TeamFilterSettings>({
+    enabled: true,
     include_teams: null,
     exclude_teams: null,
     mode: "include",
@@ -847,17 +848,13 @@ export function Settings() {
             </div>
             <div className="flex items-center gap-2">
               <Label htmlFor="team-filter-enabled" className="text-sm">
-                {(teamFilter.include_teams?.length || teamFilter.exclude_teams?.length) ? "Enabled" : "Disabled"}
+                {teamFilter.enabled ? "Enabled" : "Disabled"}
               </Label>
               <Switch
                 id="team-filter-enabled"
-                checked={!!(teamFilter.include_teams?.length || teamFilter.exclude_teams?.length)}
+                checked={teamFilter.enabled}
                 onCheckedChange={(checked) => {
-                  if (!checked) {
-                    // Disable - clear all teams (send [] to clear, not null)
-                    setTeamFilter({ include_teams: [], exclude_teams: [], mode: "include" })
-                  }
-                  // If enabling, user will add teams below
+                  setTeamFilter({ ...teamFilter, enabled: checked })
                 }}
               />
             </div>
@@ -916,13 +913,15 @@ export function Settings() {
           <div className="flex justify-between items-center">
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">
-                {!(teamFilter.include_teams?.length || teamFilter.exclude_teams?.length)
-                  ? "No filter active. All events will be matched."
-                  : teamFilter.mode === "include"
-                    ? `Only events involving ${teamFilter.include_teams?.length} selected team(s) will be matched.`
-                    : `Events involving ${teamFilter.exclude_teams?.length} selected team(s) will be excluded.`}
+                {!teamFilter.enabled
+                  ? "Team filtering is disabled. All events will be matched."
+                  : !(teamFilter.include_teams?.length || teamFilter.exclude_teams?.length)
+                    ? "No teams selected. All events will be matched."
+                    : teamFilter.mode === "include"
+                      ? `Only events involving ${teamFilter.include_teams?.length} selected team(s) will be matched.`
+                      : `Events involving ${teamFilter.exclude_teams?.length} selected team(s) will be excluded.`}
               </p>
-              {(teamFilter.include_teams?.length || teamFilter.exclude_teams?.length) ? (
+              {teamFilter.enabled && (teamFilter.include_teams?.length || teamFilter.exclude_teams?.length) ? (
                 <p className="text-xs text-muted-foreground italic">
                   Filter only applies to leagues where you've made selections.
                 </p>
@@ -931,6 +930,7 @@ export function Settings() {
             <Button
               onClick={() => {
                 updateTeamFilter.mutate({
+                  enabled: teamFilter.enabled,
                   include_teams: teamFilter.include_teams,
                   exclude_teams: teamFilter.exclude_teams,
                   mode: teamFilter.mode,

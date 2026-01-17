@@ -811,6 +811,16 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
         logger.info("[MIGRATE] Schema upgraded to version 33 (dynamic channel groups)")
         current_version = 33
 
+    # Version 34: Add team_filter_enabled to settings
+    # Master toggle to enable/disable team filtering without clearing selections
+    if current_version < 34:
+        _add_column_if_not_exists(
+            conn, "settings", "team_filter_enabled", "BOOLEAN DEFAULT 1"
+        )
+        conn.execute("UPDATE settings SET schema_version = 34 WHERE id = 1")
+        logger.info("[MIGRATE] Schema upgraded to version 34 (team_filter_enabled)")
+        current_version = 34
+
 
 def _migrate_to_v33(conn: sqlite3.Connection) -> None:
     """Add channel_group_mode column to event_epg_groups.

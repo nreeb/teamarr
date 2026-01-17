@@ -129,6 +129,7 @@ class TeamFilterSettings:
     Groups can override this with their own include/exclude_teams settings.
     """
 
+    enabled: bool = True  # Master toggle - when False, filtering is skipped entirely
     include_teams: list[dict] | None = None
     exclude_teams: list[dict] | None = None
     mode: str = "include"  # 'include' or 'exclude'
@@ -178,4 +179,4 @@ class AllSettings:
         default_factory=ChannelNumberingSettings
     )
     epg_generation_counter: int = 0
-    schema_version: int = 30
+    schema_version: int = 34

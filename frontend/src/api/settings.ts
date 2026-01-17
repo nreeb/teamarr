@@ -70,12 +70,14 @@ export interface TeamFilterEntry {
 }
 
 export interface TeamFilterSettings {
+  enabled: boolean
   include_teams: TeamFilterEntry[] | null
   exclude_teams: TeamFilterEntry[] | null
   mode: "include" | "exclude"
 }
 
 export interface TeamFilterSettingsUpdate {
+  enabled?: boolean
   include_teams?: TeamFilterEntry[] | null
   exclude_teams?: TeamFilterEntry[] | null
   mode?: "include" | "exclude"

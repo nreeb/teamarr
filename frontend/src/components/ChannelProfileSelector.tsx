@@ -105,11 +105,6 @@ export function ChannelProfileSelector({
     onChange([...wildcardIds, ...profiles.map(p => p.id)])
   }
 
-  const clearAllProfiles = () => {
-    // Keep only wildcards
-    onChange(wildcardIds)
-  }
-
   const clearAll = () => {
     onChange([])
   }

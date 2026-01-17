@@ -9,6 +9,8 @@ from dataclasses import dataclass, field
 from sqlite3 import Connection as SQLiteConnection
 from typing import Any
 
+from teamarr.core.sports import get_sport_display_names_from_db
+
 logger = logging.getLogger(__name__)
 
 
@@ -58,11 +60,7 @@ class DynamicResolver:
 
         # Load sport display names
         if self._db_conn:
-            cursor = self._db_conn.execute(
-                "SELECT sport_code, display_name FROM sports"
-            )
-            for row in cursor.fetchall():
-                self._sport_display_names[row["sport_code"]] = row["display_name"]
+            self._sport_display_names = get_sport_display_names_from_db(self._db_conn)
 
             cursor = self._db_conn.execute(
                 "SELECT league_code, display_name FROM leagues"

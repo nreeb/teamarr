@@ -352,6 +352,7 @@ def increment_epg_generation_counter(conn: Connection) -> int:
 
 def update_team_filter_settings(
     conn: Connection,
+    enabled: bool | None = None,
     include_teams: list[dict] | None = None,
     exclude_teams: list[dict] | None = None,
     mode: str | None = None,
@@ -362,6 +363,7 @@ def update_team_filter_settings(
 
     Args:
         conn: Database connection
+        enabled: Master toggle for team filtering
         include_teams: Teams to include (replaces existing)
         exclude_teams: Teams to exclude (replaces existing)
         mode: Filter mode ('include' or 'exclude')
@@ -373,6 +375,10 @@ def update_team_filter_settings(
     """
     updates = []
     values = []
+
+    if enabled is not None:
+        updates.append("team_filter_enabled = ?")
+        values.append(int(enabled))
 
     # Team filtering - treat empty list as clear (NULL)
     if clear_include_teams:

@@ -12,6 +12,7 @@ from collections.abc import Callable, Generator
 from sqlite3 import Connection
 
 from teamarr.core import LeagueMapping
+from teamarr.core.sports import get_sport_display_names_from_db
 
 logger = logging.getLogger(__name__)
 
@@ -139,9 +140,7 @@ class LeagueMappingService:
                     self._league_cache_names[slug] = row["league_name"]
 
             # Load sport display names from sports table
-            cursor = conn.execute("SELECT sport_code, display_name FROM sports")
-            for row in cursor.fetchall():
-                self._sport_display_names[row["sport_code"].lower()] = row["display_name"]
+            self._sport_display_names = get_sport_display_names_from_db(conn)
 
         logger.info(
             "[LEAGUE_MAPPING] Loaded %d mappings (%d providers, %d aliases, %d sports)",
