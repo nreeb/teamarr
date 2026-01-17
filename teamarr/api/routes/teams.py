@@ -262,6 +262,29 @@ def bulk_import_teams(request: BulkImportRequest):
                 existing_sport[sport_key] = []
             existing_sport[sport_key].append((row["id"], row["primary_league"], leagues))
 
+        # Pre-load all leagues from team_cache for soccer teams (avoids N+1 queries)
+        soccer_teams = [t for t in request.teams if t.sport.lower() == "soccer"]
+        team_cache_leagues: dict[tuple[str, str, str], list[str]] = {}
+        if soccer_teams:
+            # Build placeholders for batch query
+            keys = [(t.provider, t.provider_team_id, t.sport) for t in soccer_teams]
+            unique_keys = list(set(keys))
+            if unique_keys:
+                # Query all leagues at once
+                placeholders = " OR ".join(
+                    ["(provider = ? AND provider_team_id = ? AND sport = ?)"] * len(unique_keys)
+                )
+                params = [val for key in unique_keys for val in key]
+                cursor = conn.execute(
+                    f"SELECT provider, provider_team_id, sport, league FROM team_cache WHERE {placeholders}",
+                    params,
+                )
+                for row in cursor.fetchall():
+                    cache_key = (row["provider"], row["provider_team_id"], row["sport"])
+                    if cache_key not in team_cache_leagues:
+                        team_cache_leagues[cache_key] = []
+                    team_cache_leagues[cache_key].append(row["league"])
+
         for team in request.teams:
             is_soccer = team.sport.lower() == "soccer"
             full_key = (team.provider, team.provider_team_id, team.sport, team.league)
@@ -269,9 +292,8 @@ def bulk_import_teams(request: BulkImportRequest):
 
             if is_soccer:
                 # Soccer: consolidate all leagues into one team entry
-                all_leagues = _get_all_leagues_from_cache(
-                    conn, team.provider, team.provider_team_id, team.sport
-                )
+                # Use pre-loaded cache instead of querying per team
+                all_leagues = team_cache_leagues.get(sport_key, []).copy()
                 if team.league not in all_leagues:
                     all_leagues.append(team.league)
 
