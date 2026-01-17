@@ -13,6 +13,7 @@ from typing import Any
 from teamarr.core import Event
 from teamarr.templates import ContextBuilder, TemplateResolver
 
+from .dynamic_resolver import DynamicResolver
 from .timing import ChannelLifecycleManager
 from .types import (
     ChannelCreationResult,
@@ -121,6 +122,9 @@ class ChannelLifecycleService:
         # Template engine
         self._context_builder = ContextBuilder(sports_service)
         self._resolver = TemplateResolver()
+
+        # Dynamic group/profile resolver
+        self._dynamic_resolver = DynamicResolver()
 
     @property
     def dispatcharr_enabled(self) -> bool:
@@ -260,24 +264,28 @@ class ChannelLifecycleService:
 
         try:
             with self._db_factory() as conn:
+                # Initialize dynamic resolver for this batch
+                self._dynamic_resolver.initialize(self._db_factory, conn)
+
                 # Get group settings
                 group_id = group_config.get("id")
                 duplicate_mode = group_config.get("duplicate_event_handling", "consolidate")
 
-                channel_group_id = group_config.get("channel_group_id")
+                # Channel group settings - now supports dynamic modes
+                static_channel_group_id = group_config.get("channel_group_id")
+                channel_group_mode = group_config.get("channel_group_mode", "static")
 
-                # Parse profile IDs from group config
+                # Parse profile IDs from group config (may contain wildcards like "{sport}", "{league}")
                 # Returns None if not configured, [] if explicitly empty, [1,2,...] if set
                 raw_profile_ids = group_config.get("channel_profile_ids")
-                channel_profile_ids = self._parse_profile_ids(raw_profile_ids)
 
                 # Fallback to default profiles from settings ONLY if group hasn't configured
                 # (raw value is None/missing). If group explicitly set [] for no profiles, use that.
-                if raw_profile_ids is None and not channel_profile_ids:
+                if raw_profile_ids is None:
                     from teamarr.database.settings import get_dispatcharr_settings
 
                     dispatcharr_settings = get_dispatcharr_settings(conn)
-                    channel_profile_ids = dispatcharr_settings.default_channel_profile_ids
+                    raw_profile_ids = dispatcharr_settings.default_channel_profile_ids
 
                 for matched in matched_streams:
                     stream = matched.get("stream", {})
@@ -419,6 +427,23 @@ class ChannelLifecycleService:
                         # cross_group_result is None means: no existing channel found
                         # and not add_only mode, so fall through to create new channel
 
+                    # Resolve dynamic channel group and profiles for this event
+                    event_sport = getattr(event, "sport", None)
+                    event_league = getattr(event, "league", None)
+
+                    resolved_channel_group_id = self._dynamic_resolver.resolve_channel_group(
+                        mode=channel_group_mode,
+                        static_group_id=static_channel_group_id,
+                        event_sport=event_sport,
+                        event_league=event_league,
+                    )
+
+                    resolved_channel_profile_ids = self._dynamic_resolver.resolve_channel_profiles(
+                        profile_ids=raw_profile_ids,
+                        event_sport=event_sport,
+                        event_league=event_league,
+                    )
+
                     # Create new channel
                     channel_result = self._create_channel(
                         conn=conn,
@@ -427,8 +452,8 @@ class ChannelLifecycleService:
                         group_config=group_config,
                         template=template,
                         matched_keyword=matched_keyword,
-                        channel_group_id=channel_group_id,
-                        channel_profile_ids=channel_profile_ids,
+                        channel_group_id=resolved_channel_group_id,
+                        channel_profile_ids=resolved_channel_profile_ids,
                     )
 
                     if channel_result.success:

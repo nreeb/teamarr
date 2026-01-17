@@ -15,8 +15,10 @@ class DispatcharrSettings:
     username: str | None = None
     password: str | None = None
     epg_id: int | None = None
-    # None = all profiles, [] = no profiles, [1,2,...] = specific profiles
-    default_channel_profile_ids: list[int] | None = None
+    # None = all profiles, [] = no profiles
+    # Can contain: int IDs, "{sport}", "{league}" wildcards
+    # e.g., [1, 5, "{sport}"] = profiles 1, 5, plus dynamic sport profile
+    default_channel_profile_ids: list[int | str] | None = None
 
 
 @dataclass

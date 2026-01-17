@@ -275,7 +275,7 @@ CREATE TABLE IF NOT EXISTS settings (
         CHECK(channel_sort_by IN ('sport_league_time', 'time', 'stream_order')),
 
     -- Schema Version
-    schema_version INTEGER DEFAULT 32
+    schema_version INTEGER DEFAULT 33
 );
 
 -- Insert default settings
@@ -312,8 +312,10 @@ CREATE TABLE IF NOT EXISTS event_epg_groups (
 
     -- Channel Settings
     channel_start_number INTEGER,            -- Starting channel number for this group
-    channel_group_id INTEGER,                -- Dispatcharr channel group to assign
-    channel_profile_ids TEXT,                -- JSON array of channel profile IDs
+    channel_group_id INTEGER,                -- Dispatcharr channel group to assign (when mode='static')
+    channel_group_mode TEXT DEFAULT 'static' -- How to assign channel group
+        CHECK(channel_group_mode IN ('static', 'sport', 'league')),
+    channel_profile_ids TEXT,                -- JSON array: profile IDs and/or "{sport}", "{league}"
 
     -- Duplicate Event Handling (uses global lifecycle settings)
     duplicate_event_handling TEXT DEFAULT 'consolidate'

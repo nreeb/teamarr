@@ -190,7 +190,7 @@ export function Settings() {
   const [newKeyword, setNewKeyword] = useState({ keywords: "", behavior: "consolidate" })
 
   // Selected profile IDs for display (converted from API format)
-  const [selectedProfileIds, setSelectedProfileIds] = useState<number[]>([])
+  const [selectedProfileIds, setSelectedProfileIds] = useState<(number | string)[]>([])
 
   // Backup & Restore state
   const [isRestoring, setIsRestoring] = useState(false)

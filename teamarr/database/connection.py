@@ -803,6 +803,29 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
         logger.info("[MIGRATE] Schema upgraded to version 32 (teams unique constraint fix)")
         current_version = 32
 
+    # Version 33: Add dynamic channel group mode for event_epg_groups
+    # Allows {sport} or {league} based channel group assignment instead of static
+    if current_version < 33:
+        _migrate_to_v33(conn)
+        conn.execute("UPDATE settings SET schema_version = 33 WHERE id = 1")
+        logger.info("[MIGRATE] Schema upgraded to version 33 (dynamic channel groups)")
+        current_version = 33
+
+
+def _migrate_to_v33(conn: sqlite3.Connection) -> None:
+    """Add channel_group_mode column to event_epg_groups.
+
+    Allows dynamic channel group assignment based on {sport} or {league}
+    instead of a static channel_group_id.
+    """
+    _add_column_if_not_exists(
+        conn,
+        "event_epg_groups",
+        "channel_group_mode",
+        "TEXT DEFAULT 'static' CHECK(channel_group_mode IN ('static', 'sport', 'league'))",
+    )
+    logger.info("[MIGRATE] Added channel_group_mode column to event_epg_groups")
+
 
 def _migrate_to_v32(conn: sqlite3.Connection) -> None:
     """Change teams UNIQUE constraint to include primary_league.

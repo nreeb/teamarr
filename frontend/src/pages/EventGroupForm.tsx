@@ -35,7 +35,8 @@ interface ChannelGroup {
 }
 
 async function fetchChannelGroups(): Promise<ChannelGroup[]> {
-  const response = await fetch("/api/v1/dispatcharr/channel-groups")
+  // exclude_m3u=true filters out M3U-originated groups, showing only user-created groups
+  const response = await fetch("/api/v1/dispatcharr/channel-groups?exclude_m3u=true")
   if (!response.ok) {
     throw new Error(response.status === 503 ? "Dispatcharr not connected" : "Failed to fetch channel groups")
   }
@@ -73,6 +74,7 @@ export function EventGroupForm() {
     template_id: null,
     channel_start_number: null,
     channel_assignment_mode: "auto",
+    channel_group_mode: "static",  // Dynamic channel group assignment mode
     duplicate_event_handling: "consolidate",
     sort_order: 0,
     total_stream_count: 0,
@@ -156,6 +158,7 @@ export function EventGroupForm() {
         template_id: group.template_id,
         channel_start_number: group.channel_start_number,
         channel_group_id: group.channel_group_id,
+        channel_group_mode: group.channel_group_mode || "static",
         channel_profile_ids: group.channel_profile_ids,  // Keep null = "use default"
         duplicate_event_handling: group.duplicate_event_handling,
         channel_assignment_mode: group.channel_assignment_mode,
@@ -746,18 +749,31 @@ export function EventGroupForm() {
             </CardContent>
           </Card>}
 
-          {/* Dispatcharr Settings - hidden for child groups */}
+          {/* Channel Group Assignment - hidden for child groups */}
           {!isChildGroup && <Card>
             <CardHeader>
-              <CardTitle>Dispatcharr Settings</CardTitle>
+              <CardTitle>Channel Group</CardTitle>
               <CardDescription>
-                Channel group and profile assignments in Dispatcharr
+                Managed channels will be assigned to the selected group in Dispatcharr
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Channel Group - V1 style with filter and list */}
-              <div className="space-y-2">
-                <Label>Channel Group</Label>
+            <CardContent>
+                <div className="flex flex-col gap-3">
+                  {/* Existing group option with nested group list */}
+                  <div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="channel_group_mode"
+                        value="static"
+                        checked={formData.channel_group_mode === "static"}
+                        onChange={() => setFormData({ ...formData, channel_group_mode: "static" })}
+                        className="accent-primary"
+                      />
+                      <span className="text-sm">Existing group</span>
+                    </label>
+                    {/* Nested group selection - always visible but disabled when not static */}
+                    <div className={`mt-2 ml-6 space-y-2 ${formData.channel_group_mode !== "static" ? "opacity-40 pointer-events-none" : ""}`}>
                 <div className="flex gap-2 items-center">
                   <Input
                     placeholder="Filter groups..."
@@ -771,8 +787,7 @@ export function EventGroupForm() {
                     size="sm"
                     onClick={() => setShowCreateGroup(!showCreateGroup)}
                   >
-                    <Plus className="h-3.5 w-3.5 mr-1" />
-                    New
+                    <Plus className="h-3.5 w-3.5" />
                   </Button>
                 </div>
                 {showCreateGroup && (
@@ -869,14 +884,58 @@ export function EventGroupForm() {
                     })
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Dispatcharr group to assign created channels to
-                </p>
-              </div>
+                    </div>
+                  </div>
 
-              {/* Channel Profiles */}
-              <div className="space-y-2">
-                <Label>Channel Profiles</Label>
+                  {/* Dynamic group options */}
+                  <div className="border rounded-md bg-muted/30">
+                    <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Dynamic Groups
+                    </div>
+                    <div className="divide-y">
+                      <label className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-accent">
+                        <input
+                          type="radio"
+                          name="channel_group_mode"
+                          value="sport"
+                          checked={formData.channel_group_mode === "sport"}
+                          onChange={() => setFormData({ ...formData, channel_group_mode: "sport" })}
+                          className="accent-primary"
+                        />
+                        <div className="flex-1">
+                          <code className="text-sm font-medium bg-muted px-1 rounded">{"{sport}"}</code>
+                          <p className="text-xs text-muted-foreground mt-0.5">Assign channels to a group by sport name (e.g., Basketball). Group created if it doesn't exist.</p>
+                        </div>
+                      </label>
+                      <label className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-accent">
+                        <input
+                          type="radio"
+                          name="channel_group_mode"
+                          value="league"
+                          checked={formData.channel_group_mode === "league"}
+                          onChange={() => setFormData({ ...formData, channel_group_mode: "league" })}
+                          className="accent-primary"
+                        />
+                        <div className="flex-1">
+                          <code className="text-sm font-medium bg-muted px-1 rounded">{"{league}"}</code>
+                          <p className="text-xs text-muted-foreground mt-0.5">Assign channels to a group by league name (e.g., NBA, NFL). Group created if it doesn't exist.</p>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+            </CardContent>
+          </Card>}
+
+          {/* Channel Profiles - hidden for child groups */}
+          {!isChildGroup && <Card>
+            <CardHeader>
+              <CardTitle>Channel Profiles</CardTitle>
+              <CardDescription>
+                Managed channels will be added to the selected profiles in Dispatcharr
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
                 <div className="flex items-center gap-2 mb-2">
                   <Checkbox
                     id="use_default_profiles"
@@ -894,20 +953,19 @@ export function EventGroupForm() {
                     }}
                   />
                   <Label htmlFor="use_default_profiles" className="font-normal cursor-pointer">
-                    Use default channel profiles
+                    Use default channel profiles (set in Integrations tab in Settings)
                   </Label>
                 </div>
+                {!useDefaultProfiles && (
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Select specific profiles for this group
+                  </p>
+                )}
                 <ChannelProfileSelector
                   selectedIds={formData.channel_profile_ids || []}
                   onChange={(ids) => setFormData({ ...formData, channel_profile_ids: ids })}
                   disabled={useDefaultProfiles}
                 />
-                <p className="text-xs text-muted-foreground">
-                  {useDefaultProfiles
-                    ? "Using default profiles from global settings"
-                    : "Select specific profiles for this group"}
-                </p>
-              </div>
             </CardContent>
           </Card>}
 

@@ -8,7 +8,8 @@ export interface DispatcharrSettings {
   password: string | null
   epg_id: number | null
   // null = all profiles (default), [] = no profiles, [1,2,...] = specific profiles
-  default_channel_profile_ids: number[] | null
+  // Can include wildcards: "{sport}", "{league}"
+  default_channel_profile_ids: (number | string)[] | null
 }
 
 export interface LifecycleSettings {
