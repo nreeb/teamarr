@@ -401,7 +401,10 @@ class StreamMatcher:
                 league_events.extend(events)
 
                 # Store in shared cache for subsequent matchers
-                if self._shared_events is not None:
+                # IMPORTANT: Only cache non-empty results from API fetches.
+                # Empty cache_only results should NOT be stored, as a later group
+                # that needs this league will want to fetch from the API.
+                if self._shared_events is not None and events and not cache_only:
                     self._shared_events[shared_key] = events
 
             if league_events:
