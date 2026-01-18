@@ -450,7 +450,12 @@ class EventGroupProcessor:
             streams, filter_result = self._filter_streams(streams, group)
             result.filtered_count = result.total_streams - filter_result.passed_count
             result.filtered_stale = filter_result.filtered_stale
-            result.filtered_not_event = filter_result.filtered_not_event
+            # Combine all built-in eligibility filters into filtered_not_event
+            result.filtered_not_event = (
+                filter_result.filtered_not_event +
+                filter_result.filtered_placeholder +
+                filter_result.filtered_unsupported_sport
+            )
             result.filtered_include_regex = filter_result.filtered_include
             result.filtered_exclude_regex = filter_result.filtered_exclude
 
@@ -790,7 +795,13 @@ class EventGroupProcessor:
             streams, filter_result = self._filter_streams(streams, group)
             result.streams_after_filter = filter_result.passed_count
             result.filtered_stale = filter_result.filtered_stale
-            result.filtered_not_event = filter_result.filtered_not_event
+            # Combine all built-in eligibility filters into filtered_not_event
+            # (placeholder, unsupported_sport, and not_event are all controlled by skip_builtin)
+            result.filtered_not_event = (
+                filter_result.filtered_not_event +
+                filter_result.filtered_placeholder +
+                filter_result.filtered_unsupported_sport
+            )
             result.filtered_include_regex = filter_result.filtered_include
             result.filtered_exclude_regex = filter_result.filtered_exclude
 
@@ -1056,7 +1067,13 @@ class EventGroupProcessor:
             streams, filter_result = self._filter_streams(streams, group)
             result.streams_after_filter = filter_result.passed_count
             result.filtered_stale = filter_result.filtered_stale
-            result.filtered_not_event = filter_result.filtered_not_event
+            # Combine all built-in eligibility filters into filtered_not_event
+            # (placeholder, unsupported_sport, and not_event are all controlled by skip_builtin)
+            result.filtered_not_event = (
+                filter_result.filtered_not_event +
+                filter_result.filtered_placeholder +
+                filter_result.filtered_unsupported_sport
+            )
             result.filtered_include_regex = filter_result.filtered_include
             result.filtered_exclude_regex = filter_result.filtered_exclude
 
