@@ -1018,10 +1018,10 @@ export function EventGroupForm() {
                     />
                     <div>
                       <Label htmlFor="skip_builtin" className="font-normal cursor-pointer">
-                        Skip built-in game detection
+                        Skip built-in stream filtering
                       </Label>
                       <p className="text-xs text-muted-foreground">
-                        Disable automatic filtering when stream names don't use standard separators (vs, @, at).
+                        Bypass placeholder detection, unsupported sport filtering, and event pattern requirements.
                       </p>
                     </div>
                   </div>

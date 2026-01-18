@@ -352,7 +352,7 @@ CREATE TABLE IF NOT EXISTS event_epg_groups (
     custom_regex_date_enabled BOOLEAN DEFAULT 0,
     custom_regex_time TEXT,                  -- Custom pattern to extract time
     custom_regex_time_enabled BOOLEAN DEFAULT 0,
-    skip_builtin_filter BOOLEAN DEFAULT 0,   -- Skip built-in team name extraction
+    skip_builtin_filter BOOLEAN DEFAULT 0,   -- Skip built-in stream filtering (placeholder, unsupported sports, event patterns)
 
     -- Team Filtering (canonical team selection, inherited by children)
     include_teams JSON,                          -- Teams to include: [{"provider":"espn","team_id":"33","league":"nfl","name":"Ravens"}, ...]
