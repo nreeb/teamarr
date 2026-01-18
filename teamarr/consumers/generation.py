@@ -268,17 +268,14 @@ def run_full_generation(
         result.programmes_total = result.teams_programmes + result.groups_programmes
 
         # Step 3b: Global channel reassignment (if enabled)
-        # Only applies to rational_block and strict_compact with global sorting_scope
+        # Applies when sorting_scope is "global" - interleaves channels by sport/league/time
         from teamarr.database.settings import get_channel_numbering_settings
         from teamarr.database.channel_numbers import reassign_channels_globally
 
         with db_factory() as conn:
             channel_numbering = get_channel_numbering_settings(conn)
 
-        if (
-            channel_numbering.sorting_scope == "global"
-            and channel_numbering.numbering_mode != "strict_block"
-        ):
+        if channel_numbering.sorting_scope == "global":
             update_progress("groups", 94, "Reassigning channels globally by sport/league priority...")
             with db_factory() as conn:
                 global_result = reassign_channels_globally(conn)
