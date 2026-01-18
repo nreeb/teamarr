@@ -262,6 +262,11 @@ class ChannelLifecycleService:
 
         result = StreamProcessResult()
 
+        # Clear logo cache at start of batch to avoid stale references
+        # Logos may have been deleted/changed in Dispatcharr since last run
+        if self._logo_manager:
+            self._logo_manager.clear_cache()
+
         try:
             with self._db_factory() as conn:
                 # Initialize dynamic resolver for this batch
@@ -1312,7 +1317,14 @@ class ChannelLifecycleService:
 
             if logo_url and self._logo_manager:
                 # Logo is set - check if needs update
-                if logo_url != stored_logo_url:
+                # Also trigger if logo_id is missing (initial upload may have failed)
+                needs_logo_update = logo_url != stored_logo_url or not current_logo_id
+                if needs_logo_update:
+                    reason = "URL changed" if logo_url != stored_logo_url else "missing logo_id"
+                    logger.debug(
+                        "[LIFECYCLE] Logo sync for '%s': %s (stored=%s, new=%s, logo_id=%s)",
+                        existing.channel_name, reason, stored_logo_url, logo_url, current_logo_id
+                    )
                     with self._dispatcharr_lock:
                         # Upload new logo
                         logo_result = self._logo_manager.upload(
