@@ -892,6 +892,42 @@ SAMPLE_DATA: dict[str, dict[str, str]] = {
         "NCAAF": "Today",
         "Soccer": "Today",
     },
+    "relative_day": {
+        "NBA": "tonight",
+        "NFL": "tomorrow",
+        "MLB": "wednesday",
+        "NHL": "tonight",
+        "NCAAM": "today",
+        "NCAAF": "Jan 25",
+        "Soccer": "saturday",
+    },
+    "relative_day.next": {
+        "NBA": "friday",
+        "NFL": "Jan 26",
+        "MLB": "thursday",
+        "NHL": "saturday",
+        "NCAAM": "tomorrow",
+        "NCAAF": "Feb 1",
+        "Soccer": "tuesday",
+    },
+    "relative_day_title": {
+        "NBA": "Tonight",
+        "NFL": "Tomorrow",
+        "MLB": "Wednesday",
+        "NHL": "Tonight",
+        "NCAAM": "Today",
+        "NCAAF": "Jan 25",
+        "Soccer": "Saturday",
+    },
+    "relative_day_title.next": {
+        "NBA": "Friday",
+        "NFL": "Jan 26",
+        "MLB": "Thursday",
+        "NHL": "Saturday",
+        "NCAAM": "Tomorrow",
+        "NCAAF": "Feb 1",
+        "Soccer": "Tuesday",
+    },
     # ==========================================================================
     # VENUE - Stadium/arena information
     # ==========================================================================
