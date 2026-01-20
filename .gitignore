@@ -51,5 +51,5 @@ teamarr.xml.bak
 data/
 !data/tsdb_seed.json
 
-# Plan files (work in progress)
-*-plan.md
+# Plan files (local only, work in progress)
+plans/

@@ -86,3 +86,24 @@ export async function bulkUpdateGroups(
 ): Promise<BulkGroupUpdateResponse> {
   return api.put("/groups/bulk", data)
 }
+
+export interface ClearCacheResponse {
+  success: boolean
+  group_id?: number
+  group_name?: string
+  entries_cleared?: number
+  total_cleared?: number
+  by_group?: { group_id: number; cleared: number }[]
+}
+
+export async function clearGroupMatchCache(
+  groupId: number
+): Promise<ClearCacheResponse> {
+  return api.post(`/groups/${groupId}/cache/clear`)
+}
+
+export async function clearGroupsMatchCache(
+  groupIds: number[]
+): Promise<ClearCacheResponse> {
+  return api.post("/groups/cache/clear", { group_ids: groupIds })
+}

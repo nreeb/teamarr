@@ -295,6 +295,30 @@ class BulkGroupUpdateRequest(BaseModel):
     """
 
     group_ids: list[int] = Field(..., min_length=1)
+
+
+class ClearCacheRequest(BaseModel):
+    """Request to clear stream match cache for multiple groups."""
+
+    group_ids: list[int] = Field(..., min_length=1)
+
+
+class ClearCacheGroupResult(BaseModel):
+    """Result of clearing cache for a single group."""
+
+    group_id: int
+    cleared: int
+
+
+class ClearCacheResponse(BaseModel):
+    """Response from clearing stream match cache."""
+
+    success: bool
+    group_id: int | None = None  # For single group
+    group_name: str | None = None  # For single group
+    entries_cleared: int | None = None  # For single group
+    total_cleared: int | None = None  # For bulk
+    by_group: list[ClearCacheGroupResult] | None = None  # For bulk
     # Fields to update (only non-None values are applied)
     leagues: list[str] | None = None
     template_id: int | None = None
@@ -1085,6 +1109,69 @@ def disable_group(group_id: int) -> dict:
         set_group_enabled(conn, group_id, False)
 
     return {"success": True, "message": f"Group '{group.name}' disabled"}
+
+
+@router.post("/{group_id}/cache/clear", response_model=ClearCacheResponse)
+def clear_group_match_cache(group_id: int):
+    """Clear stream match cache for a specific event group.
+
+    Forces re-matching on next EPG generation run. Useful when matching
+    algorithm changes or cached matches are incorrect.
+    """
+    from teamarr.consumers.stream_match_cache import StreamMatchCache
+    from teamarr.database.groups import get_group
+
+    with get_db() as conn:
+        group = get_group(conn, group_id)
+        if not group:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Group {group_id} not found",
+            )
+
+    cache = StreamMatchCache(get_db)
+    entries_cleared = cache.clear_group(group_id)
+
+    logger.info("[CACHE_CLEAR] group_id=%d name=%s entries=%d", group_id, group.name, entries_cleared)
+
+    return ClearCacheResponse(
+        success=True,
+        group_id=group_id,
+        group_name=group.name,
+        entries_cleared=entries_cleared,
+    )
+
+
+@router.post("/cache/clear", response_model=ClearCacheResponse)
+def clear_groups_match_cache(request: ClearCacheRequest):
+    """Clear stream match cache for multiple event groups.
+
+    Forces re-matching on next EPG generation run for all specified groups.
+    """
+    from teamarr.consumers.stream_match_cache import StreamMatchCache
+    from teamarr.database.groups import get_group
+
+    cache = StreamMatchCache(get_db)
+    results: list[ClearCacheGroupResult] = []
+    total_cleared = 0
+
+    with get_db() as conn:
+        for group_id in request.group_ids:
+            group = get_group(conn, group_id)
+            if not group:
+                continue
+
+            cleared = cache.clear_group(group_id)
+            results.append(ClearCacheGroupResult(group_id=group_id, cleared=cleared))
+            total_cleared += cleared
+
+    logger.info("[CACHE_CLEAR_BULK] groups=%d total_cleared=%d", len(results), total_cleared)
+
+    return ClearCacheResponse(
+        success=True,
+        total_cleared=total_cleared,
+        by_group=results,
+    )
 
 
 # =============================================================================

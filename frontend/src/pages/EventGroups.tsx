@@ -16,6 +16,7 @@ import {
   ArrowDown,
   ArrowUpDown,
   Plus,
+  RotateCcw,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -43,6 +44,8 @@ import { Select } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import {
   useBulkUpdateGroups,
+  useClearGroupMatchCache,
+  useClearGroupsMatchCache,
   useGroups,
   useDeleteGroup,
   useToggleGroup,
@@ -120,6 +123,8 @@ export function EventGroups() {
   const bulkUpdateMutation = useBulkUpdateGroups()
   const previewMutation = usePreviewGroup()
   const reorderMutation = useReorderGroups()
+  const clearCacheMutation = useClearGroupMatchCache()
+  const clearCachesBulkMutation = useClearGroupsMatchCache()
 
   // Drag-and-drop state for AUTO groups
   const [draggedGroupId, setDraggedGroupId] = useState<number | null>(null)
@@ -127,6 +132,10 @@ export function EventGroups() {
   // Preview modal state
   const [previewData, setPreviewData] = useState<PreviewGroupResponse | null>(null)
   const [showPreviewModal, setShowPreviewModal] = useState(false)
+
+  // Clear cache confirmation state
+  const [clearCacheConfirm, setClearCacheConfirm] = useState<EventGroup | null>(null)
+  const [showBulkClearCache, setShowBulkClearCache] = useState(false)
 
   // Create league lookup maps (logo and sport)
   const { leagueLogos, leagueSports } = useMemo(() => {
@@ -581,6 +590,26 @@ export function EventGroups() {
     }
   }
 
+  const handleClearCache = async (group: EventGroup) => {
+    try {
+      const result = await clearCacheMutation.mutateAsync(group.id)
+      toast.success(`Cleared ${result.entries_cleared} cache entries for "${getDisplayName(group)}"`)
+      setClearCacheConfirm(null)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to clear cache")
+    }
+  }
+
+  const handleBulkClearCache = async () => {
+    try {
+      const result = await clearCachesBulkMutation.mutateAsync(Array.from(selectedIds))
+      toast.success(`Cleared ${result.total_cleared} cache entries across ${result.by_group?.length || 0} groups`)
+      setShowBulkClearCache(false)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to clear cache")
+    }
+  }
+
   // Selection handlers
   const toggleSelect = (id: number) => {
     setSelectedIds((prev) => {
@@ -971,6 +1000,15 @@ export function EventGroups() {
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => handleBulkToggle(false)}>
                   Disable
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowBulkClearCache(true)}
+                  disabled={clearCachesBulkMutation.isPending}
+                >
+                  <RotateCcw className="h-3 w-3 mr-1" />
+                  Clear Cache
                 </Button>
                 <Button
                   variant="outline"
@@ -1438,6 +1476,21 @@ export function EventGroups() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
+                          onClick={() => setClearCacheConfirm(group)}
+                          disabled={clearCacheMutation.isPending}
+                          title="Clear match cache"
+                        >
+                          {clearCacheMutation.isPending &&
+                          clearCacheMutation.variables === group.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <RotateCcw className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
                           onClick={() => navigate(`/event-groups/${group.id}`)}
                           title="Edit"
                         >
@@ -1652,6 +1705,63 @@ export function EventGroups() {
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               )}
               Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Clear Cache Confirmation Dialog */}
+      <Dialog
+        open={clearCacheConfirm !== null}
+        onOpenChange={(open) => !open && setClearCacheConfirm(null)}
+      >
+        <DialogContent onClose={() => setClearCacheConfirm(null)}>
+          <DialogHeader>
+            <DialogTitle>Clear Match Cache</DialogTitle>
+            <DialogDescription>
+              Clear the stream match cache for "{clearCacheConfirm ? getDisplayName(clearCacheConfirm) : ''}"?
+              This will force re-matching on the next EPG generation run.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setClearCacheConfirm(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => clearCacheConfirm && handleClearCache(clearCacheConfirm)}
+              disabled={clearCacheMutation.isPending}
+            >
+              {clearCacheMutation.isPending && (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              )}
+              Clear Cache
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Clear Cache Confirmation Dialog */}
+      <Dialog open={showBulkClearCache} onOpenChange={setShowBulkClearCache}>
+        <DialogContent onClose={() => setShowBulkClearCache(false)}>
+          <DialogHeader>
+            <DialogTitle>Clear Match Cache for {selectedIds.size} Groups</DialogTitle>
+            <DialogDescription>
+              Clear the stream match cache for {selectedIds.size} selected groups?
+              This will force re-matching on the next EPG generation run.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBulkClearCache(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBulkClearCache}
+              disabled={clearCachesBulkMutation.isPending}
+            >
+              {clearCachesBulkMutation.isPending && (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              )}
+              Clear Cache for {selectedIds.size} Groups
             </Button>
           </DialogFooter>
         </DialogContent>

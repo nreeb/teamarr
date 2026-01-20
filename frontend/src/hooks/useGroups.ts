@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   bulkUpdateGroups,
+  clearGroupMatchCache,
+  clearGroupsMatchCache,
   createGroup,
   deleteGroup,
   disableGroup,
@@ -113,5 +115,17 @@ export function useBulkUpdateGroups() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["groups"] })
     },
+  })
+}
+
+export function useClearGroupMatchCache() {
+  return useMutation({
+    mutationFn: (groupId: number) => clearGroupMatchCache(groupId),
+  })
+}
+
+export function useClearGroupsMatchCache() {
+  return useMutation({
+    mutationFn: (groupIds: number[]) => clearGroupsMatchCache(groupIds),
   })
 }
