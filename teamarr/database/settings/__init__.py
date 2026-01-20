@@ -13,6 +13,7 @@ from .read import (
     get_lifecycle_settings,
     get_scheduler_settings,
     get_stream_filter_settings,
+    get_stream_ordering_settings,
     get_team_filter_settings,
 )
 from .types import (
@@ -27,6 +28,8 @@ from .types import (
     ReconciliationSettings,
     SchedulerSettings,
     StreamFilterSettings,
+    StreamOrderingRule,
+    StreamOrderingSettings,
     TeamFilterSettings,
 )
 from .update import (
@@ -39,6 +42,7 @@ from .update import (
     update_lifecycle_settings,
     update_reconciliation_settings,
     update_scheduler_settings,
+    update_stream_ordering_rules,
     update_team_filter_settings,
 )
 
@@ -53,6 +57,8 @@ __all__ = [
     "DisplaySettings",
     "APISettings",
     "StreamFilterSettings",
+    "StreamOrderingRule",
+    "StreamOrderingSettings",
     "TeamFilterSettings",
     "ChannelNumberingSettings",
     "AllSettings",
@@ -64,6 +70,7 @@ __all__ = [
     "get_epg_settings",
     "get_display_settings",
     "get_stream_filter_settings",
+    "get_stream_ordering_settings",
     "get_team_filter_settings",
     "get_channel_numbering_settings",
     # Update operations
@@ -74,6 +81,7 @@ __all__ = [
     "update_reconciliation_settings",
     "update_duration_settings",
     "update_display_settings",
+    "update_stream_ordering_rules",
     "update_team_filter_settings",
     "update_channel_numbering_settings",
     "increment_epg_generation_counter",

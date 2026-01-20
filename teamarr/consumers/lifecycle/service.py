@@ -553,8 +553,10 @@ class ChannelLifecycleService:
         """
         from teamarr.database.channels import (
             add_stream_to_channel,
+            compute_stream_priority_from_rules,
             find_any_channel_for_event,
             get_next_stream_priority,
+            get_ordered_stream_ids,
             log_channel_history,
             stream_exists_on_channel,
         )
@@ -618,7 +620,13 @@ class ChannelLifecycleService:
                     return result
 
                 # Add stream to existing channel
-                priority = get_next_stream_priority(conn, existing.id)
+                # Compute priority from ordering rules (or use sequential if no rules)
+                m3u_account_name = group_config.get("m3u_account_name")
+                priority = compute_stream_priority_from_rules(
+                    conn, stream_name, m3u_account_name, group_id
+                )
+                if priority is None:
+                    priority = get_next_stream_priority(conn, existing.id)
                 add_stream_to_channel(
                     conn=conn,
                     managed_channel_id=existing.id,
@@ -627,24 +635,19 @@ class ChannelLifecycleService:
                     source_group_type="cross_group",
                     stream_name=stream_name,
                     m3u_account_id=group_config.get("m3u_account_id"),
-                    m3u_account_name=group_config.get("m3u_account_name"),
+                    m3u_account_name=m3u_account_name,
                     priority=priority,
                 )
 
-                # Sync with Dispatcharr
+                # Sync with Dispatcharr - use ordered stream list to respect rules
                 if self._channel_manager and existing.dispatcharr_channel_id:
                     with self._dispatcharr_lock:
-                        disp_channel = self._channel_manager.get_channel(
-                            existing.dispatcharr_channel_id
+                        # Get streams in priority order from DB
+                        ordered_streams = get_ordered_stream_ids(conn, existing.id)
+                        self._channel_manager.update_channel(
+                            existing.dispatcharr_channel_id,
+                            {"streams": tuple(ordered_streams)},
                         )
-                        if disp_channel:
-                            current_streams = list(disp_channel.streams)
-                            if stream_id not in current_streams:
-                                current_streams.append(stream_id)
-                                self._channel_manager.update_channel(
-                                    existing.dispatcharr_channel_id,
-                                    {"streams": tuple(current_streams)},
-                                )
 
                 log_channel_history(
                     conn=conn,
@@ -710,12 +713,13 @@ class ChannelLifecycleService:
         """
         from teamarr.database.channels import (
             add_stream_to_channel,
+            compute_stream_priority_from_rules,
             get_next_stream_priority,
+            get_ordered_stream_ids,
             log_channel_history,
+            mark_channel_deleted,
             stream_exists_on_channel,
         )
-
-        from teamarr.database.channels import mark_channel_deleted
 
         result = StreamProcessResult()
         stream_name = stream.get("name", "")
@@ -772,8 +776,16 @@ class ChannelLifecycleService:
         if effective_mode == "consolidate":
             # Add stream to existing channel if not already present
             if not stream_exists_on_channel(conn, existing.id, stream_id):
+                # Compute priority from ordering rules (or use sequential if no rules)
+                m3u_account_name = stream.get("m3u_account_name") or group_config.get("m3u_account_name")
+                source_group_id = group_config.get("id")
+                priority = compute_stream_priority_from_rules(
+                    conn, stream_name, m3u_account_name, source_group_id
+                )
+                if priority is None:
+                    priority = get_next_stream_priority(conn, existing.id)
+
                 # Add to DB
-                priority = get_next_stream_priority(conn, existing.id)
                 add_stream_to_channel(
                     conn=conn,
                     managed_channel_id=existing.id,
@@ -782,21 +794,19 @@ class ChannelLifecycleService:
                     priority=priority,
                     exception_keyword=matched_keyword,
                     m3u_account_id=stream.get("m3u_account_id"),
+                    m3u_account_name=m3u_account_name,
+                    source_group_id=source_group_id,
                 )
 
-                # Add to Dispatcharr
+                # Sync with Dispatcharr - use ordered stream list to respect rules
                 if self._channel_manager:
                     with self._dispatcharr_lock:
-                        current = self._channel_manager.get_channel(existing.dispatcharr_channel_id)
-                        if current:
-                            # streams is already tuple[int, ...] of stream IDs
-                            current_streams = list(current.streams) if current.streams else []
-                            if stream_id not in current_streams:
-                                current_streams.append(stream_id)
-                                self._channel_manager.update_channel(
-                                    existing.dispatcharr_channel_id,
-                                    {"streams": current_streams},
-                                )
+                        # Get streams in priority order from DB
+                        ordered_streams = get_ordered_stream_ids(conn, existing.id)
+                        self._channel_manager.update_channel(
+                            existing.dispatcharr_channel_id,
+                            {"streams": ordered_streams},
+                        )
 
                 # Log history
                 log_channel_history(

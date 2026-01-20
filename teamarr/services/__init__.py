@@ -59,6 +59,11 @@ from teamarr.services.scheduler_service import (
     create_scheduler_service,
 )
 from teamarr.services.sports_data import SportsDataService, create_default_service
+from teamarr.services.stream_ordering import (
+    StreamOrderingService,
+    StreamWithPriority,
+    get_stream_ordering_service,
+)
 
 __all__ = [
     # Core services
@@ -105,4 +110,8 @@ __all__ = [
     "GroupService",
     "StreamStats",
     "create_group_service",
+    # Stream ordering service
+    "StreamOrderingService",
+    "StreamWithPriority",
+    "get_stream_ordering_service",
 ]

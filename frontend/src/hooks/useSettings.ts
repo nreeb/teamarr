@@ -27,6 +27,8 @@ import {
   deleteExceptionKeyword,
   getChannelNumberingSettings,
   updateChannelNumberingSettings,
+  getStreamOrderingSettings,
+  updateStreamOrderingSettings,
 } from "@/api/settings"
 import type {
   DispatcharrSettings,
@@ -38,6 +40,7 @@ import type {
   DisplaySettings,
   TeamFilterSettingsUpdate,
   ChannelNumberingSettingsUpdate,
+  StreamOrderingSettingsUpdate,
 } from "@/api/settings"
 
 export function useSettings() {
@@ -281,6 +284,25 @@ export function useUpdateChannelNumberingSettings() {
   return useMutation({
     mutationFn: (data: ChannelNumberingSettingsUpdate) =>
       updateChannelNumberingSettings(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["settings"] })
+    },
+  })
+}
+
+export function useStreamOrderingSettings() {
+  return useQuery({
+    queryKey: ["settings", "stream-ordering"],
+    queryFn: getStreamOrderingSettings,
+  })
+}
+
+export function useUpdateStreamOrderingSettings() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: StreamOrderingSettingsUpdate) =>
+      updateStreamOrderingSettings(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["settings"] })
     },

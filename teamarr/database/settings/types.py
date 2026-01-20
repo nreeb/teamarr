@@ -136,6 +136,31 @@ class TeamFilterSettings:
 
 
 @dataclass
+class StreamOrderingRule:
+    """A single stream ordering rule.
+
+    Rules are evaluated in priority order (lowest number first).
+    First matching rule determines the stream's sort position within a channel.
+    """
+
+    type: str  # "m3u", "group", "regex"
+    value: str  # Account name, group name, or regex pattern
+    priority: int  # 1-99, lower = higher priority
+
+
+@dataclass
+class StreamOrderingSettings:
+    """Stream ordering rules for prioritizing streams within channels.
+
+    Rules are evaluated in order by priority number (lowest first).
+    First matching rule determines stream's position.
+    Non-matching streams get priority 999 (sorted to end).
+    """
+
+    rules: list[StreamOrderingRule] = field(default_factory=list)
+
+
+@dataclass
 class ChannelNumberingSettings:
     """Channel numbering and sorting settings for AUTO groups.
 
@@ -177,6 +202,9 @@ class AllSettings:
     team_filter: TeamFilterSettings = field(default_factory=TeamFilterSettings)
     channel_numbering: ChannelNumberingSettings = field(
         default_factory=ChannelNumberingSettings
+    )
+    stream_ordering: StreamOrderingSettings = field(
+        default_factory=StreamOrderingSettings
     )
     epg_generation_counter: int = 0
     schema_version: int = 34

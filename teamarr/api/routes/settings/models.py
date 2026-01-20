@@ -197,6 +197,36 @@ class ChannelNumberingSettingsUpdate(BaseModel):
 
 
 # =============================================================================
+# STREAM ORDERING SETTINGS
+# =============================================================================
+
+
+class StreamOrderingRuleModel(BaseModel):
+    """A single stream ordering rule."""
+
+    type: str = Field(..., description="Rule type: 'm3u', 'group', or 'regex'")
+    value: str = Field(..., description="M3U account name, group name, or regex pattern")
+    priority: int = Field(..., ge=1, le=99, description="Priority (1-99, lower = higher)")
+
+
+class StreamOrderingSettingsModel(BaseModel):
+    """Stream ordering rules for prioritizing streams within channels."""
+
+    rules: list[StreamOrderingRuleModel] = Field(
+        default_factory=list,
+        description="List of ordering rules, evaluated by priority"
+    )
+
+
+class StreamOrderingSettingsUpdate(BaseModel):
+    """Update model for stream ordering settings (full replacement)."""
+
+    rules: list[StreamOrderingRuleModel] = Field(
+        ..., description="Complete list of rules (replaces existing)"
+    )
+
+
+# =============================================================================
 # ALL SETTINGS
 # =============================================================================
 
@@ -213,8 +243,9 @@ class AllSettingsModel(BaseModel):
     display: DisplaySettingsModel
     team_filter: TeamFilterSettingsModel | None = None
     channel_numbering: ChannelNumberingSettingsModel | None = None
+    stream_ordering: StreamOrderingSettingsModel | None = None
     epg_generation_counter: int = 0
-    schema_version: int = 30
+    schema_version: int = 34
 
     # UI timezone info (read-only, from environment or fallback to epg_timezone)
     ui_timezone: str = "America/New_York"

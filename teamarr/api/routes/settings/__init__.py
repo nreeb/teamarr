@@ -17,6 +17,7 @@ from .dispatcharr import router as dispatcharr_router
 from .display import router as display_router
 from .epg import router as epg_router
 from .lifecycle import router as lifecycle_router
+from .stream_ordering import router as stream_ordering_router
 from .team_filter import router as team_filter_router
 from .models import (
     AllSettingsModel,
@@ -28,6 +29,8 @@ from .models import (
     LifecycleSettingsModel,
     ReconciliationSettingsModel,
     SchedulerSettingsModel,
+    StreamOrderingRuleModel,
+    StreamOrderingSettingsModel,
     TeamFilterSettingsModel,
 )
 
@@ -41,6 +44,7 @@ router.include_router(epg_router)
 router.include_router(display_router)
 router.include_router(team_filter_router)
 router.include_router(channel_numbering_router)
+router.include_router(stream_ordering_router)
 
 
 # =============================================================================
@@ -114,6 +118,16 @@ def get_settings():
             sorting_scope=settings.channel_numbering.sorting_scope,
             sort_by=settings.channel_numbering.sort_by,
         ),
+        stream_ordering=StreamOrderingSettingsModel(
+            rules=[
+                StreamOrderingRuleModel(
+                    type=rule.type,
+                    value=rule.value,
+                    priority=rule.priority,
+                )
+                for rule in settings.stream_ordering.rules
+            ]
+        ),
         epg_generation_counter=settings.epg_generation_counter,
         schema_version=settings.schema_version,
         # UI timezone info (read-only)
@@ -134,5 +148,7 @@ __all__ = [
     "LifecycleSettingsModel",
     "ReconciliationSettingsModel",
     "SchedulerSettingsModel",
+    "StreamOrderingRuleModel",
+    "StreamOrderingSettingsModel",
     "TeamFilterSettingsModel",
 ]

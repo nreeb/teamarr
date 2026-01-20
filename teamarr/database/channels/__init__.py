@@ -45,10 +45,14 @@ from .settings_helpers import (
 # Stream operations
 from .streams import (
     add_stream_to_channel,
+    compute_stream_priority_from_rules,
     get_channel_streams,
     get_next_stream_priority,
+    get_ordered_stream_ids,
     remove_stream_from_channel,
+    reorder_channel_streams,
     stream_exists_on_channel,
+    update_stream_priority,
 )
 from .types import ManagedChannel, ManagedChannelStream
 
@@ -72,10 +76,14 @@ __all__ = [
     "find_any_channel_for_event",
     # Streams
     "add_stream_to_channel",
-    "remove_stream_from_channel",
+    "compute_stream_priority_from_rules",
     "get_channel_streams",
-    "stream_exists_on_channel",
     "get_next_stream_priority",
+    "get_ordered_stream_ids",
+    "remove_stream_from_channel",
+    "reorder_channel_streams",
+    "stream_exists_on_channel",
+    "update_stream_priority",
     # History
     "log_channel_history",
     "get_channel_history",

@@ -485,3 +485,72 @@ def update_channel_numbering_settings(
         )
         return True
     return False
+
+
+def update_stream_ordering_rules(
+    conn: Connection,
+    rules: list,
+) -> bool:
+    """Update stream ordering rules (full replacement).
+
+    Args:
+        conn: Database connection
+        rules: List of rules (dicts or StreamOrderingRule dataclasses).
+            Each rule: {"type": "m3u"|"group"|"regex", "value": str, "priority": int}
+
+    Returns:
+        True if updated
+    """
+    from .types import StreamOrderingRule as RuleType
+
+    # Validate rules structure
+    valid_types = {"m3u", "group", "regex"}
+    validated_rules = []
+
+    for rule in rules:
+        # Handle both dict and dataclass
+        if isinstance(rule, RuleType):
+            rule_type = rule.type
+            rule_value = rule.value
+            rule_priority = rule.priority
+        else:
+            rule_type = rule.get("type")
+            rule_value = rule.get("value")
+            rule_priority = rule.get("priority")
+
+        if rule_type not in valid_types:
+            logger.warning(
+                "[STREAM_ORDER] Invalid rule type '%s', must be one of %s",
+                rule_type,
+                valid_types,
+            )
+            continue
+
+        if not rule_value or not isinstance(rule_value, str):
+            logger.warning("[STREAM_ORDER] Rule missing value, skipping")
+            continue
+
+        if not isinstance(rule_priority, int) or rule_priority < 1 or rule_priority > 99:
+            logger.warning(
+                "[STREAM_ORDER] Invalid priority %s, must be 1-99, defaulting to 99",
+                rule_priority,
+            )
+            rule_priority = 99
+
+        validated_rules.append({
+            "type": rule_type,
+            "value": rule_value,
+            "priority": rule_priority,
+        })
+
+    # Store as JSON
+    rules_json = json.dumps(validated_rules)
+    cursor = conn.execute(
+        "UPDATE settings SET stream_ordering_rules = ? WHERE id = 1",
+        (rules_json,),
+    )
+
+    if cursor.rowcount > 0:
+        logger.info("[STREAM_ORDER] Updated %d rules", len(validated_rules))
+        return True
+    return False

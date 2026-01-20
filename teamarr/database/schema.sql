@@ -274,8 +274,13 @@ CREATE TABLE IF NOT EXISTS settings (
     channel_sort_by TEXT DEFAULT 'time'
         CHECK(channel_sort_by IN ('sport_league_time', 'time', 'stream_order')),
 
+    -- Stream Ordering Rules (for prioritizing streams within channels)
+    -- JSON array of rules: [{"type": "m3u"|"group"|"regex", "value": "...", "priority": 1-99}]
+    -- Rules evaluated in priority order; first match wins; non-matching streams get priority 999
+    stream_ordering_rules JSON DEFAULT '[]',
+
     -- Schema Version
-    schema_version INTEGER DEFAULT 33
+    schema_version INTEGER DEFAULT 36
 );
 
 -- Insert default settings

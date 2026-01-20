@@ -923,6 +923,16 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
         logger.info("[MIGRATE] Schema upgraded to version 35 (exception keywords label + match_terms)")
         current_version = 35
 
+    # Version 36: Add stream_ordering_rules to settings
+    # JSON array for prioritizing streams within channels by M3U account, group, or regex
+    if current_version < 36:
+        _add_column_if_not_exists(
+            conn, "settings", "stream_ordering_rules", "JSON DEFAULT '[]'"
+        )
+        conn.execute("UPDATE settings SET schema_version = 36 WHERE id = 1")
+        logger.info("[MIGRATE] Schema upgraded to version 36 (stream_ordering_rules)")
+        current_version = 36
+
 
 def _migrate_to_v35(conn: sqlite3.Connection) -> None:
     """Restructure exception keywords table: keywords -> match_terms, display_name -> label.

@@ -55,6 +55,7 @@ import {
 } from "@/hooks/useSettings"
 import { TeamPicker } from "@/components/TeamPicker"
 import { SortPriorityManager } from "@/components/SortPriorityManager"
+import { StreamOrderingManager } from "@/components/StreamOrderingManager"
 import { getLeagues } from "@/api/teams"
 import { downloadBackup, restoreBackup } from "@/api/backup"
 import { useQuery } from "@tanstack/react-query"
@@ -1466,6 +1467,9 @@ export function Settings() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Stream Ordering */}
+      <StreamOrderingManager />
       </>
       )}
 

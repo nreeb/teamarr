@@ -97,6 +97,20 @@ export interface ChannelNumberingSettingsUpdate {
   sort_by?: "sport_league_time" | "time" | "stream_order"
 }
 
+export interface StreamOrderingRule {
+  type: "m3u" | "group" | "regex"
+  value: string
+  priority: number  // 1-99, lower = higher priority
+}
+
+export interface StreamOrderingSettings {
+  rules: StreamOrderingRule[]
+}
+
+export interface StreamOrderingSettingsUpdate {
+  rules: StreamOrderingRule[]
+}
+
 
 export interface ExceptionKeyword {
   id: number
@@ -122,6 +136,7 @@ export interface AllSettings {
   reconciliation: ReconciliationSettings
   team_filter?: TeamFilterSettings
   channel_numbering?: ChannelNumberingSettings
+  stream_ordering?: StreamOrderingSettings
   epg_generation_counter: number
   schema_version: number
   // UI timezone info (read-only, from environment or fallback to epg_timezone)
@@ -313,5 +328,16 @@ export async function updateChannelNumberingSettings(
   data: ChannelNumberingSettingsUpdate
 ): Promise<ChannelNumberingSettings> {
   return api.put("/settings/channel-numbering", data)
+}
+
+// Stream Ordering Settings API
+export async function getStreamOrderingSettings(): Promise<StreamOrderingSettings> {
+  return api.get("/settings/stream-ordering")
+}
+
+export async function updateStreamOrderingSettings(
+  data: StreamOrderingSettingsUpdate
+): Promise<StreamOrderingSettings> {
+  return api.put("/settings/stream-ordering", data)
 }
 

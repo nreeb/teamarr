@@ -18,6 +18,8 @@ from .types import (
     ReconciliationSettings,
     SchedulerSettings,
     StreamFilterSettings,
+    StreamOrderingRule,
+    StreamOrderingSettings,
     TeamFilterSettings,
 )
 
@@ -155,6 +157,9 @@ def get_all_settings(conn: Connection) -> AllSettings:
             numbering_mode=row["channel_numbering_mode"] or "strict_block",
             sorting_scope=row["channel_sorting_scope"] or "per_group",
             sort_by=row["channel_sort_by"] or "time",
+        ),
+        stream_ordering=StreamOrderingSettings(
+            rules=_parse_stream_ordering_rules(row["stream_ordering_rules"])
         ),
         epg_generation_counter=row["epg_generation_counter"] or 0,
         schema_version=row["schema_version"] or 2,
@@ -389,4 +394,54 @@ def get_channel_numbering_settings(conn: Connection) -> ChannelNumberingSettings
         numbering_mode=row["channel_numbering_mode"] or "strict_block",
         sorting_scope=row["channel_sorting_scope"] or "per_group",
         sort_by=row["channel_sort_by"] or "time",
+    )
+
+
+def _parse_stream_ordering_rules(rules_json: str | None) -> list[StreamOrderingRule]:
+    """Parse stream ordering rules from JSON.
+
+    Args:
+        rules_json: JSON string of rules or None
+
+    Returns:
+        List of StreamOrderingRule objects
+    """
+    if not rules_json:
+        return []
+
+    try:
+        rules_data = json.loads(rules_json)
+        if not isinstance(rules_data, list):
+            return []
+
+        return [
+            StreamOrderingRule(
+                type=rule.get("type", "m3u"),
+                value=rule.get("value", ""),
+                priority=rule.get("priority", 99),
+            )
+            for rule in rules_data
+            if isinstance(rule, dict) and rule.get("type") and rule.get("value")
+        ]
+    except json.JSONDecodeError:
+        return []
+
+
+def get_stream_ordering_settings(conn: Connection) -> StreamOrderingSettings:
+    """Get stream ordering rules.
+
+    Args:
+        conn: Database connection
+
+    Returns:
+        StreamOrderingSettings object with rules list
+    """
+    cursor = conn.execute("SELECT stream_ordering_rules FROM settings WHERE id = 1")
+    row = cursor.fetchone()
+
+    if not row:
+        return StreamOrderingSettings()
+
+    return StreamOrderingSettings(
+        rules=_parse_stream_ordering_rules(row["stream_ordering_rules"])
     )
