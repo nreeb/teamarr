@@ -14,7 +14,7 @@ from datetime import date, time
 
 from unidecode import unidecode
 
-from teamarr.utilities.constants import CITY_TRANSLATIONS, PROVIDER_PREFIXES
+from teamarr.utilities.constants import BROADCAST_NETWORKS, CITY_TRANSLATIONS, PROVIDER_PREFIXES
 import logging
 
 logger = logging.getLogger(__name__)
@@ -426,7 +426,8 @@ def normalize_for_matching(text: str) -> str:
     """Quick normalization for matching (no metadata extraction).
 
     Use this for normalizing team names or event names before comparison.
-    Applies: unidecode, city translations, lowercase, strip punctuation.
+    Applies: unidecode, city translations, lowercase, strip punctuation,
+    and removes broadcast network names that add noise to fuzzy matching.
 
     Args:
         text: Text to normalize
@@ -442,6 +443,11 @@ def normalize_for_matching(text: str) -> str:
 
     # Lowercase
     text = text.lower()
+
+    # Remove broadcast network names (ESPN, FOX, etc.) that add noise
+    # These appear in streams like "MIL Bucks ( ESPN Feed )"
+    for network in BROADCAST_NETWORKS:
+        text = re.sub(rf"\b{re.escape(network.lower())}\b", " ", text)
 
     # Remove punctuation except spaces (hyphens become spaces for matching)
     text = re.sub(r"[^\w\s]", " ", text)

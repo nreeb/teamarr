@@ -297,6 +297,59 @@ GAME_SEPARATORS: list[str] = [
 
 
 # =============================================================================
+# BROADCAST NETWORKS
+# Network names to strip from team names during matching normalization.
+# These appear in stream names like "MIL Bucks ( ESPN Feed )" and add noise
+# that reduces fuzzy match scores.
+# =============================================================================
+
+BROADCAST_NETWORKS: list[str] = [
+    # Major US networks
+    "ESPN",
+    "ESPN2",
+    "ESPNU",
+    "ESPN+",
+    "ABC",
+    "CBS",
+    "NBC",
+    "FOX",
+    "TNT",
+    "TBS",
+    "USA",
+    # Sports-specific
+    "FS1",
+    "FS2",
+    "NBCSN",
+    "CBSSN",
+    "NFLN",
+    "MLBN",
+    "NHLN",
+    "SECN",
+    "BTN",
+    "ACCN",
+    "PAC12",
+    "LHN",
+    # Streaming
+    "PEACOCK",
+    "PARAMOUNT",
+    "AMAZON",
+    "PRIME",
+    "APPLE",
+    "DAZN",
+    "FUBO",
+    # International
+    "SKY",
+    "BT",
+    "BEIN",
+    "TSN",
+    "SPORTSNET",
+    # Common suffixes
+    "FEED",
+    "STREAM",
+]
+
+
+# =============================================================================
 # LEAGUE HINT PATTERNS
 # Patterns to detect league from stream name for multi-league groups.
 # Returns league_code if detected.
