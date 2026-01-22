@@ -27,6 +27,14 @@ COLLEGE_SCOREBOARD_GROUPS = {
     # Note: mens-college-hockey does NOT need groups param
 }
 
+# ESPN team ID corrections for known mismatches between /teams endpoint and scoreboard
+# Format: (league, wrong_id) -> correct_id
+# These are cases where ESPN's /teams endpoint returns a different ID than the scoreboard uses
+ESPN_TEAM_ID_CORRECTIONS: dict[tuple[str, str], str] = {
+    # Minnesota State Mavericks: /teams returns 2364 (generic school ID), scoreboard uses 24059
+    ("womens-college-hockey", "2364"): "24059",
+}
+
 
 class ESPNClient:
     """Low-level ESPN API client."""
@@ -114,6 +122,18 @@ class ESPNClient:
         logger.warning("[ESPN] No database config for league '%s' - add to leagues table", league)
         return ("unknown", league)
 
+    def _correct_team_id(self, league: str, team_id: str) -> str:
+        """Apply team ID corrections for known ESPN mismatches.
+
+        Some teams have different IDs in ESPN's /teams endpoint vs scoreboard.
+        This maps the wrong ID (from /teams) to the correct ID (from scoreboard).
+        """
+        corrected = ESPN_TEAM_ID_CORRECTIONS.get((league, team_id))
+        if corrected:
+            logger.info("[ESPN] Correcting team ID %s -> %s for %s", team_id, corrected, league)
+            return corrected
+        return team_id
+
     def get_scoreboard(
         self,
         league: str,
@@ -200,6 +220,7 @@ class ESPNClient:
         Returns:
             Raw ESPN response or None on error
         """
+        team_id = self._correct_team_id(league, team_id)
         sport, espn_league = self.get_sport_league(league, sport_league)
         url = f"{ESPN_BASE_URL}/{sport}/{espn_league}/teams/{team_id}/schedule"
         return self._request(url)
@@ -220,6 +241,7 @@ class ESPNClient:
         Returns:
             Raw ESPN response or None on error
         """
+        team_id = self._correct_team_id(league, team_id)
         sport, espn_league = self.get_sport_league(league, sport_league)
         url = f"{ESPN_BASE_URL}/{sport}/{espn_league}/teams/{team_id}"
         return self._request(url)
