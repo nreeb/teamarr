@@ -221,13 +221,13 @@ class EventEPGGenerator:
             icon = self._resolver.resolve(options.template.program_art_url, context)
 
         # Resolve categories (may contain {sport} variable)
-        # Apply title case for proper XMLTV formatting (e.g., "Football" not "football")
+        # Preserve user's original casing for custom categories
         resolved_categories = []
         for cat in options.template.xmltv_categories:
             if "{" in cat:
-                resolved_categories.append(self._resolver.resolve(cat, context).title())
+                resolved_categories.append(self._resolver.resolve(cat, context))
             else:
-                resolved_categories.append(cat.title())
+                resolved_categories.append(cat)
 
         return Programme(
             channel_id=channel_id,

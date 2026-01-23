@@ -2153,6 +2153,22 @@ function XmltvTab({ formData, setFormData }: TabProps) {
   const hasSportVar = categories.includes("{sport}")
   const customCategories = categories.filter((c) => c !== "Sports" && c !== "{sport}")
 
+  // Use local state for the input to preserve user's typing (including spaces)
+  // This prevents the input from being cleared when typing words that match base categories
+  const [customInput, setCustomInput] = useState(customCategories.join(", "))
+
+  // Sync local input when customCategories changes externally (e.g., form reset, initial load)
+  // but not when we're actively typing (tracked by comparing parsed values)
+  useEffect(() => {
+    const currentParsed = customInput.split(",").map((s) => s.trim()).filter(Boolean)
+    const customCatsStr = customCategories.join(",")
+    const currentStr = currentParsed.join(",")
+    // Only sync if external change (not from our own typing)
+    if (customCatsStr !== currentStr) {
+      setCustomInput(customCategories.join(", "))
+    }
+  }, [customCategories.join(",")])
+
   const updateFlags = (field: keyof XmltvFlags, value: boolean) => {
     setFormData((prev) => ({
       ...prev,
@@ -2170,6 +2186,7 @@ function XmltvTab({ formData, setFormData }: TabProps) {
   }
 
   const updateCustomCategories = (value: string) => {
+    setCustomInput(value)
     const custom = value
       .split(",")
       .map((s) => s.trim())
@@ -2206,7 +2223,7 @@ function XmltvTab({ formData, setFormData }: TabProps) {
             <Label htmlFor="custom_categories">Custom Categories (comma-separated)</Label>
             <Input
               id="custom_categories"
-              value={customCategories.join(", ")}
+              value={customInput}
               onChange={(e) => updateCustomCategories(e.target.value)}
               placeholder="e.g., Entertainment, Live Events"
             />

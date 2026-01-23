@@ -471,15 +471,15 @@ class FillerGenerator:
 
             # Only include categories if categories_apply_to == "all"
             # Filler never gets xmltv_flags (new/live/date are for live events only)
-            # Apply title case for proper XMLTV formatting (e.g., "Football" not "football")
+            # Preserve user's original casing for custom categories
             filler_categories = []
             if config.categories_apply_to == "all":
                 # Resolve any {sport} variables in categories
                 for cat in config.xmltv_categories:
                     if "{" in cat:
-                        filler_categories.append(self._resolver.resolve(cat, context).title())
+                        filler_categories.append(self._resolver.resolve(cat, context))
                     else:
-                        filler_categories.append(cat.title())
+                        filler_categories.append(cat)
 
             programme = Programme(
                 channel_id=channel_id,
