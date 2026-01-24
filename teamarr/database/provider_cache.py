@@ -11,6 +11,13 @@ from teamarr.core import Event, EventStatus, Team, TeamStats, Venue
 
 def event_to_dict(event: Event) -> dict:
     """Serialize Event to dict for JSON storage."""
+    # Serialize segment_times (datetime values to ISO strings)
+    segment_times_dict = None
+    if event.segment_times:
+        segment_times_dict = {
+            seg: dt.isoformat() for seg, dt in event.segment_times.items()
+        }
+
     return {
         "id": event.id,
         "provider": event.provider,
@@ -33,6 +40,9 @@ def event_to_dict(event: Event) -> dict:
         "broadcasts": event.broadcasts,
         "season_year": event.season_year,
         "season_type": event.season_type,
+        # UFC-specific fields
+        "segment_times": segment_times_dict,
+        "main_card_start": event.main_card_start.isoformat() if event.main_card_start else None,
     }
 
 
@@ -63,6 +73,19 @@ def venue_to_dict(venue: Venue) -> dict:
 
 def dict_to_event(data: dict) -> Event:
     """Deserialize dict to Event."""
+    # Deserialize segment_times (ISO strings to datetime)
+    segment_times = None
+    if data.get("segment_times"):
+        segment_times = {
+            seg: datetime.fromisoformat(dt_str)
+            for seg, dt_str in data["segment_times"].items()
+        }
+
+    # Deserialize main_card_start
+    main_card_start = None
+    if data.get("main_card_start"):
+        main_card_start = datetime.fromisoformat(data["main_card_start"])
+
     return Event(
         id=data["id"],
         provider=data["provider"],
@@ -85,6 +108,9 @@ def dict_to_event(data: dict) -> Event:
         broadcasts=data.get("broadcasts", []),
         season_year=data.get("season_year"),
         season_type=data.get("season_type"),
+        # UFC-specific fields
+        segment_times=segment_times,
+        main_card_start=main_card_start,
     )
 
 
