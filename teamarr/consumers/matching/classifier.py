@@ -16,11 +16,13 @@ from re import Pattern
 
 from teamarr.consumers.matching.normalizer import NormalizedStream, normalize_stream
 from teamarr.utilities.constants import (
+    CARD_SEGMENT_PATTERNS,
     EVENT_CARD_KEYWORDS,
     GAME_SEPARATORS,
     LEAGUE_HINT_PATTERNS,
     PLACEHOLDER_PATTERNS,
     SPORT_HINT_PATTERNS,
+    UFC_EXCLUDE_PATTERNS,
 )
 
 logger = logging.getLogger(__name__)
@@ -42,12 +44,16 @@ class ClassifiedStream:
     normalized: NormalizedStream
 
     # For TEAM_VS_TEAM: extracted team names
+    # For EVENT_CARD: also used for fighter names (fighters treated as "teams")
     team1: str | None = None
     team2: str | None = None
     separator_found: str | None = None
 
     # For EVENT_CARD: event hint (e.g., "UFC 315")
     event_hint: str | None = None
+
+    # For EVENT_CARD: card segment (e.g., "early_prelims", "prelims", "main_card")
+    card_segment: str | None = None
 
     # Detected league hint (for any category)
     league_hint: str | None = None
@@ -814,6 +820,144 @@ def extract_event_card_hint(text: str) -> str | None:
     return None
 
 
+def detect_card_segment(text: str) -> str | None:
+    """Detect card segment from stream name (UFC, MMA).
+
+    Segments:
+    - "early_prelims": Early prelims / pre-show
+    - "prelims": Regular prelims / preliminary card
+    - "main_card": Main card / main event
+    - "combined": Prelims + Mains combined stream
+
+    Examples:
+        "UFC 324 (Prelims)" → "prelims"
+        "Gaethje vs Pimblett (Early Prelims)" → "early_prelims"
+        "UFC 324 - Gaethje vs. Pimblett" → None (defaults to main_card later)
+        "UFC 324: Main English" → "main_card"
+
+    Args:
+        text: Stream name (original, not normalized - for accurate pattern matching)
+
+    Returns:
+        Segment code or None if no segment detected
+    """
+    if not text:
+        return None
+
+    text_lower = text.lower()
+
+    for pattern, segment in CARD_SEGMENT_PATTERNS:
+        if re.search(pattern, text_lower, re.IGNORECASE):
+            logger.debug("[CLASSIFY] Detected card segment '%s' from '%s'", segment, text[:50])
+            return segment
+
+    return None
+
+
+def is_ufc_excluded(text: str) -> bool:
+    """Check if stream should be excluded from UFC matching.
+
+    Excludes weigh-ins, press conferences, countdowns, and other non-event content.
+
+    Args:
+        text: Stream name
+
+    Returns:
+        True if stream should be excluded
+    """
+    if not text:
+        return False
+
+    text_lower = text.lower()
+
+    for pattern in UFC_EXCLUDE_PATTERNS:
+        if re.search(pattern, text_lower, re.IGNORECASE):
+            logger.debug("[CLASSIFY] UFC stream excluded by pattern '%s': %s", pattern, text[:50])
+            return True
+
+    return False
+
+
+def extract_fighters_from_event_card(text: str) -> tuple[str | None, str | None]:
+    """Extract fighter names from an EVENT_CARD stream.
+
+    Uses the same separator logic as team extraction but handles fighter-specific
+    patterns like "Gaethje vs Pimblett" or "Gaethje v Pimblett".
+
+    Args:
+        text: Stream name (normalized)
+
+    Returns:
+        Tuple of (fighter1, fighter2)
+    """
+    if not text:
+        return None, None
+
+    # Find separator and extract fighters
+    separator, sep_position = find_game_separator(text)
+    if separator:
+        fighter1, fighter2 = extract_teams_from_separator(text, separator, sep_position)
+
+        # Clean up fighter names - strip segment suffixes and event prefixes
+        fighter1 = _clean_fighter_name(fighter1) if fighter1 else None
+        fighter2 = _clean_fighter_name(fighter2) if fighter2 else None
+
+        if fighter1 or fighter2:
+            return fighter1, fighter2
+
+    return None, None
+
+
+def _clean_fighter_name(name: str) -> str | None:
+    """Clean extracted fighter name for UFC/MMA matching.
+
+    Strips segment suffixes, event prefixes, and other noise specific to
+    combat sports streams.
+
+    Args:
+        name: Raw extracted fighter name
+
+    Returns:
+        Cleaned fighter name or None if nothing remains
+    """
+    if not name:
+        return None
+
+    # Strip segment suffixes: (Prelims), (Main Card 1), etc.
+    for pattern, _segment in CARD_SEGMENT_PATTERNS:
+        name = re.sub(pattern, "", name, flags=re.IGNORECASE)
+
+    # Strip empty parentheses left after segment removal
+    name = re.sub(r"\(\s*\)", "", name)
+
+    # Strip UFC event number prefix: "324 - Gaethje" → "Gaethje"
+    # Also handles "UFC 324 Gaethje"
+    name = re.sub(r"^(?:ufc\s+)?\d+\s*[-:]?\s*", "", name, flags=re.IGNORECASE)
+
+    # Strip "UFC" prefix
+    name = re.sub(r"^ufc\s+", "", name, flags=re.IGNORECASE)
+
+    # Strip channel prefixes like "LIVE EVENT 03 -"
+    name = re.sub(r"^live\s+event\s+\d+\s*[-:]\s*", "", name, flags=re.IGNORECASE)
+
+    # Strip time prefixes like "9PM"
+    name = re.sub(r"^\d{1,2}\s*(?:AM|PM)\s*", "", name, flags=re.IGNORECASE)
+
+    # Strip common noise words at start
+    name = re.sub(r"^(?:main\s+english|english|prelims?)\s*:?\s*", "", name, flags=re.IGNORECASE)
+
+    # Clean up whitespace and punctuation
+    name = re.sub(r"[\s\-:]+$", "", name)
+    name = re.sub(r"^[\s\-:]+", "", name)
+    name = name.strip()
+
+    # Must have at least 2 characters to be a valid fighter name
+    if len(name) < 2:
+        return None
+
+    return name
+
+
 # =============================================================================
 # MAIN CLASSIFICATION
 # =============================================================================
@@ -898,10 +1042,22 @@ def classify_stream(
         # Step 2: Check for event card
         if is_event_card(text, league_event_type):
             event_hint = extract_event_card_hint(text)
+
+            # Detect card segment (early_prelims, prelims, main_card, combined)
+            # Use original stream name for more accurate pattern matching
+            card_segment = detect_card_segment(stream_name)
+
+            # Extract fighter names from "vs" pattern (reuse team extraction logic)
+            # Fighters are treated as "teams" for matching purposes
+            fighter1, fighter2 = extract_fighters_from_event_card(text)
+
             result = ClassifiedStream(
                 category=StreamCategory.EVENT_CARD,
                 normalized=normalized,
+                team1=fighter1,  # Fighter 1 (treated as team for matching)
+                team2=fighter2,  # Fighter 2 (treated as team for matching)
                 event_hint=event_hint,
+                card_segment=card_segment,
                 league_hint=league_hint,
                 sport_hint=sport_hint,
             )
@@ -950,13 +1106,14 @@ def classify_stream(
             )
 
     logger.debug(
-        "[CLASSIFY] '%s' -> %s (league=%s, sport=%s, teams=%s/%s)",
+        "[CLASSIFY] '%s' -> %s (league=%s, sport=%s, teams=%s/%s, segment=%s)",
         stream_name[:50],
         result.category.value,
         result.league_hint,
         result.sport_hint,
         result.team1,
         result.team2,
+        result.card_segment,
     )
 
     return result

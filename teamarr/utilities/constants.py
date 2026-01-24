@@ -521,3 +521,51 @@ EVENT_CARD_KEYWORDS: dict[str, list[str]] = {
         "pay per view",
     ],
 }
+
+
+# =============================================================================
+# CARD SEGMENT PATTERNS
+# Patterns to detect card segments (Early Prelims, Prelims, Main Card) from
+# UFC/MMA stream names. Order matters - check specific patterns before general.
+#
+# Returns: "early_prelims", "prelims", "main_card", "combined", or None
+# =============================================================================
+
+CARD_SEGMENT_PATTERNS: list[tuple[str, str]] = [
+    # Combined streams (check first - should match all segment channels)
+    (r"\bprelims?\s*\+\s*mains?\b", "combined"),
+    (r"\bprelims?\s*&\s*mains?\b", "combined"),
+    # Early prelims (check before general prelims)
+    (r"\bearly\s*prelims?\b", "early_prelims"),
+    (r"\bpre-?show\b", "early_prelims"),
+    # Prelims - parenthetical is more specific
+    (r"\(prelims?\)", "prelims"),
+    (r"\bpreliminary\s*card\b", "prelims"),
+    (r"\bprelims?\b", "prelims"),
+    # Main card variants
+    (r"\(main\s*card(?:\s*\d+)?\)", "main_card"),  # (Main Card), (Main Card 1)
+    (r"\bmain\s*card\b", "main_card"),
+    (r"\bmain\s*event\b", "main_card"),
+    (r"\b:?\s*main\s+english\b", "main_card"),  # "UFC 324: Main English"
+    (r"\bmain\b(?!\s*(?:st|street))", "main_card"),  # "Main" but not "Main St"
+]
+
+
+# =============================================================================
+# UFC EXCLUDE PATTERNS
+# Stream name patterns that should NOT be matched to UFC events.
+# These are related content (weigh-ins, press conferences) not actual fights.
+# =============================================================================
+
+UFC_EXCLUDE_PATTERNS: list[str] = [
+    r"\bweigh[\s-]?in\b",
+    r"\bpress\s*conference\b",
+    r"\bcountdown\b",
+    r"\bembedded\b",
+    r"\bpost[\s-]?fight\b",
+    r"\bface[\s-]?off\b",
+    r"\bfree\s*fight\b",
+    r"\bclassic\s*fight\b",
+    r"\breplay\b",
+    r"\bencore\b",
+]
