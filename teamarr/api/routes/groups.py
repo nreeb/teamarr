@@ -831,8 +831,10 @@ def update_groups_bulk(request: BulkGroupUpdateRequest):
                     channel_group_id=request.channel_group_id,
                     channel_group_mode=request.channel_group_mode,
                     channel_profile_ids=request.channel_profile_ids,
+                    duplicate_event_handling=request.duplicate_event_handling,
                     channel_sort_order=request.channel_sort_order,
                     overlap_handling=request.overlap_handling,
+                    enabled=request.enabled,
                     clear_template=request.clear_template,
                     clear_channel_group_id=request.clear_channel_group_id,
                     clear_channel_profile_ids=request.clear_channel_profile_ids,
@@ -846,6 +848,7 @@ def update_groups_bulk(request: BulkGroupUpdateRequest):
                 total_updated += 1
 
             except Exception as e:
+                logger.exception("[BULK_UPDATE] Failed to update group %d: %s", group_id, e)
                 results.append(BulkGroupUpdateResult(
                     group_id=group_id,
                     name=f"Group {group_id}",
