@@ -1188,6 +1188,20 @@ class TeamMatcher:
                 else:
                     venue = venue_data  # Already a Venue
 
+            # Reconstruct segment_times for UFC events
+            segment_times_data = cached_data.get("segment_times", {})
+            segment_times = {}
+            for seg_name, seg_time in segment_times_data.items():
+                if isinstance(seg_time, str):
+                    segment_times[seg_name] = datetime.fromisoformat(seg_time)
+                elif seg_time is not None:
+                    segment_times[seg_name] = seg_time
+
+            # Parse main_card_start if present
+            main_card_start = cached_data.get("main_card_start")
+            if isinstance(main_card_start, str):
+                main_card_start = datetime.fromisoformat(main_card_start)
+
             return Event(
                 id=cached_data.get("id", ""),
                 provider=cached_data.get("provider", ""),
@@ -1201,6 +1215,8 @@ class TeamMatcher:
                 sport=cached_data.get("sport", ""),
                 venue=venue,
                 broadcasts=broadcasts,
+                segment_times=segment_times,
+                main_card_start=main_card_start,
             )
         except Exception as e:
             logger.warning("[MATCH_CACHE] Failed to reconstruct event from cache: %s", e)
