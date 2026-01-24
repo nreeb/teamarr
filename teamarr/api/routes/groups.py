@@ -356,6 +356,7 @@ class BulkGroupUpdateRequest(BaseModel):
     group_ids: list[int] = Field(..., min_length=1)
 
     # Updateable fields (all optional - only provided fields are applied)
+    leagues: list[str] | None = None
     template_id: int | None = None
     channel_group_id: int | None = None
     channel_group_mode: str | None = None
@@ -366,7 +367,7 @@ class BulkGroupUpdateRequest(BaseModel):
     enabled: bool | None = None
 
     # Clear flags to explicitly set fields to NULL
-    clear_template_id: bool = False
+    clear_template: bool = False
     clear_channel_group_id: bool = False
     clear_channel_profile_ids: bool = False
 
