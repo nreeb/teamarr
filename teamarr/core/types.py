@@ -71,6 +71,11 @@ class Event:
     # MMA-specific: when main card begins (prelims start at start_time)
     main_card_start: datetime | None = None
 
+    # MMA-specific: exact segment times from ESPN bout-level data
+    # Keys: "early_prelims", "prelims", "main_card"
+    # Values: datetime of segment start
+    segment_times: dict[str, datetime] = field(default_factory=dict)
+
 
 @dataclass(frozen=True)
 class TeamStats:

@@ -94,63 +94,84 @@ def get_segment_display_suffix(segment: str | None) -> str:
     return ""
 
 
-def estimate_segment_times(
+def get_segment_times(
     event: Event,
     segment: str,
     sport_durations: dict[str, float] | None = None,
 ) -> tuple[datetime, datetime]:
-    """Estimate start/end times for a segment.
+    """Get exact start/end times for a segment from ESPN bout-level data.
 
-    Uses event.main_card_start if available, otherwise estimates.
+    Uses event.segment_times populated from ESPN API. Falls back to estimation
+    only if ESPN data is not available (should be rare).
 
     Args:
-        event: UFC Event
-        segment: Segment code
-        sport_durations: Optional duration settings
+        event: UFC Event with segment_times from ESPN
+        segment: Segment code ("early_prelims", "prelims", "main_card")
+        sport_durations: Optional duration settings (for fallback only)
 
     Returns:
         Tuple of (start_time, end_time)
     """
     mma_duration = (sport_durations or {}).get("mma", 5.0)
 
-    # If event has main_card_start, use it for accurate timing
+    # Use exact ESPN segment times if available
+    if event.segment_times and segment in event.segment_times:
+        start_time = event.segment_times[segment]
+
+        # End time = next segment's start, or estimated duration for last segment
+        segment_list = [s for s in SEGMENT_ORDER if s in event.segment_times]
+        try:
+            seg_idx = segment_list.index(segment)
+            if seg_idx < len(segment_list) - 1:
+                # Not the last segment - end at next segment's start
+                next_segment = segment_list[seg_idx + 1]
+                end_time = event.segment_times[next_segment]
+            else:
+                # Last segment - use estimated duration
+                # Main card typically runs 2-3 hours
+                end_time = start_time + timedelta(hours=mma_duration / 2)
+        except ValueError:
+            end_time = start_time + timedelta(hours=mma_duration / 3)
+
+        return start_time, end_time
+
+    # Fallback: estimate if no ESPN data (should be rare)
+    logger.warning(
+        "[UFC_SEGMENTS] No ESPN segment_times for event %s segment %s, using estimates",
+        event.id, segment,
+    )
+    return _estimate_segment_times_fallback(event, segment, mma_duration)
+
+
+def _estimate_segment_times_fallback(
+    event: Event,
+    segment: str,
+    mma_duration: float,
+) -> tuple[datetime, datetime]:
+    """Fallback estimation when ESPN data is not available."""
     if event.main_card_start:
         if segment == "early_prelims":
-            # Early prelims: event start → prelims start
-            # Estimate prelims start as 1.5 hours before main card
             prelims_start = event.main_card_start - timedelta(hours=1.5)
             return event.start_time, prelims_start
-
         elif segment == "prelims":
-            # Prelims: 1.5 hours before main → main card start
             prelims_start = event.main_card_start - timedelta(hours=1.5)
-            # If event start is later than our estimate, use event start
             if event.start_time > prelims_start:
                 prelims_start = event.start_time
             return prelims_start, event.main_card_start
-
-        else:  # main_card
-            # Main card: main_card_start → end of event
+        else:
             main_duration = timedelta(hours=mma_duration / 2)
             return event.main_card_start, event.main_card_start + main_duration
 
-    # No main_card_start - estimate based on total duration
+    # No main_card_start - crude estimation
+    segment_duration = timedelta(hours=mma_duration / 3)
     if segment == "early_prelims":
-        # First third of event
-        segment_duration = timedelta(hours=mma_duration / 3)
         return event.start_time, event.start_time + segment_duration
-
     elif segment == "prelims":
-        # Middle third of event
-        segment_duration = timedelta(hours=mma_duration / 3)
-        prelims_start = event.start_time + segment_duration
-        return prelims_start, prelims_start + segment_duration
-
-    else:  # main_card
-        # Last third of event
-        segment_duration = timedelta(hours=mma_duration / 3)
-        main_start = event.start_time + 2 * segment_duration
-        return main_start, main_start + segment_duration
+        start = event.start_time + segment_duration
+        return start, start + segment_duration
+    else:
+        start = event.start_time + 2 * segment_duration
+        return start, start + segment_duration
 
 
 def expand_ufc_segments(
@@ -226,8 +247,8 @@ def expand_ufc_segments(
             if not streams_for_segment:
                 continue
 
-            # Calculate segment timing
-            start_time, end_time = estimate_segment_times(event, segment, sport_durations)
+            # Get exact segment timing from ESPN data
+            start_time, end_time = get_segment_times(event, segment, sport_durations)
 
             # Create segment entry with metadata
             for match in streams_for_segment:
