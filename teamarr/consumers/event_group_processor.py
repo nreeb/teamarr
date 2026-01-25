@@ -2675,6 +2675,7 @@ def process_all_event_groups(
     target_date: date | None = None,
     progress_callback: Callable[[int, int, str], None] | None = None,
     generation: int | None = None,
+    service: SportsDataService | None = None,
 ) -> BatchProcessingResult:
     """Process all active event groups.
 
@@ -2686,6 +2687,7 @@ def process_all_event_groups(
         target_date: Target date (defaults to today)
         progress_callback: Optional callback(current, total, group_name)
         generation: Cache generation counter (shared across all groups in run)
+        service: Optional SportsDataService (reuse to maintain cache warmth)
 
     Returns:
         BatchProcessingResult
@@ -2693,6 +2695,7 @@ def process_all_event_groups(
     processor = EventGroupProcessor(
         db_factory=db_factory,
         dispatcharr_client=dispatcharr_client,
+        service=service,
     )
     return processor.process_all_groups(
         target_date, progress_callback=progress_callback, generation=generation

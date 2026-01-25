@@ -191,6 +191,11 @@ def run_full_generation(
         current_generation = increment_generation_counter(db_factory)
         logger.info("[GENERATION] Starting with cache generation %d", current_generation)
 
+        # Create a single SportsDataService instance to share across all processing
+        # This ensures the event cache stays warm throughout the entire run
+        # (Previously each consumer created its own service with a cold cache)
+        shared_service = create_default_service()
+
         # Get settings
         with db_factory() as conn:
             settings = get_epg_settings(conn)
@@ -263,6 +268,7 @@ def run_full_generation(
             dispatcharr_client=dispatcharr_client,
             progress_callback=group_progress,
             generation=current_generation,  # Share generation across all groups
+            service=shared_service,  # Reuse service to maintain warm cache
         )
         result.groups_processed = group_result.groups_processed
         result.groups_programmes = group_result.total_programmes
@@ -431,10 +437,10 @@ def run_full_generation(
             logger.info("[GENERATION] EPG written to %s (%s bytes)", output_path, f"{result.file_size:,}")
 
         # Create lifecycle service once for steps 5-6
-        sports_service = create_default_service()
+        # Reuse shared_service to maintain cache warmth
         lifecycle_service = create_lifecycle_service(
             db_factory,
-            sports_service,
+            shared_service,
             dispatcharr_client=dispatcharr_client,
         )
 
