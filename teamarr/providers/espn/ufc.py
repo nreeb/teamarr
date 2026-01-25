@@ -100,12 +100,9 @@ class UFCParserMixin:
             # Main card start for backwards compatibility
             main_card_start = segment_times.get("main_card")
 
-            # Find the main event (first bout at main card time)
-            main_card_time_str = sorted_times[-1]  # Latest time = main card
-            main_event = next(
-                (c for c in competitions if c.get("date") == main_card_time_str),
-                competitions[0],
-            )
+            # Find the main event (last bout = headline fight)
+            # ESPN orders bouts chronologically, so last bout is the main event
+            main_event = competitions[-1]
 
             # Extract fighters as "teams"
             competitors = main_event.get("competitors", [])
