@@ -8,6 +8,19 @@ nav_order: 1
 
 Teamarr supports a wide range of sports leagues through multiple data providers.
 
+## Support Levels
+
+Leagues have different levels of support:
+
+| Level | Team Import | Event Matching | Description |
+|-------|-------------|----------------|-------------|
+| **Full** | Yes | Yes | Teams can be added for team-based channels; streams matched to events |
+| **Event Only** | No | Yes | Event groups can match streams to events; no team import |
+
+{: .note }
+**Team Import** = Add teams to Teams page for dedicated team channels
+**Event Matching** = Event groups can match M3U streams to sporting events
+
 ## Data Providers
 
 | Provider | Description |
@@ -187,12 +200,14 @@ Teamarr supports a wide range of sports leagues through multiple data providers.
 
 ## Combat Sports
 
+{: .warning }
+Combat sports are **Event Only** - no team import available.
+
 | League | ID | Provider | Type |
 |--------|-----|----------|------|
 | Ultimate Fighting Championship | `ufc` | ESPN | Event Card |
 | Boxing | `boxing` | TSDB | Event Card |
 
-{: .note }
 Combat sports use "Event Card" matching rather than team vs team matching.
 
 ---
