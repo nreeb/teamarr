@@ -297,7 +297,7 @@ CREATE TABLE IF NOT EXISTS settings (
     update_auto_detect_branch BOOLEAN DEFAULT 1,         -- Auto-detect branch from version string
 
     -- Schema Version
-    schema_version INTEGER DEFAULT 44
+    schema_version INTEGER DEFAULT 45
 );
 
 -- Insert default settings
