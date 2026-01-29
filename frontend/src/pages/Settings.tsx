@@ -250,6 +250,7 @@ export function Settings() {
         password: "", // Don't show masked password
         epg_id: settings.dispatcharr.epg_id,
         default_channel_profile_ids: settings.dispatcharr.default_channel_profile_ids,
+        cleanup_unused_logos: settings.dispatcharr.cleanup_unused_logos,
       })
       setLifecycle(settings.lifecycle)
       setScheduler(settings.scheduler)
@@ -329,6 +330,7 @@ export function Settings() {
         username: dispatcharr.username,
         epg_id: dispatcharr.epg_id,
         default_channel_profile_ids: profileIdsToSave,
+        cleanup_unused_logos: dispatcharr.cleanup_unused_logos,
       }
       if (dispatcharr.password) {
         data.password = dispatcharr.password
@@ -1854,6 +1856,21 @@ export function Settings() {
             <p className="text-xs text-muted-foreground">
               These defaults apply to all groups unless overridden in individual group settings.
               Profile assignment is enforced on every EPG generation run.
+            </p>
+          </div>
+
+          {/* 6. Logo Cleanup */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={dispatcharr.cleanup_unused_logos ?? false}
+                onCheckedChange={(checked) => setDispatcharr({ ...dispatcharr, cleanup_unused_logos: checked })}
+              />
+              <Label>Clean up unused logos after generation</Label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              When enabled, removes <strong>all</strong> unused logos from Dispatcharr after EPG generation.
+              This affects all unused logos, not just ones uploaded by Teamarr.
             </p>
           </div>
 
