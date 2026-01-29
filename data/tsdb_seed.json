@@ -1,7 +1,7 @@
 {
   "generated_at": "2026-01-21T12:00:00.000000Z",
   "generated_with": "premium_key",
-  "note": "Rugby (NRL, Super Rugby), Cricket (IPL, BBL, SA20), Norwegian Hockey, and AFL.",
+  "note": "Rugby (NRL, Super Rugby), Cricket (IPL, BBL, SA20), Norwegian Hockey, AFL, and CFL.",
   "leagues": [
     {
       "code": "nrl",
@@ -51,6 +51,13 @@
       "provider_league_name": "Australian AFL",
       "sport": "Australian Football",
       "team_count": 18
+    },
+    {
+      "code": "cfl",
+      "provider_league_id": "4405",
+      "provider_league_name": "CFL",
+      "sport": "American Football",
+      "team_count": 9
     }
   ],
   "teams": [
@@ -139,6 +146,16 @@
     {"provider_team_id": "135698", "team_name": "St Kilda Football Club", "team_abbrev": "STK", "league": "afl", "sport": "Australian Football", "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/fvj5ez1732026459.png"},
     {"provider_team_id": "135699", "team_name": "Sydney Swans", "team_abbrev": "SYD", "league": "afl", "sport": "Australian Football", "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/ndeir91647870648.png"},
     {"provider_team_id": "135700", "team_name": "West Coast Eagles", "team_abbrev": "WCE", "league": "afl", "sport": "Australian Football", "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/xpcp2f1647870746.png"},
-    {"provider_team_id": "135701", "team_name": "Western Bulldogs", "team_abbrev": "WB", "league": "afl", "sport": "Australian Football", "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/e3hg551647870757.png"}
+    {"provider_team_id": "135701", "team_name": "Western Bulldogs", "team_abbrev": "WB", "league": "afl", "sport": "Australian Football", "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/e3hg551647870757.png"},
+
+    {"provider_team_id": "135006", "team_name": "BC Lions", "team_abbrev": "BCL", "league": "cfl", "sport": "American Football", "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/ysxssy1424732039.png"},
+    {"provider_team_id": "135007", "team_name": "Calgary Stampeders", "team_abbrev": "CGY", "league": "cfl", "sport": "American Football", "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/lksemj1565196917.png"},
+    {"provider_team_id": "135008", "team_name": "Edmonton Elks", "team_abbrev": "EDM", "league": "cfl", "sport": "American Football", "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/5icq721630952022.png"},
+    {"provider_team_id": "135002", "team_name": "Hamilton Tiger-Cats", "team_abbrev": "HAM", "league": "cfl", "sport": "American Football", "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/qtwsuq1424727420.png"},
+    {"provider_team_id": "135003", "team_name": "Montreal Alouettes", "team_abbrev": "MTL", "league": "cfl", "sport": "American Football", "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/a6pbbp1628555426.png"},
+    {"provider_team_id": "135004", "team_name": "Ottawa Redblacks", "team_abbrev": "OTT", "league": "cfl", "sport": "American Football", "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/k8wjz71546002654.png"},
+    {"provider_team_id": "135009", "team_name": "Saskatchewan Roughriders", "team_abbrev": "SSK", "league": "cfl", "sport": "American Football", "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/xrdull1630952245.png"},
+    {"provider_team_id": "135005", "team_name": "Toronto Argonauts", "team_abbrev": "TOR", "league": "cfl", "sport": "American Football", "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/5a57ou1628555372.png"},
+    {"provider_team_id": "135010", "team_name": "Winnipeg Blue Bombers", "team_abbrev": "WPG", "league": "cfl", "sport": "American Football", "logo_url": "https://r2.thesportsdb.com/images/media/team/badge/4bo4wj1561667273.png"}
   ]
 }
