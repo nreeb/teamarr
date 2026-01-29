@@ -2288,15 +2288,10 @@ class EventGroupProcessor:
         """
         from teamarr.consumers.lifecycle import StreamProcessResult
 
-        # Determine client to use - skip Dispatcharr for Regular_TV
-        client = self._dispatcharr_client
-        if group.name == "Regular_TV" or group.m3u_group_name == "Regular_TV":
-            client = None
-
         lifecycle_service = create_lifecycle_service(
             self._db_factory,
             self._service,  # Required for template resolution
-            client,
+            self._dispatcharr_client,
         )
 
         # Build group config dict
