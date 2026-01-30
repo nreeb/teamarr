@@ -693,6 +693,25 @@ export function EventGroupForm() {
             </CardContent>
           </Card>}
 
+          {/* Stream Timezone - hidden for child groups */}
+          {!isChildGroup && <Card>
+            <CardHeader>
+              <CardTitle>Stream Timezone</CardTitle>
+              <CardDescription>
+                Timezone used in stream names for date matching
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <StreamTimezoneSelector
+                value={formData.stream_timezone ?? null}
+                onChange={(tz) => setFormData({ ...formData, stream_timezone: tz })}
+              />
+              <p className="text-xs text-muted-foreground mt-2">
+                Set this if your IPTV provider shows times in a different timezone than your local time (e.g., UK user with US Eastern times like "9:00 PM ET"). Leave on "Auto-detect" if streams include timezone indicators.
+              </p>
+            </CardContent>
+          </Card>}
+
           {/* Channel Settings - hidden for child groups */}
           {!isChildGroup && <Card>
             <CardHeader>
@@ -1043,18 +1062,6 @@ export function EventGroupForm() {
                   />
                   <p className="text-xs text-muted-foreground mt-1">
                     How streams are processed (ffmpeg, VLC, proxy, etc). Leave empty to use global default.
-                  </p>
-                </div>
-
-                {/* Stream Timezone */}
-                <div className="mt-4 pt-4 border-t">
-                  <Label className="text-sm font-medium mb-2 block">Stream Timezone</Label>
-                  <StreamTimezoneSelector
-                    value={formData.stream_timezone ?? null}
-                    onChange={(tz) => setFormData({ ...formData, stream_timezone: tz })}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Timezone used in stream names (e.g., "Lakers @ Celtics 9:00 PM ET"). Used for date matching when your provider uses a different timezone than your local time.
                   </p>
                 </div>
             </CardContent>
