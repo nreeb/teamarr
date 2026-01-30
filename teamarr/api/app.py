@@ -1,6 +1,7 @@
 """FastAPI application factory - Clean V2 API with React UI."""
 
 import logging
+import os
 import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -95,40 +96,33 @@ def _run_ufc_segment_migration(db_factory, migration_name: str = "ufc_segment_fi
             """)
 
             # Check if migration already ran
-            cursor = conn.execute(
-                "SELECT 1 FROM migrations WHERE name = ?", (migration_name,)
-            )
+            cursor = conn.execute("SELECT 1 FROM migrations WHERE name = ?", (migration_name,))
             if cursor.fetchone():
                 return  # Already migrated
 
             # Clear UFC event cache entries
-            cursor = conn.execute(
-                "DELETE FROM service_cache WHERE cache_key LIKE 'events:ufc:%'"
-            )
+            cursor = conn.execute("DELETE FROM service_cache WHERE cache_key LIKE 'events:ufc:%'")
             events_cleared = cursor.rowcount
 
             # Delete UFC managed channels (will be recreated with segment IDs)
-            cursor = conn.execute(
-                "DELETE FROM managed_channels WHERE league = 'ufc'"
-            )
+            cursor = conn.execute("DELETE FROM managed_channels WHERE league = 'ufc'")
             channels_cleared = cursor.rowcount
 
             # Clear UFC fingerprint cache
-            cursor = conn.execute(
-                "DELETE FROM stream_match_cache WHERE league = 'ufc'"
-            )
+            cursor = conn.execute("DELETE FROM stream_match_cache WHERE league = 'ufc'")
             fingerprints_cleared = cursor.rowcount
 
             # Mark migration as done
-            conn.execute(
-                "INSERT INTO migrations (name) VALUES (?)", (migration_name,)
-            )
+            conn.execute("INSERT INTO migrations (name) VALUES (?)", (migration_name,))
             conn.commit()
 
             if events_cleared or channels_cleared or fingerprints_cleared:
                 logger.info(
                     "[MIGRATION] %s: cleared %d events, %d channels, %d fingerprints",
-                    migration_name, events_cleared, channels_cleared, fingerprints_cleared,
+                    migration_name,
+                    events_cleared,
+                    channels_cleared,
+                    fingerprints_cleared,
                 )
     except Exception as e:
         logger.warning("[MIGRATION] %s failed: %s", migration_name, e)
@@ -164,11 +158,19 @@ def _run_startup_tasks():
         _run_ufc_segment_migration(get_db, "ufc_segment_fix_v3")
 
         # Refresh team/league cache (this takes time)
-        startup_state.set_phase(StartupPhase.REFRESHING_CACHE)
-        cache_service = create_cache_service(get_db)
-        logger.info("[STARTUP] Refreshing team/league cache on startup...")
-        cache_service.refresh()
-        logger.info("[STARTUP] Team/league cache refreshed")
+        skip_cache = os.getenv("SKIP_CACHE_REFRESH", "").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+        if skip_cache:
+            logger.info("[STARTUP] Cache refresh skipped (SKIP_CACHE_REFRESH set)")
+        else:
+            startup_state.set_phase(StartupPhase.REFRESHING_CACHE)
+            cache_service = create_cache_service(get_db)
+            logger.info("[STARTUP] Refreshing team/league cache on startup...")
+            cache_service.refresh()
+            logger.info("[STARTUP] Team/league cache refreshed")
 
         # Reload league mapping service to pick up new league names from cache
         league_mapping_service.reload()
@@ -199,7 +201,9 @@ def _run_startup_tasks():
         try:
             factory = get_factory(get_db)
             if factory.is_configured:
-                logger.info("[STARTUP] Dispatcharr configured, connection will be established on first use")
+                logger.info(
+                    "[STARTUP] Dispatcharr configured, connection will be established on first use"
+                )
             else:
                 logger.info("[STARTUP] Dispatcharr not configured")
         except Exception as e:
@@ -223,7 +227,9 @@ def _run_startup_tasks():
                     factory = get_factory()
                     connection = factory.get_connection()
                 except Exception as e:
-                    logger.debug("[STARTUP] Dispatcharr connection unavailable for scheduler: %s", e)
+                    logger.debug(
+                        "[STARTUP] Dispatcharr connection unavailable for scheduler: %s", e
+                    )
 
                 scheduler_service = create_scheduler_service(get_db, connection)
                 cron_expr = epg_settings.cron_expression or "0 * * * *"

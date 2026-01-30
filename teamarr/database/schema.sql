@@ -228,6 +228,8 @@ CREATE TABLE IF NOT EXISTS settings (
     dispatcharr_password TEXT,                -- Note: Consider encrypting in production
     dispatcharr_epg_id INTEGER,               -- Teamarr's EPG source ID in Dispatcharr
     default_channel_profile_ids JSON,         -- Default channel profiles for event channels
+    default_stream_profile_id INTEGER,        -- Default stream profile for event channels
+    cleanup_unused_logos BOOLEAN DEFAULT 0,   -- Call Dispatcharr's cleanup API after generation
 
     -- Reconciliation Settings
     reconcile_on_epg_generation BOOLEAN DEFAULT 1,
@@ -296,7 +298,7 @@ CREATE TABLE IF NOT EXISTS settings (
     update_auto_detect_branch BOOLEAN DEFAULT 1,         -- Auto-detect branch from version string
 
     -- Schema Version
-    schema_version INTEGER DEFAULT 44
+    schema_version INTEGER DEFAULT 46
 );
 
 -- Insert default settings
@@ -336,6 +338,7 @@ CREATE TABLE IF NOT EXISTS event_epg_groups (
     channel_group_id INTEGER,                -- Dispatcharr channel group to assign (when mode='static')
     channel_group_mode TEXT DEFAULT 'static', -- 'static' or pattern like '{sport}', '{league}', '{sport} | {league}'
     channel_profile_ids TEXT,                -- JSON array: profile IDs and/or patterns like "{sport}", "{league}"
+    stream_profile_id INTEGER,               -- Stream profile for transcoding/proxy (overrides global default)
 
     -- Duplicate Event Handling (uses global lifecycle settings)
     duplicate_event_handling TEXT DEFAULT 'consolidate'
@@ -655,6 +658,7 @@ INSERT OR REPLACE INTO leagues (league_code, provider, provider_league_id, provi
     ('nfl', 'espn', 'football/nfl', NULL, 'National Football League', 'football', 'https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png', NULL, 1, 'NFL', 'nfl', 'team_vs_team', 'NFL Football', NULL, NULL),
     ('college-football', 'espn', 'football/college-football', NULL, 'NCAA Football', 'football', 'https://www.ncaa.com/modules/custom/casablanca_core/img/sportbanners/football.png', NULL, 1, 'NCAAF', 'ncaaf', 'team_vs_team', 'College Football', NULL, NULL),
     ('ufl', 'espn', 'football/ufl', NULL, 'United Football League', 'football', 'https://a.espncdn.com/i/teamlogos/leagues/500/ufl.png', NULL, 1, 'UFL', 'ufl', 'team_vs_team', 'UFL Football', NULL, NULL),
+    ('cfl', 'tsdb', '4405', 'CFL', 'Canadian Football League', 'football', 'https://r2.thesportsdb.com/images/media/league/badge/ffypv51488739128.png', NULL, 1, 'CFL', 'cfl', 'team_vs_team', 'CFL Football', NULL, NULL),  -- TSDB: ESPN stopped CFL coverage in 2022
 
     -- Basketball (ESPN)
     ('nba', 'espn', 'basketball/nba', NULL, 'National Basketball Association', 'basketball', 'https://a.espncdn.com/i/teamlogos/leagues/500/nba.png', NULL, 1, 'NBA', 'nba', 'team_vs_team', 'NBA Basketball', NULL, NULL),

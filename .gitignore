@@ -51,5 +51,6 @@ teamarr.xml.bak
 data/
 !data/tsdb_seed.json
 
-# Plan files (local only, work in progress)
-plans/
+# Local dev scripts
+dev.sh
+.gitattributes

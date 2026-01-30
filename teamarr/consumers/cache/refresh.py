@@ -4,6 +4,7 @@ Refreshes team and league cache from all registered providers.
 """
 
 import logging
+import os
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -30,7 +31,9 @@ class CacheRefresher:
     """Refreshes team and league cache from providers."""
 
     # Max parallel requests
-    MAX_WORKERS = 50
+    # Configurable via ESPN_MAX_WORKERS for users with DNS throttling (PiHole, AdGuard)
+    # Default is 50 (lower than team/event processors due to more API calls per league)
+    MAX_WORKERS = int(os.environ.get("ESPN_MAX_WORKERS", 50))
     # Update progress every N leagues
     PROGRESS_UPDATE_INTERVAL = 5
 
@@ -111,9 +114,7 @@ class CacheRefresher:
 
             # Calculate work-proportional progress allocation
             # Reserve 5% for start, 5% for saving = 90% for discovery
-            total_expected_leagues = sum(
-                EXPECTED_LEAGUES.get(p.name, 10) for p in providers
-            )
+            total_expected_leagues = sum(EXPECTED_LEAGUES.get(p.name, 10) for p in providers)
 
             # Calculate progress ranges per provider based on expected work
             provider_progress: list[tuple[SportsProvider, int, int]] = []
@@ -283,7 +284,9 @@ class CacheRefresher:
                             if not league_name:
                                 league_name = league_info_api.get("name")
                     except Exception as e:
-                        logger.debug("[CACHE_REFRESH] Could not fetch league info for %s: %s", league_slug, e)
+                        logger.debug(
+                            "[CACHE_REFRESH] Could not fetch league info for %s: %s", league_slug, e
+                        )
 
                 league_info = {
                     "league_slug": league_slug,
@@ -311,7 +314,12 @@ class CacheRefresher:
 
                 return league_info, team_entries
             except Exception as e:
-                logger.warning("[CACHE_REFRESH] Failed to fetch %s teams for %s: %s", provider_name, league_slug, e)
+                logger.warning(
+                    "[CACHE_REFRESH] Failed to fetch %s teams for %s: %s",
+                    provider_name,
+                    league_slug,
+                    e,
+                )
                 db_metadata = self._get_league_metadata(league_slug)
                 return {
                     "league_slug": league_slug,
@@ -342,7 +350,9 @@ class CacheRefresher:
                     teams.extend(team_entries)
                 except Exception as e:
                     slug, sport = futures[future]
-                    logger.warning("[CACHE_REFRESH] Error processing %s %s: %s", provider_name, slug, e)
+                    logger.warning(
+                        "[CACHE_REFRESH] Error processing %s %s: %s", provider_name, slug, e
+                    )
 
         logger.debug(
             "[DISCOVERY] %s: %d leagues, %d teams",
@@ -412,7 +422,9 @@ class CacheRefresher:
                         if resp.status_code == 200:
                             return resp.json().get("slug")
                 except (httpx.RequestError, httpx.HTTPStatusError) as e:
-                    logger.debug("[CACHE_REFRESH] Failed to fetch league slug from %s: %s", ref_url, e)
+                    logger.debug(
+                        "[CACHE_REFRESH] Failed to fetch league slug from %s: %s", ref_url, e
+                    )
                 return None
 
             # Fetch slugs in parallel
@@ -748,7 +760,9 @@ class CacheRefresher:
                         )
                         logger.info(
                             "[CRICBUZZ] Auto-update (fallback): %s %s -> %s",
-                            league_code, current_id, new_id,
+                            league_code,
+                            current_id,
+                            new_id,
                         )
                         updated += 1
                 elif row["provider"] == "cricbuzz":
@@ -761,7 +775,9 @@ class CacheRefresher:
                         )
                         logger.info(
                             "[CRICBUZZ] Auto-update: %s %s -> %s",
-                            league_code, current_id, new_id,
+                            league_code,
+                            current_id,
+                            new_id,
                         )
                         updated += 1
 
@@ -820,7 +836,9 @@ class CacheRefresher:
                     updated += 1
                     logger.debug(
                         "[CACHE_REFRESH] Updated soccer team %d: %d -> %d leagues",
-                        team_id, len(current_leagues), len(all_leagues),
+                        team_id,
+                        len(current_leagues),
+                        len(all_leagues),
                     )
 
             if updated > 0:

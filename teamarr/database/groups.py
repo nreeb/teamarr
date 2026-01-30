@@ -25,7 +25,10 @@ class EventEPGGroup:
     channel_start_number: int | None = None
     channel_group_id: int | None = None
     channel_group_mode: str = "static"  # "static", "sport", "league"
-    channel_profile_ids: list[int | str] = field(default_factory=list)  # IDs or "{sport}", "{league}"
+    channel_profile_ids: list[int | str] = field(
+        default_factory=list
+    )  # IDs or "{sport}", "{league}"
+    stream_profile_id: int | None = None  # Stream profile (overrides global default)
     duplicate_event_handling: str = "consolidate"
     channel_assignment_mode: str = "auto"
     sort_order: int = 0
@@ -118,8 +121,11 @@ def _row_to_group(row) -> EventEPGGroup:
         template_id=row["template_id"],
         channel_start_number=row["channel_start_number"],
         channel_group_id=row["channel_group_id"],
-        channel_group_mode=row["channel_group_mode"] if "channel_group_mode" in row.keys() else "static",
+        channel_group_mode=row["channel_group_mode"]
+        if "channel_group_mode" in row.keys()
+        else "static",
         channel_profile_ids=channel_profile_ids,
+        stream_profile_id=row["stream_profile_id"] if "stream_profile_id" in row.keys() else None,
         duplicate_event_handling=row["duplicate_event_handling"] or "consolidate",
         channel_assignment_mode=row["channel_assignment_mode"] or "auto",
         sort_order=row["sort_order"] or 0,
@@ -147,7 +153,9 @@ def _row_to_group(row) -> EventEPGGroup:
         custom_regex_time_enabled=bool(row["custom_regex_time_enabled"])
         if "custom_regex_time_enabled" in row.keys()
         else False,
-        custom_regex_league=row["custom_regex_league"] if "custom_regex_league" in row.keys() else None,
+        custom_regex_league=row["custom_regex_league"]
+        if "custom_regex_league" in row.keys()
+        else None,
         custom_regex_league_enabled=bool(row["custom_regex_league_enabled"])
         if "custom_regex_league_enabled" in row.keys()
         else False,
@@ -171,10 +179,18 @@ def _row_to_group(row) -> EventEPGGroup:
         or 0,
         streams_excluded=row["streams_excluded"] if "streams_excluded" in row.keys() else 0,
         # EXCLUDED breakdown by reason
-        excluded_event_final=row["excluded_event_final"] if "excluded_event_final" in row.keys() else 0,
-        excluded_event_past=row["excluded_event_past"] if "excluded_event_past" in row.keys() else 0,
-        excluded_before_window=row["excluded_before_window"] if "excluded_before_window" in row.keys() else 0,
-        excluded_league_not_included=row["excluded_league_not_included"] if "excluded_league_not_included" in row.keys() else 0,
+        excluded_event_final=row["excluded_event_final"]
+        if "excluded_event_final" in row.keys()
+        else 0,
+        excluded_event_past=row["excluded_event_past"]
+        if "excluded_event_past" in row.keys()
+        else 0,
+        excluded_before_window=row["excluded_before_window"]
+        if "excluded_before_window" in row.keys()
+        else 0,
+        excluded_league_not_included=row["excluded_league_not_included"]
+        if "excluded_league_not_included" in row.keys()
+        else 0,
         # Multi-sport enhancements
         channel_sort_order=row["channel_sort_order"] or "time",
         overlap_handling=row["overlap_handling"] or "add_stream",
@@ -224,7 +240,9 @@ def get_group(conn: Connection, group_id: int) -> EventEPGGroup | None:
     return _row_to_group(row) if row else None
 
 
-def get_group_by_name(conn: Connection, name: str, m3u_account_id: int | None = None) -> EventEPGGroup | None:
+def get_group_by_name(
+    conn: Connection, name: str, m3u_account_id: int | None = None
+) -> EventEPGGroup | None:
     """Get a single event EPG group by name (optionally scoped to account).
 
     Args:
@@ -238,7 +256,7 @@ def get_group_by_name(conn: Connection, name: str, m3u_account_id: int | None = 
     if m3u_account_id is not None:
         cursor = conn.execute(
             "SELECT * FROM event_epg_groups WHERE name = ? AND m3u_account_id = ?",
-            (name, m3u_account_id)
+            (name, m3u_account_id),
         )
     else:
         cursor = conn.execute("SELECT * FROM event_epg_groups WHERE name = ?", (name,))
@@ -285,6 +303,7 @@ def create_group(
     channel_group_id: int | None = None,
     channel_group_mode: str = "static",
     channel_profile_ids: list[int | str] | None = None,
+    stream_profile_id: int | None = None,
     duplicate_event_handling: str = "consolidate",
     channel_assignment_mode: str = "auto",
     sort_order: int = 0,
@@ -354,7 +373,7 @@ def create_group(
     cursor = conn.execute(
         """INSERT INTO event_epg_groups (
             name, display_name, leagues, group_mode, template_id, channel_start_number,
-            channel_group_id, channel_group_mode, channel_profile_ids,
+            channel_group_id, channel_group_mode, channel_profile_ids, stream_profile_id,
             duplicate_event_handling, channel_assignment_mode, sort_order,
             total_stream_count, parent_group_id, m3u_group_id, m3u_group_name,
             m3u_account_id, m3u_account_name,
@@ -367,7 +386,7 @@ def create_group(
             skip_builtin_filter,
             include_teams, exclude_teams, team_filter_mode,
             channel_sort_order, overlap_handling, enabled
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",  # noqa: E501
         (
             name,
             display_name,
@@ -378,6 +397,7 @@ def create_group(
             channel_group_id,
             channel_group_mode,
             json.dumps(channel_profile_ids) if channel_profile_ids else None,
+            stream_profile_id,
             duplicate_event_handling,
             channel_assignment_mode,
             sort_order,
@@ -430,6 +450,7 @@ def update_group(
     channel_group_id: int | None = None,
     channel_group_mode: str | None = None,
     channel_profile_ids: list[int | str] | None = None,
+    stream_profile_id: int | None = None,
     duplicate_event_handling: str | None = None,
     channel_assignment_mode: str | None = None,
     sort_order: int | None = None,
@@ -467,6 +488,7 @@ def update_group(
     clear_channel_start_number: bool = False,
     clear_channel_group_id: bool = False,
     clear_channel_profile_ids: bool = False,
+    clear_stream_profile_id: bool = False,
     clear_parent_group_id: bool = False,
     clear_m3u_group_id: bool = False,
     clear_m3u_group_name: bool = False,
@@ -543,6 +565,12 @@ def update_group(
         values.append(json.dumps(channel_profile_ids))
     elif clear_channel_profile_ids:
         updates.append("channel_profile_ids = NULL")
+
+    if stream_profile_id is not None:
+        updates.append("stream_profile_id = ?")
+        values.append(stream_profile_id)
+    elif clear_stream_profile_id:
+        updates.append("stream_profile_id = NULL")
 
     if duplicate_event_handling is not None:
         updates.append("duplicate_event_handling = ?")
@@ -864,9 +892,7 @@ def delete_group(conn: Connection, group_id: int) -> bool:
         True if deleted
     """
     # Recursively delete child groups first
-    cursor = conn.execute(
-        "SELECT id FROM event_epg_groups WHERE parent_group_id = ?", (group_id,)
-    )
+    cursor = conn.execute("SELECT id FROM event_epg_groups WHERE parent_group_id = ?", (group_id,))
     for row in cursor.fetchall():
         delete_group(conn, row["id"])
 

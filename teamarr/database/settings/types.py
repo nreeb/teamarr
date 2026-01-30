@@ -19,6 +19,11 @@ class DispatcharrSettings:
     # Can contain: int IDs, "{sport}", "{league}" wildcards
     # e.g., [1, 5, "{sport}"] = profiles 1, 5, plus dynamic sport profile
     default_channel_profile_ids: list[int | str] | None = None
+    # Default stream profile for event channels (overrideable per-group)
+    default_stream_profile_id: int | None = None
+    # When True, call Dispatcharr's /api/channels/logos/cleanup/ after generation
+    # This removes ALL unused logos in Dispatcharr, not just ones Teamarr uploaded
+    cleanup_unused_logos: bool = False
 
 
 @dataclass
@@ -198,7 +203,7 @@ class ChannelNumberingSettings:
     - sport_league_time: Sort by sport, then league, then event time
     - time: Sort by event time only
     - stream_order: Keep original stream order from M3U
-    """
+    """  # noqa: E501
 
     numbering_mode: str = "strict_block"  # 'strict_block', 'rational_block', 'strict_compact'
     sorting_scope: str = "per_group"  # 'per_group', 'global'
@@ -219,12 +224,8 @@ class AllSettings:
     api: APISettings = field(default_factory=APISettings)
     stream_filter: StreamFilterSettings = field(default_factory=StreamFilterSettings)
     team_filter: TeamFilterSettings = field(default_factory=TeamFilterSettings)
-    channel_numbering: ChannelNumberingSettings = field(
-        default_factory=ChannelNumberingSettings
-    )
-    stream_ordering: StreamOrderingSettings = field(
-        default_factory=StreamOrderingSettings
-    )
+    channel_numbering: ChannelNumberingSettings = field(default_factory=ChannelNumberingSettings)
+    stream_ordering: StreamOrderingSettings = field(default_factory=StreamOrderingSettings)
     update_check: UpdateCheckSettings = field(default_factory=UpdateCheckSettings)
     epg_generation_counter: int = 0
     schema_version: int = 44

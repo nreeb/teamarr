@@ -10,6 +10,7 @@ This is the main entry point for team-based EPG generation from the scheduler.
 """
 
 import logging
+import os
 import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -24,7 +25,8 @@ from teamarr.services import SportsDataService, create_default_service
 from teamarr.utilities.xmltv import programmes_to_xmltv
 
 # Number of parallel workers for team processing
-MAX_WORKERS = 100
+# Configurable via ESPN_MAX_WORKERS for users with DNS throttling (PiHole, AdGuard)
+MAX_WORKERS = int(os.environ.get("ESPN_MAX_WORKERS", 100))
 
 logger = logging.getLogger(__name__)
 
@@ -288,7 +290,7 @@ class TeamProcessor:
                         with in_progress_lock:
                             still_processing = list(in_progress)
                         if still_processing:
-                            msg = f"Finished {team.team_name}, now processing: {', '.join(still_processing[:3])}"
+                            msg = f"Finished {team.team_name}, now processing: {', '.join(still_processing[:3])}"  # noqa: E501
                             if len(still_processing) > 3:
                                 msg += f" (+{len(still_processing) - 3} more)"
                         else:

@@ -21,6 +21,8 @@ def update_dispatcharr_settings(
     password: str | None = None,
     epg_id: int | None = None,
     default_channel_profile_ids: list[int] | None | object = _NOT_PROVIDED,
+    default_stream_profile_id: int | None | object = _NOT_PROVIDED,
+    cleanup_unused_logos: bool | None = None,
 ) -> bool:
     """Update Dispatcharr settings.
 
@@ -35,6 +37,9 @@ def update_dispatcharr_settings(
         epg_id: EPG source ID in Dispatcharr
         default_channel_profile_ids: Default channel profiles for event channels.
             None = all profiles, [] = no profiles, [1,2,...] = specific profiles.
+        default_stream_profile_id: Default stream profile for event channels.
+            None = no profile (use Dispatcharr default).
+        cleanup_unused_logos: Call Dispatcharr cleanup API after generation.
 
     Returns:
         True if updated
@@ -65,6 +70,13 @@ def update_dispatcharr_settings(
     if default_channel_profile_ids is not _NOT_PROVIDED:
         updates.append("default_channel_profile_ids = ?")
         values.append(json.dumps(default_channel_profile_ids))
+    # default_stream_profile_id: _NOT_PROVIDED = don't update, None = no profile, int = set
+    if default_stream_profile_id is not _NOT_PROVIDED:
+        updates.append("default_stream_profile_id = ?")
+        values.append(default_stream_profile_id)  # None becomes SQL NULL
+    if cleanup_unused_logos is not None:
+        updates.append("cleanup_unused_logos = ?")
+        values.append(int(cleanup_unused_logos))
 
     if not updates:
         return False
@@ -480,9 +492,7 @@ def update_channel_numbering_settings(
     query = f"UPDATE settings SET {', '.join(updates)} WHERE id = 1"
     cursor = conn.execute(query, values)
     if cursor.rowcount > 0:
-        logger.info(
-            "[CHANNEL_NUM] Updated settings: %s", [u.split(" = ")[0] for u in updates]
-        )
+        logger.info("[CHANNEL_NUM] Updated settings: %s", [u.split(" = ")[0] for u in updates])
         return True
     return False
 
@@ -537,11 +547,13 @@ def update_stream_ordering_rules(
             )
             rule_priority = 99
 
-        validated_rules.append({
-            "type": rule_type,
-            "value": rule_value,
-            "priority": rule_priority,
-        })
+        validated_rules.append(
+            {
+                "type": rule_type,
+                "value": rule_value,
+                "priority": rule_priority,
+            }
+        )
 
     # Store as JSON
     rules_json = json.dumps(validated_rules)

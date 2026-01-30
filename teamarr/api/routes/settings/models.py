@@ -36,6 +36,7 @@ def _validate_profile_ids(v: Any) -> list[str | int] | None:
             result.append(item)
     return result
 
+
 # =============================================================================
 # DISPATCHARR SETTINGS
 # =============================================================================
@@ -52,6 +53,10 @@ class DispatcharrSettingsModel(BaseModel):
     # None = all profiles, [] = no profiles, [1,2,...] = specific profiles
     # Supports int IDs and string wildcards like "{sport}", "{league}"
     default_channel_profile_ids: list[str | int] | None = None
+    # Default stream profile for event channels (overrideable per-group)
+    default_stream_profile_id: int | None = None
+    # Clean up ALL unused logos in Dispatcharr after generation
+    cleanup_unused_logos: bool = False
 
     @field_validator("default_channel_profile_ids", mode="before")
     @classmethod
@@ -68,6 +73,8 @@ class DispatcharrSettingsUpdate(BaseModel):
     password: str | None = None
     epg_id: int | None = None
     default_channel_profile_ids: list[str | int] | None = None
+    default_stream_profile_id: int | None = None
+    cleanup_unused_logos: bool | None = None
 
     @field_validator("default_channel_profile_ids", mode="before")
     @classmethod
@@ -255,8 +262,7 @@ class StreamOrderingSettingsModel(BaseModel):
     """Stream ordering rules for prioritizing streams within channels."""
 
     rules: list[StreamOrderingRuleModel] = Field(
-        default_factory=list,
-        description="List of ordering rules, evaluated by priority"
+        default_factory=list, description="List of ordering rules, evaluated by priority"
     )
 
 

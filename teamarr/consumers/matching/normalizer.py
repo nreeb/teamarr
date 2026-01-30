@@ -8,6 +8,7 @@ Cleans up heterogeneous, poorly-formatted stream names before matching:
 - Extracts date/time hints for validation
 """
 
+import logging
 import re
 from dataclasses import dataclass
 from datetime import date, time
@@ -15,7 +16,6 @@ from datetime import date, time
 from unidecode import unidecode
 
 from teamarr.utilities.constants import BROADCAST_NETWORKS, CITY_TRANSLATIONS, PROVIDER_PREFIXES
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -176,8 +176,8 @@ DATE_PATTERNS = [
 
 # Time patterns to extract and mask
 TIME_PATTERNS = [
-    # 7:00 PM, 7:00PM, 19:00
-    (r"\b(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)?\b", "TIME_MASK"),
+    # 7:00 PM, 7:00PM, 19:00, 15:00:05
+    (r"\b(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM|am|pm)?\b", "TIME_MASK"),
     # 7PM, 7 PM
     (r"\b(\d{1,2})\s*(AM|PM|am|pm)\b", "TIME_MASK"),
 ]
@@ -199,6 +199,10 @@ def extract_and_mask_datetime(text: str) -> tuple[str, date | None, time | None]
         return text, None, None
 
     result = text
+
+    # Normalize em dashes (—) and en dashes (–) to spaces for pattern matching
+    result = result.replace("\u2014", " ").replace("\u2013", " ")
+
     extracted_date = None
     extracted_time = None
 

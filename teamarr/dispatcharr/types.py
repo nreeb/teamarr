@@ -206,6 +206,29 @@ class DispatcharrChannelProfile:
         )
 
 
+@dataclass(frozen=True)
+class DispatcharrStreamProfile:
+    """A stream profile in Dispatcharr.
+
+    Stream profiles define how streams are processed (ffmpeg, VLC, proxy, etc).
+    """
+
+    id: int
+    name: str
+    command: str = ""
+    is_active: bool = True
+
+    @classmethod
+    def from_api(cls, data: dict) -> "DispatcharrStreamProfile":
+        """Create from API response dict."""
+        return cls(
+            id=data["id"],
+            name=data.get("name", ""),
+            command=data.get("command", ""),
+            is_active=data.get("is_active", True),
+        )
+
+
 @dataclass
 class OperationResult:
     """Result of a Dispatcharr API operation.
