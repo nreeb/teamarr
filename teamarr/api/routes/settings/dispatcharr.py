@@ -29,6 +29,7 @@ def get_dispatcharr_settings():
         password="********" if settings.password else None,
         epg_id=settings.epg_id,
         default_channel_profile_ids=settings.default_channel_profile_ids,
+        default_stream_profile_id=settings.default_stream_profile_id,
         cleanup_unused_logos=settings.cleanup_unused_logos,
     )
 
@@ -51,6 +52,7 @@ def update_dispatcharr_settings(update: DispatcharrSettingsUpdate):
             password=update.password,
             epg_id=update.epg_id,
             default_channel_profile_ids=update.default_channel_profile_ids,
+            default_stream_profile_id=update.default_stream_profile_id,
             cleanup_unused_logos=update.cleanup_unused_logos,
         )
 
@@ -72,6 +74,7 @@ def update_dispatcharr_settings(update: DispatcharrSettingsUpdate):
         password="********" if settings.password else None,
         epg_id=settings.epg_id,
         default_channel_profile_ids=settings.default_channel_profile_ids,
+        default_stream_profile_id=settings.default_stream_profile_id,
         cleanup_unused_logos=settings.cleanup_unused_logos,
     )
 

@@ -300,6 +300,14 @@ class ChannelLifecycleService:
                     dispatcharr_settings = get_dispatcharr_settings(conn)
                     raw_profile_ids = dispatcharr_settings.default_channel_profile_ids
 
+                # Stream profile: group setting overrides global default
+                stream_profile_id = group_config.get("stream_profile_id")
+                if stream_profile_id is None:
+                    from teamarr.database.settings import get_dispatcharr_settings
+
+                    dispatcharr_settings = get_dispatcharr_settings(conn)
+                    stream_profile_id = dispatcharr_settings.default_stream_profile_id
+
                 for matched in matched_streams:
                     stream = matched.get("stream", {})
                     event = matched.get("event")
@@ -477,6 +485,7 @@ class ChannelLifecycleService:
                         matched_keyword=matched_keyword,
                         channel_group_id=resolved_channel_group_id,
                         channel_profile_ids=resolved_channel_profile_ids,
+                        stream_profile_id=stream_profile_id,
                         segment=segment,
                         segment_display=segment_display,
                         segment_start=segment_start,
@@ -895,6 +904,7 @@ class ChannelLifecycleService:
         matched_keyword: str | None,
         channel_group_id: int | None,
         channel_profile_ids: list[int],
+        stream_profile_id: int | None = None,
         segment: str | None = None,
         segment_display: str = "",
         segment_start: datetime | None = None,
@@ -984,6 +994,7 @@ class ChannelLifecycleService:
                     channel_group_id=channel_group_id,
                     logo_id=dispatcharr_logo_id,
                     channel_profile_ids=effective_profile_ids,
+                    stream_profile_id=stream_profile_id,
                 )
 
                 if not create_result.success:

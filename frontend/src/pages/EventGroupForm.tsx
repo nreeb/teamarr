@@ -24,6 +24,7 @@ import { getLeagues } from "@/api/teams"
 import { TeamPicker } from "@/components/TeamPicker"
 import { LeaguePicker } from "@/components/LeaguePicker"
 import { ChannelProfileSelector } from "@/components/ChannelProfileSelector"
+import { StreamProfileSelector } from "@/components/StreamProfileSelector"
 import { TestPatternsModal, type PatternState } from "@/components/TestPatternsModal"
 
 // Group mode
@@ -189,6 +190,7 @@ export function EventGroupForm() {
         channel_group_id: group.channel_group_id,
         channel_group_mode: group.channel_group_mode || "static",
         channel_profile_ids: group.channel_profile_ids,  // Keep null = "use default"
+        stream_profile_id: group.stream_profile_id,  // Keep null = "use global default"
         duplicate_event_handling: group.duplicate_event_handling,
         channel_assignment_mode: group.channel_assignment_mode,
         sort_order: group.sort_order,
@@ -1026,6 +1028,18 @@ export function EventGroupForm() {
                   onChange={(ids) => setFormData({ ...formData, channel_profile_ids: ids })}
                   disabled={useDefaultProfiles}
                 />
+
+                {/* Stream Profile */}
+                <div className="mt-4 pt-4 border-t">
+                  <Label className="text-sm font-medium mb-2 block">Stream Profile</Label>
+                  <StreamProfileSelector
+                    value={formData.stream_profile_id ?? null}
+                    onChange={(id) => setFormData({ ...formData, stream_profile_id: id })}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    How streams are processed (ffmpeg, VLC, proxy, etc). Leave empty to use global default.
+                  </p>
+                </div>
             </CardContent>
           </Card>}
 

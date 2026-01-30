@@ -232,6 +232,30 @@ def create_channel_profile(name: str) -> dict:
     return result.data
 
 
+@router.get("/stream-profiles")
+def list_stream_profiles() -> list[dict]:
+    """List all stream profiles from Dispatcharr.
+
+    Stream profiles define how streams are processed (ffmpeg, VLC, proxy, etc).
+
+    Returns:
+        List of active stream profiles
+    """
+    conn = get_dispatcharr_connection(db_factory=get_db)
+    if not conn:
+        raise HTTPException(status_code=503, detail="Dispatcharr not configured or unavailable")
+
+    profiles = conn.channels.list_stream_profiles()
+    return [
+        {
+            "id": p.id,
+            "name": p.name,
+            "command": p.command,
+        }
+        for p in profiles
+    ]
+
+
 @router.get("/epg-sources")
 def list_epg_sources() -> list[dict]:
     """List EPG sources from Dispatcharr.

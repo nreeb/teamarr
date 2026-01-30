@@ -53,6 +53,8 @@ class DispatcharrSettingsModel(BaseModel):
     # None = all profiles, [] = no profiles, [1,2,...] = specific profiles
     # Supports int IDs and string wildcards like "{sport}", "{league}"
     default_channel_profile_ids: list[str | int] | None = None
+    # Default stream profile for event channels (overrideable per-group)
+    default_stream_profile_id: int | None = None
     # Clean up ALL unused logos in Dispatcharr after generation
     cleanup_unused_logos: bool = False
 
@@ -71,6 +73,7 @@ class DispatcharrSettingsUpdate(BaseModel):
     password: str | None = None
     epg_id: int | None = None
     default_channel_profile_ids: list[str | int] | None = None
+    default_stream_profile_id: int | None = None
     cleanup_unused_logos: bool | None = None
 
     @field_validator("default_channel_profile_ids", mode="before")

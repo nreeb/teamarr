@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils"
 import { Loader2, Tv, Eye, Plus, AlertCircle, Info, Check } from "lucide-react"
 import { LeaguePicker } from "@/components/LeaguePicker"
 import { ChannelProfileSelector } from "@/components/ChannelProfileSelector"
+import { StreamProfileSelector } from "@/components/StreamProfileSelector"
 
 // Types
 interface M3UAccount {
@@ -118,6 +119,7 @@ export function EventGroupImport() {
   const [bulkChannelGroupId, setBulkChannelGroupId] = useState<number | null>(null)
   const [bulkChannelGroupMode, setBulkChannelGroupMode] = useState<'static' | 'sport' | 'league'>('static')
   const [bulkChannelProfileIds, setBulkChannelProfileIds] = useState<(number | string)[]>([])
+  const [bulkStreamProfileId, setBulkStreamProfileId] = useState<number | null>(null)
   const [bulkChannelSortOrder, setBulkChannelSortOrder] = useState<string>("time")
   const [bulkOverlapHandling, setBulkOverlapHandling] = useState<string>("add_stream")
   const [bulkEnabled, setBulkEnabled] = useState(true)
@@ -272,6 +274,7 @@ export function EventGroupImport() {
           channel_group_id: bulkChannelGroupMode === 'static' ? bulkChannelGroupId : null,
           channel_group_mode: bulkChannelGroupMode,
           channel_profile_ids: bulkChannelProfileIds.length > 0 ? bulkChannelProfileIds : null,
+          stream_profile_id: bulkStreamProfileId,
           channel_sort_order: bulkChannelSortOrder,
           overlap_handling: bulkOverlapHandling,
           enabled: bulkEnabled,
@@ -779,6 +782,13 @@ export function EventGroupImport() {
                   <ChannelProfileSelector
                     selectedIds={bulkChannelProfileIds}
                     onChange={setBulkChannelProfileIds}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Stream Profile</Label>
+                  <StreamProfileSelector
+                    value={bulkStreamProfileId}
+                    onChange={setBulkStreamProfileId}
                   />
                 </div>
                 <div className="space-y-2">

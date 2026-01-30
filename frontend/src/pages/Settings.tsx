@@ -26,6 +26,7 @@ import {
   profileIdsToApi,
   apiToProfileIds,
 } from "@/components/ChannelProfileSelector"
+import { StreamProfileSelector } from "@/components/StreamProfileSelector"
 import { useGenerationProgress } from "@/contexts/GenerationContext"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -250,6 +251,7 @@ export function Settings() {
         password: "", // Don't show masked password
         epg_id: settings.dispatcharr.epg_id,
         default_channel_profile_ids: settings.dispatcharr.default_channel_profile_ids,
+        default_stream_profile_id: settings.dispatcharr.default_stream_profile_id,
         cleanup_unused_logos: settings.dispatcharr.cleanup_unused_logos,
       })
       setLifecycle(settings.lifecycle)
@@ -330,6 +332,7 @@ export function Settings() {
         username: dispatcharr.username,
         epg_id: dispatcharr.epg_id,
         default_channel_profile_ids: profileIdsToSave,
+        default_stream_profile_id: dispatcharr.default_stream_profile_id,
         cleanup_unused_logos: dispatcharr.cleanup_unused_logos,
       }
       if (dispatcharr.password) {
@@ -1908,7 +1911,38 @@ export function Settings() {
         </CardContent>
       </Card>
 
-      {/* Card 4: Logo Cleanup */}
+      {/* Card 4: Default Stream Profile */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Default Stream Profile</CardTitle>
+          <CardDescription>Processing profile for channel streams</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <StreamProfileSelector
+              value={dispatcharr.default_stream_profile_id ?? null}
+              onChange={(id) => setDispatcharr({ ...dispatcharr, default_stream_profile_id: id })}
+              disabled={!dispatcharrStatus.data?.connected}
+              isGlobalDefault
+            />
+            <p className="text-xs text-muted-foreground">
+              Stream profile defines how streams are processed (ffmpeg, VLC, proxy, etc).
+              This default applies to all groups unless overridden.
+            </p>
+          </div>
+
+          <Button onClick={handleSaveDispatcharr} disabled={updateDispatcharr.isPending}>
+            {updateDispatcharr.isPending ? (
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4 mr-1" />
+            )}
+            Save
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Card 5: Logo Cleanup */}
       <Card>
         <CardHeader>
           <CardTitle>Logo Cleanup</CardTitle>

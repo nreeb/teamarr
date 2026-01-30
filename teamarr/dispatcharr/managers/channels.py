@@ -11,6 +11,7 @@ from teamarr.dispatcharr.client import DispatcharrClient
 from teamarr.dispatcharr.types import (
     DispatcharrChannel,
     DispatcharrChannelProfile,
+    DispatcharrStreamProfile,
     OperationResult,
 )
 
@@ -217,6 +218,7 @@ class ChannelManager:
         channel_group_id: int | None = None,
         logo_id: int | None = None,
         channel_profile_ids: list[int] | None = None,
+        stream_profile_id: int | None = None,
     ) -> OperationResult:
         """Create a new channel in Dispatcharr.
 
@@ -234,6 +236,7 @@ class ChannelManager:
             logo_id: Optional logo ID
             channel_profile_ids: List of profile IDs. Use [0] for all profiles,
                 [] for no profiles, or specific IDs like [1, 2].
+            stream_profile_id: Optional stream profile ID for transcoding/proxy
 
         Returns:
             OperationResult with success status and created channel data
@@ -252,6 +255,8 @@ class ChannelManager:
             payload["logo_id"] = logo_id
         if channel_profile_ids is not None:
             payload["channel_profile_ids"] = channel_profile_ids
+        if stream_profile_id is not None:
+            payload["stream_profile_id"] = stream_profile_id
 
         logger.debug("[CHANNEL] Creating: %s", payload)
         response = self._client.post("/api/channels/channels/", payload)
@@ -605,6 +610,30 @@ class ChannelManager:
             success=False,
             error=self._client.parse_api_error(response),
         )
+
+    # ========================================================================
+    # Stream Profiles
+    # ========================================================================
+
+    def list_stream_profiles(self) -> list[DispatcharrStreamProfile]:
+        """List all stream profiles from Dispatcharr.
+
+        Stream profiles define how streams are processed (ffmpeg, VLC, proxy, etc).
+        Only returns active profiles.
+
+        Returns:
+            List of DispatcharrStreamProfile objects
+        """
+        response = self._client.get("/api/core/streamprofiles/")
+
+        if response is None or response.status_code != 200:
+            status = response.status_code if response else "No response"
+            logger.error("[CHANNEL] Failed to list stream profiles: %s", status)
+            return []
+
+        profiles = [DispatcharrStreamProfile.from_api(p) for p in response.json()]
+        # Only return active profiles
+        return [p for p in profiles if p.is_active]
 
     def get_epg_data_list(self, epg_source_id: int | None = None) -> list[dict]:
         """Get all EPGData entries from Dispatcharr.

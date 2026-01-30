@@ -19,6 +19,8 @@ class DispatcharrSettings:
     # Can contain: int IDs, "{sport}", "{league}" wildcards
     # e.g., [1, 5, "{sport}"] = profiles 1, 5, plus dynamic sport profile
     default_channel_profile_ids: list[int | str] | None = None
+    # Default stream profile for event channels (overrideable per-group)
+    default_stream_profile_id: int | None = None
     # When True, call Dispatcharr's /api/channels/logos/cleanup/ after generation
     # This removes ALL unused logos in Dispatcharr, not just ones Teamarr uploaded
     cleanup_unused_logos: bool = False

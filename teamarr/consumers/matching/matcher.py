@@ -27,13 +27,13 @@ from datetime import date, timedelta
 from zoneinfo import ZoneInfo
 
 from teamarr.config import get_user_timezone
-from teamarr.consumers.matching.constants import MATCH_WINDOW_DAYS
 from teamarr.consumers.matching.classifier import (
     ClassifiedStream,
     CustomRegexConfig,
     StreamCategory,
     classify_stream,
 )
+from teamarr.consumers.matching.constants import MATCH_WINDOW_DAYS
 from teamarr.consumers.matching.event_matcher import EventCardMatcher
 from teamarr.consumers.matching.result import (
     FilteredReason,

@@ -16,6 +16,10 @@ from rapidfuzz import fuzz
 
 from teamarr.consumers.matching import MATCH_WINDOW_DAYS
 from teamarr.consumers.matching.classifier import ClassifiedStream, StreamCategory
+from teamarr.consumers.matching.constants import (
+    BOTH_TEAMS_THRESHOLD,
+    HIGH_CONFIDENCE_THRESHOLD,
+)
 from teamarr.consumers.matching.normalizer import normalize_for_matching
 from teamarr.consumers.matching.result import (
     FailedReason,
@@ -32,12 +36,6 @@ from teamarr.utilities.fuzzy_match import get_matcher, normalize_text
 logger = logging.getLogger(__name__)
 
 # Type alias for user-defined aliases: (alias_text, league) -> team_name
-from teamarr.consumers.matching.constants import (
-    ACCEPT_WITH_DATE_THRESHOLD,
-    BOTH_TEAMS_THRESHOLD,
-    HIGH_CONFIDENCE_THRESHOLD,
-)
-
 UserAliasCache = dict[tuple[str, str], str]
 
 

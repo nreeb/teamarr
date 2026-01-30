@@ -228,6 +228,7 @@ CREATE TABLE IF NOT EXISTS settings (
     dispatcharr_password TEXT,                -- Note: Consider encrypting in production
     dispatcharr_epg_id INTEGER,               -- Teamarr's EPG source ID in Dispatcharr
     default_channel_profile_ids JSON,         -- Default channel profiles for event channels
+    default_stream_profile_id INTEGER,        -- Default stream profile for event channels
     cleanup_unused_logos BOOLEAN DEFAULT 0,   -- Call Dispatcharr's cleanup API after generation
 
     -- Reconciliation Settings
@@ -297,7 +298,7 @@ CREATE TABLE IF NOT EXISTS settings (
     update_auto_detect_branch BOOLEAN DEFAULT 1,         -- Auto-detect branch from version string
 
     -- Schema Version
-    schema_version INTEGER DEFAULT 45
+    schema_version INTEGER DEFAULT 46
 );
 
 -- Insert default settings
@@ -337,6 +338,7 @@ CREATE TABLE IF NOT EXISTS event_epg_groups (
     channel_group_id INTEGER,                -- Dispatcharr channel group to assign (when mode='static')
     channel_group_mode TEXT DEFAULT 'static', -- 'static' or pattern like '{sport}', '{league}', '{sport} | {league}'
     channel_profile_ids TEXT,                -- JSON array: profile IDs and/or patterns like "{sport}", "{league}"
+    stream_profile_id INTEGER,               -- Stream profile for transcoding/proxy (overrides global default)
 
     -- Duplicate Event Handling (uses global lifecycle settings)
     duplicate_event_handling TEXT DEFAULT 'consolidate'

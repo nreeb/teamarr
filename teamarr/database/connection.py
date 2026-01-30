@@ -1063,6 +1063,21 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
         logger.info("[MIGRATE] Schema upgraded to version 45 (logo cleanup setting)")
         current_version = 45
 
+    # ==========================================================================
+    # v46: Stream Profile Support
+    # ==========================================================================
+    # Adds stream_profile_id to settings (global default) and event_epg_groups (per-group override)
+    if current_version < 46:
+        _add_column_if_not_exists(
+            conn, "settings", "default_stream_profile_id", "INTEGER"
+        )
+        _add_column_if_not_exists(
+            conn, "event_epg_groups", "stream_profile_id", "INTEGER"
+        )
+        conn.execute("UPDATE settings SET schema_version = 46 WHERE id = 1")
+        logger.info("[MIGRATE] Schema upgraded to version 46 (stream profile support)")
+        current_version = 46
+
 
 # =============================================================================
 # LEGACY MIGRATION HELPER FUNCTIONS
