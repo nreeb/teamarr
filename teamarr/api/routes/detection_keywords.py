@@ -190,8 +190,8 @@ def list_categories():
             },
             {
                 "id": "exclusions",
-                "name": "Global Exclusions",
-                "description": "Patterns to exclude from matching (weigh-ins, etc.)",
+                "name": "Combat Exclusions",
+                "description": "Skip non-event combat sports content (weigh-ins, etc.)",
                 "has_target": False,
             },
             {

@@ -75,7 +75,7 @@ const TAB_NAMES: Record<TabType, string> = {
   sport_hints: "Sport Hints",
   placeholders: "Placeholders",
   card_segments: "Card Segments",
-  exclusions: "Global Exclusions",
+  exclusions: "Combat Exclusions",
   separators: "Separators",
 }
 
