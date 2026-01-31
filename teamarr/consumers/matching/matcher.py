@@ -36,6 +36,8 @@ from teamarr.consumers.matching.classifier import (
 from teamarr.consumers.matching.constants import MATCH_WINDOW_DAYS
 from teamarr.consumers.matching.event_matcher import EventCardMatcher
 from teamarr.consumers.matching.result import (
+    ExcludedReason,
+    FailedReason,
     FilteredReason,
     MatchMethod,
     MatchOutcome,
@@ -57,7 +59,13 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class MatchedStreamResult:
-    """Result of matching a single stream."""
+    """Result of matching a single stream.
+
+    This is the business-level result that combines:
+    - Match outcome from MatchOutcome
+    - Inclusion decision (business rules)
+    - Classification data from ClassifiedStream
+    """
 
     stream_name: str
     stream_id: int
@@ -69,7 +77,7 @@ class MatchedStreamResult:
 
     # Inclusion decision
     included: bool = False
-    exclusion_reason: str | None = None
+    exclusion_reason: str | None = None  # Human-readable string
 
     # Method tracking
     match_method: MatchMethod | None = None
@@ -86,6 +94,12 @@ class MatchedStreamResult:
 
     # Exception handling
     exception_keyword: str | None = None
+
+    # Detailed reason enums from MatchOutcome (preserved for type-safe access)
+    failed_reason: FailedReason | None = None
+    filtered_reason: FilteredReason | None = None
+    excluded_reason: ExcludedReason | None = None
+    detail: str | None = None  # Additional context from matching
 
     @property
     def is_exception(self) -> bool:
@@ -638,6 +652,11 @@ class StreamMatcher:
             parsed_team2=classified.team2,
             detected_league=detected_league_str,
             card_segment=classified.card_segment,  # UFC segment from stream name
+            # Preserve detailed reason enums from MatchOutcome
+            failed_reason=outcome.failed_reason,
+            filtered_reason=outcome.filtered_reason,
+            excluded_reason=outcome.excluded_reason,
+            detail=outcome.detail,
         )
 
     def _get_dominant_event_type(self) -> str | None:
