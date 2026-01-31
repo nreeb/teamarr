@@ -23,7 +23,6 @@ from teamarr.consumers.matching.result import (
 from teamarr.consumers.stream_match_cache import StreamMatchCache, event_to_cache_data
 from teamarr.core.types import Event
 from teamarr.services.sports_data import SportsDataService
-from teamarr.utilities.constants import EVENT_CARD_KEYWORDS
 
 logger = logging.getLogger(__name__)
 
@@ -200,11 +199,18 @@ class EventCardMatcher:
         event_hint = ctx.classified.event_hint
 
         # Strategy 1: Match by event number (UFC 315)
+        # Uses word-boundary matching to avoid "UFC 32" matching "UFC 325"
         if event_hint:
             event_num = self._extract_event_number(event_hint)
             if event_num:
+                # Build regex pattern with word boundaries for precise matching
+                # e.g., "UFC 325" should match "UFC 325: Main Event" but not "UFC 3250"
+                pattern = re.compile(
+                    r"\b" + re.escape(event_num) + r"\b",
+                    re.IGNORECASE,
+                )
                 for event in events:
-                    if event_num.lower() in event.name.lower():
+                    if pattern.search(event.name):
                         logger.debug(
                             "[MATCHED] event_card stream=%s -> %s (method=event_number)",
                             ctx.stream_name[:40],
@@ -218,57 +224,15 @@ class EventCardMatcher:
                             stream_name=ctx.stream_name,
                             stream_id=ctx.stream_id,
                         )
-
-        # Strategy 2: Keyword matching
-        keywords = EVENT_CARD_KEYWORDS.get(league, [])
-        keyword_matches = []
-
-        for keyword in keywords:
-            if keyword.lower() in stream_lower:
-                keyword_matches.append(keyword)
-
-        # If we have event-specific keywords, we're confident
-        if keyword_matches:
-            # For single events on the date, just return it
-            if len(events) == 1:
+                # Event number in stream but no matching event on this date
                 logger.debug(
-                    "[MATCHED] event_card stream=%s -> %s (method=keyword, single event)",
+                    "[FAILED] event_card stream=%s: event number '%s' not found in %d events",
                     ctx.stream_name[:40],
-                    events[0].name,
-                )
-                return MatchOutcome.matched(
-                    MatchMethod.KEYWORD,
-                    events[0],
-                    detected_league=league,
-                    confidence=0.9,
-                    stream_name=ctx.stream_name,
-                    stream_id=ctx.stream_id,
+                    event_num,
+                    len(events),
                 )
 
-            # Multiple events - try to narrow down
-            # Check if any event name matches stream content
-            for event in events:
-                event_name_lower = event.name.lower()
-                # Check if event name words appear in stream
-                event_words = set(event_name_lower.split())
-                stream_words = set(stream_lower.split())
-                overlap = event_words & stream_words
-                if len(overlap) >= 2:  # At least 2 matching words
-                    logger.debug(
-                        "[MATCHED] event_card stream=%s -> %s (method=keyword, word overlap)",
-                        ctx.stream_name[:40],
-                        event.name,
-                    )
-                    return MatchOutcome.matched(
-                        MatchMethod.KEYWORD,
-                        event,
-                        detected_league=league,
-                        confidence=0.85,
-                        stream_name=ctx.stream_name,
-                        stream_id=ctx.stream_id,
-                    )
-
-        # Strategy 3: Fighter name matching (fallback)
+        # Strategy 2: Fighter name matching (fallback)
         # Try to find fighter names in stream
         for event in events:
             home_name = event.home_team.name.lower() if event.home_team else ""
