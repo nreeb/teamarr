@@ -2124,7 +2124,7 @@ export function Settings() {
         <CardHeader>
           <CardTitle>Scheduled Channel Reset</CardTitle>
           <CardDescription>
-            For users experiencing stale channel logos in Jellyfin/Emby. Schedule a periodic
+            For users experiencing stale channel logos in Jellyfin. Schedule a periodic
             purge of all Teamarr channels before your media server&apos;s guide refresh.
             Leave disabled if you&apos;re not having issues.
           </CardDescription>
