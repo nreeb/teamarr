@@ -1096,24 +1096,24 @@ export function EventGroups() {
             <Table className="table-fixed">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-6"></TableHead>
-                  <TableHead className="w-8">
+                  <TableHead className="w-5"></TableHead>
+                  <TableHead className="w-10">
                     <Checkbox
                       checked={selectedIds.size === sortedGroups.length && sortedGroups.length > 0}
                       onCheckedChange={toggleSelectAll}
                     />
                   </TableHead>
                   <TableHead
-                    className="w-[20%] cursor-pointer hover:bg-muted/50"
+                    className="w-[30%] cursor-pointer hover:bg-muted/50"
                     onClick={() => handleSort("name")}
                   >
                     <div className="flex items-center">
                       Name <SortIcon column="name" />
                     </div>
                   </TableHead>
-                  <TableHead className="w-[70px] text-center">League</TableHead>
+                  <TableHead className="w-20 text-center">League</TableHead>
                   <TableHead
-                    className="w-[50px] text-center cursor-pointer hover:bg-muted/50"
+                    className="w-12 text-center cursor-pointer hover:bg-muted/50"
                     onClick={() => handleSort("sport")}
                   >
                     <div className="flex items-center justify-center">
@@ -1121,17 +1121,17 @@ export function EventGroups() {
                     </div>
                   </TableHead>
                   <TableHead
-                    className="w-[100px] cursor-pointer hover:bg-muted/50"
+                    className="w-20 cursor-pointer hover:bg-muted/50"
                     onClick={() => handleSort("template")}
                   >
                     <div className="flex items-center">
                       Template <SortIcon column="template" />
                     </div>
                   </TableHead>
-                  <TableHead className="text-center w-[90px]">Ch Start</TableHead>
-                  <TableHead className="text-center w-[140px]">Ch Group</TableHead>
+                  <TableHead className="text-center w-16">Ch Start</TableHead>
+                  <TableHead className="text-center w-20">Ch Group</TableHead>
                   <TableHead
-                    className="w-[75px] text-center cursor-pointer hover:bg-muted/50"
+                    className="w-24 text-center cursor-pointer hover:bg-muted/50"
                     onClick={() => handleSort("matched")}
                   >
                     <div className="flex items-center justify-center">
@@ -1139,14 +1139,14 @@ export function EventGroups() {
                     </div>
                   </TableHead>
                   <TableHead
-                    className="w-[50px] cursor-pointer hover:bg-muted/50"
+                    className="w-14 cursor-pointer hover:bg-muted/50"
                     onClick={() => handleSort("status")}
                   >
                     <div className="flex items-center">
                       Status <SortIcon column="status" />
                     </div>
                   </TableHead>
-                  <TableHead className="w-[70px] text-right">Actions</TableHead>
+                  <TableHead className="w-28 text-right">Actions</TableHead>
                 </TableRow>
                 {/* Filter row - styled like V1 */}
                 <TableRow className="border-b-2 border-border">

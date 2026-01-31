@@ -720,7 +720,7 @@ export function Teams() {
             <Table className="table-fixed">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-8">
+                  <TableHead className="w-10">
                     <Checkbox
                       checked={
                         selectedIds.size === filteredTeams.length && filteredTeams.length > 0
@@ -729,7 +729,7 @@ export function Teams() {
                     />
                   </TableHead>
                   <TableHead
-                    className="w-[20%] cursor-pointer hover:bg-muted/50"
+                    className="w-[28%] cursor-pointer hover:bg-muted/50"
                     onClick={() => handleSort("team")}
                   >
                     <div className="flex items-center">
@@ -737,7 +737,7 @@ export function Teams() {
                     </div>
                   </TableHead>
                   <TableHead
-                    className="w-[100px] cursor-pointer hover:bg-muted/50"
+                    className="w-20 cursor-pointer hover:bg-muted/50"
                     onClick={() => handleSort("league")}
                   >
                     <div className="flex items-center">
@@ -745,7 +745,7 @@ export function Teams() {
                     </div>
                   </TableHead>
                   <TableHead
-                    className="w-[70px] text-center cursor-pointer hover:bg-muted/50"
+                    className="w-14 text-center cursor-pointer hover:bg-muted/50"
                     onClick={() => handleSort("sport")}
                   >
                     <div className="flex items-center justify-center">
@@ -753,7 +753,7 @@ export function Teams() {
                     </div>
                   </TableHead>
                   <TableHead
-                    className="w-[20%] cursor-pointer hover:bg-muted/50"
+                    className="w-[28%] cursor-pointer hover:bg-muted/50"
                     onClick={() => handleSort("channel")}
                   >
                     <div className="flex items-center">
@@ -761,7 +761,7 @@ export function Teams() {
                     </div>
                   </TableHead>
                   <TableHead
-                    className="w-[120px] cursor-pointer hover:bg-muted/50"
+                    className="w-24 cursor-pointer hover:bg-muted/50"
                     onClick={() => handleSort("template")}
                   >
                     <div className="flex items-center">
@@ -769,14 +769,14 @@ export function Teams() {
                     </div>
                   </TableHead>
                   <TableHead
-                    className="w-[70px] cursor-pointer hover:bg-muted/50"
+                    className="w-16 cursor-pointer hover:bg-muted/50"
                     onClick={() => handleSort("status")}
                   >
                     <div className="flex items-center">
                       Status {renderSortIcon("status")}
                     </div>
                   </TableHead>
-                  <TableHead className="w-[70px] text-right">Actions</TableHead>
+                  <TableHead className="w-20 text-right">Actions</TableHead>
                 </TableRow>
                 {/* Filter row - styled like V1 */}
                 <TableRow className="border-b-2 border-border">
@@ -881,7 +881,7 @@ export function Teams() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-center">
                       {(() => {
                         const hasMultiLeague = team.leagues.length > 1
 
@@ -941,7 +941,7 @@ export function Teams() {
                         return leagueDisplay
                       })()}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-center">
                       <span className="text-xl" title={team.sport}>
                         {getSportEmoji(team.sport)}
                       </span>
