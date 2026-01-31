@@ -2232,8 +2232,9 @@ class EventGroupProcessor:
 
                 # Get detailed failure reason if available
                 failed_reason = "unmatched"
-                if result.failed_reason:
-                    failed_reason = result.failed_reason.value
+                result_failed_reason = getattr(result, "failed_reason", None)
+                if result_failed_reason:
+                    failed_reason = result_failed_reason.value
 
                 failed_list.append(
                     FailedMatch(
