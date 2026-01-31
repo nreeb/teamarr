@@ -231,4 +231,4 @@ class AllSettings:
     stream_ordering: StreamOrderingSettings = field(default_factory=StreamOrderingSettings)
     update_check: UpdateCheckSettings = field(default_factory=UpdateCheckSettings)
     epg_generation_counter: int = 0
-    schema_version: int = 44
+    schema_version: int = 48

@@ -1089,6 +1089,18 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
         logger.info("[MIGRATE] Schema upgraded to version 47 (stream timezone support)")
         current_version = 47
 
+    # ==========================================================================
+    # v48: Scheduled Channel Reset
+    # ==========================================================================
+    # Adds channel_reset_enabled and channel_reset_cron to settings for scheduling
+    # periodic channel purges (helps users with Jellyfin logo caching issues)
+    if current_version < 48:
+        _add_column_if_not_exists(conn, "settings", "channel_reset_enabled", "BOOLEAN DEFAULT 0")
+        _add_column_if_not_exists(conn, "settings", "channel_reset_cron", "TEXT")
+        conn.execute("UPDATE settings SET schema_version = 48 WHERE id = 1")
+        logger.info("[MIGRATE] Schema upgraded to version 48 (scheduled channel reset)")
+        current_version = 48
+
 
 # =============================================================================
 # LEGACY MIGRATION HELPER FUNCTIONS
