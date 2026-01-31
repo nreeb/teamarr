@@ -64,6 +64,7 @@ from teamarr.services.stream_ordering import (
     StreamWithPriority,
     get_stream_ordering_service,
 )
+from teamarr.services.detection_keywords import DetectionKeywordService
 
 __all__ = [
     # Core services
@@ -114,4 +115,6 @@ __all__ = [
     "StreamOrderingService",
     "StreamWithPriority",
     "get_stream_ordering_service",
+    # Detection keyword service
+    "DetectionKeywordService",
 ]
