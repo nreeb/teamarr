@@ -268,6 +268,14 @@ class ESPNProvider(UFCParserMixin, TournamentParserMixin, SportsProvider):
         return False
 
     def get_team(self, team_id: str, league: str) -> Team | None:
+        # Combat sports don't have teams endpoint - skip to avoid 404 spam
+        if league in self.LEAGUES_WITHOUT_TEAMS:
+            return None
+
+        # Guard against empty team_id (ESPN sometimes returns None for fighter IDs)
+        if not team_id:
+            return None
+
         # Get sport/league from database config
         sport_league = self._get_sport_league_from_db(league)
 
