@@ -706,10 +706,10 @@ export function EventGroupForm() {
                 </div>
               )}
 
-              {/* Parent Group - edit mode, single-league, non-child groups */}
-              {isEdit && groupMode === "single" && !isChildGroup && (
+              {/* Parent Group - edit mode, single-league groups */}
+              {isEdit && groupMode === "single" && (
                 <div className="space-y-2">
-                  <Label>Parent Group (Optional)</Label>
+                  <Label>Parent Group {isChildGroup ? "" : "(Optional)"}</Label>
                   <Select
                     value={formData.parent_group_id?.toString() || ""}
                     onChange={(e) => setFormData({
@@ -722,10 +722,31 @@ export function EventGroupForm() {
                       <option key={g.id} value={g.id}>{g.name}</option>
                     ))}
                   </Select>
+
+                  {/* Warning when parent relationship is changing */}
+                  {group && formData.parent_group_id !== group.parent_group_id && (
+                    <div className="rounded-md bg-amber-500/10 border border-amber-500/20 p-2 mt-2">
+                      <p className="text-xs text-amber-600 dark:text-amber-400">
+                        {group.parent_group_id && !formData.parent_group_id ? (
+                          // Child → Standalone
+                          <>⚠️ This group will become independent. Settings will be copied from current parent.</>
+                        ) : group.parent_group_id && formData.parent_group_id ? (
+                          // Child → Different Parent
+                          <>⚠️ Streams will be added to the new parent's channels on next generation.</>
+                        ) : (
+                          // Standalone → Child
+                          <>⚠️ This group's streams will be added to parent's channels. Own channel settings will be ignored.</>
+                        )}
+                      </p>
+                    </div>
+                  )}
+
                   <p className="text-xs text-muted-foreground">
                     {eligibleParents.length === 0
                       ? "No eligible parent groups for this league"
-                      : "Child groups inherit settings and add streams to parent's channels"}
+                      : isChildGroup
+                        ? "Select a different parent or choose 'No parent' to make standalone"
+                        : "Child groups inherit settings and add streams to parent's channels"}
                   </p>
                 </div>
               )}

@@ -557,7 +557,22 @@ def update_group(
 
     Returns:
         True if updated
+
+    Raises:
+        ValueError: If trying to set parent on a group that has children
     """
+    # Validation: prevent making a parent-with-children into a child
+    if parent_group_id is not None:
+        child_count = conn.execute(
+            "SELECT COUNT(*) FROM event_epg_groups WHERE parent_group_id = ?",
+            (group_id,),
+        ).fetchone()[0]
+        if child_count > 0:
+            raise ValueError(
+                f"Cannot set parent on group {group_id}: it has {child_count} child group(s). "
+                "Remove or reassign children first."
+            )
+
     updates = []
     values = []
 
@@ -639,6 +654,63 @@ def update_group(
         updates.append("parent_group_id = ?")
         values.append(parent_group_id)
     elif clear_parent_group_id:
+        # When detaching from parent, copy inherited settings if child has none
+        current = conn.execute(
+            """SELECT parent_group_id, template_id, channel_start_number,
+                      channel_group_id, channel_group_mode, channel_profile_ids,
+                      stream_profile_id, channel_assignment_mode
+               FROM event_epg_groups WHERE id = ?""",
+            (group_id,),
+        ).fetchone()
+
+        if current and current["parent_group_id"]:
+            # Get parent's settings to copy
+            parent = conn.execute(
+                """SELECT template_id, channel_start_number, channel_group_id,
+                          channel_group_mode, channel_profile_ids, stream_profile_id,
+                          channel_assignment_mode
+                   FROM event_epg_groups WHERE id = ?""",
+                (current["parent_group_id"],),
+            ).fetchone()
+
+            if parent:
+                # Copy template if child doesn't have one
+                if current["template_id"] is None and parent["template_id"] is not None:
+                    updates.append("template_id = ?")
+                    values.append(parent["template_id"])
+
+                # Copy channel settings if child doesn't have them
+                if current["channel_start_number"] is None and parent["channel_start_number"]:
+                    updates.append("channel_start_number = ?")
+                    values.append(parent["channel_start_number"])
+
+                if current["channel_group_id"] is None and parent["channel_group_id"]:
+                    updates.append("channel_group_id = ?")
+                    values.append(parent["channel_group_id"])
+
+                if current["channel_group_mode"] is None and parent["channel_group_mode"]:
+                    updates.append("channel_group_mode = ?")
+                    values.append(parent["channel_group_mode"])
+
+                if current["channel_profile_ids"] is None and parent["channel_profile_ids"]:
+                    updates.append("channel_profile_ids = ?")
+                    values.append(parent["channel_profile_ids"])
+
+                if current["stream_profile_id"] is None and parent["stream_profile_id"]:
+                    updates.append("stream_profile_id = ?")
+                    values.append(parent["stream_profile_id"])
+
+                # Copy channel assignment mode
+                if parent["channel_assignment_mode"]:
+                    updates.append("channel_assignment_mode = ?")
+                    values.append(parent["channel_assignment_mode"])
+
+                logger.info(
+                    "[DETACH] Group %d: copied settings from parent %d",
+                    group_id,
+                    current["parent_group_id"],
+                )
+
         updates.append("parent_group_id = NULL")
 
     if m3u_group_id is not None:
