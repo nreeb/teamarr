@@ -1,0 +1,133 @@
+"""Combat sports template variables (UFC, Boxing, MMA).
+
+Variables for UFC card segments, fighter names, and matchup formatting.
+"""
+
+from teamarr.templates.context import GameContext, TemplateContext
+from teamarr.templates.variables.registry import (
+    Category,
+    SuffixRules,
+    register_variable,
+)
+
+
+@register_variable(
+    name="fighter1",
+    category=Category.COMBAT,
+    suffix_rules=SuffixRules.ALL,
+    description="First fighter name (headline bout home_team)",
+)
+def extract_fighter1(ctx: TemplateContext, game_ctx: GameContext | None) -> str:
+    """Extract first fighter name from UFC event.
+
+    For UFC events, home_team and away_team represent fighters in the headline bout.
+    """
+    if not game_ctx or not game_ctx.event:
+        return ""
+
+    event = game_ctx.event
+    if event.sport != "mma":
+        return ""
+
+    if event.home_team and event.home_team.name:
+        return event.home_team.name
+
+    return ""
+
+
+@register_variable(
+    name="fighter2",
+    category=Category.COMBAT,
+    suffix_rules=SuffixRules.ALL,
+    description="Second fighter name (headline bout away_team)",
+)
+def extract_fighter2(ctx: TemplateContext, game_ctx: GameContext | None) -> str:
+    """Extract second fighter name from UFC event."""
+    if not game_ctx or not game_ctx.event:
+        return ""
+
+    event = game_ctx.event
+    if event.sport != "mma":
+        return ""
+
+    if event.away_team and event.away_team.name:
+        return event.away_team.name
+
+    return ""
+
+
+@register_variable(
+    name="matchup",
+    category=Category.COMBAT,
+    suffix_rules=SuffixRules.ALL,
+    description="Full matchup (Fighter1 vs Fighter2)",
+)
+def extract_matchup(ctx: TemplateContext, game_ctx: GameContext | None) -> str:
+    """Extract full matchup string from UFC event."""
+    if not game_ctx or not game_ctx.event:
+        return ""
+
+    event = game_ctx.event
+    if event.sport != "mma":
+        return ""
+
+    fighter1 = event.home_team.name if event.home_team else ""
+    fighter2 = event.away_team.name if event.away_team else ""
+
+    if fighter1 and fighter2:
+        return f"{fighter1} vs {fighter2}"
+    elif fighter1:
+        return fighter1
+    elif fighter2:
+        return fighter2
+
+    return ""
+
+
+@register_variable(
+    name="event_number",
+    category=Category.COMBAT,
+    suffix_rules=SuffixRules.ALL,
+    description="UFC event number (e.g., '325' from 'UFC 325')",
+)
+def extract_event_number(ctx: TemplateContext, game_ctx: GameContext | None) -> str:
+    """Extract event number from UFC event name."""
+    import re
+
+    if not game_ctx or not game_ctx.event:
+        return ""
+
+    event = game_ctx.event
+    if event.sport != "mma":
+        return ""
+
+    # Try to extract number from event name
+    # "UFC 325: Volkanovski vs Lopes" -> "325"
+    match = re.search(r"UFC\s*(\d+)", event.name, re.IGNORECASE)
+    if match:
+        return match.group(1)
+
+    # Try short_name
+    match = re.search(r"UFC\s*(\d+)", event.short_name, re.IGNORECASE)
+    if match:
+        return match.group(1)
+
+    return ""
+
+
+@register_variable(
+    name="event_title",
+    category=Category.COMBAT,
+    suffix_rules=SuffixRules.ALL,
+    description="Full event title (e.g., 'UFC 325: Volkanovski vs Lopes')",
+)
+def extract_event_title(ctx: TemplateContext, game_ctx: GameContext | None) -> str:
+    """Extract full event title from UFC event."""
+    if not game_ctx or not game_ctx.event:
+        return ""
+
+    event = game_ctx.event
+    if event.sport != "mma":
+        return ""
+
+    return event.name
