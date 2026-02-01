@@ -131,3 +131,104 @@ def extract_event_title(ctx: TemplateContext, game_ctx: GameContext | None) -> s
         return ""
 
     return event.name
+
+
+# =============================================================================
+# Bout Card Variables - All fighter pairings on the card
+# =============================================================================
+
+
+@register_variable(
+    name="bout_count",
+    category=Category.COMBAT,
+    suffix_rules=SuffixRules.ALL,
+    description="Total number of bouts on the card",
+)
+def extract_bout_count(ctx: TemplateContext, game_ctx: GameContext | None) -> str:
+    """Return total number of bouts on the UFC card."""
+    if not game_ctx or not game_ctx.event:
+        return ""
+
+    event = game_ctx.event
+    if event.sport != "mma":
+        return ""
+
+    return str(len(event.bouts)) if event.bouts else ""
+
+
+@register_variable(
+    name="fight_card",
+    category=Category.COMBAT,
+    suffix_rules=SuffixRules.ALL,
+    description="All bouts formatted as 'Fighter1 vs Fighter2' (newline-separated)",
+)
+def extract_fight_card(ctx: TemplateContext, game_ctx: GameContext | None) -> str:
+    """Return all bouts on the card, formatted and newline-separated.
+
+    Bouts are ordered from opener to main event.
+    """
+    if not game_ctx or not game_ctx.event:
+        return ""
+
+    event = game_ctx.event
+    if event.sport != "mma" or not event.bouts:
+        return ""
+
+    return "\n".join(f"{b.fighter1} vs {b.fighter2}" for b in event.bouts)
+
+
+@register_variable(
+    name="main_card_bouts",
+    category=Category.COMBAT,
+    suffix_rules=SuffixRules.ALL,
+    description="Main card bouts only (newline-separated)",
+)
+def extract_main_card_bouts(ctx: TemplateContext, game_ctx: GameContext | None) -> str:
+    """Return main card bouts only, formatted and newline-separated."""
+    if not game_ctx or not game_ctx.event:
+        return ""
+
+    event = game_ctx.event
+    if event.sport != "mma" or not event.bouts:
+        return ""
+
+    main_bouts = [b for b in event.bouts if b.segment == "main_card"]
+    return "\n".join(f"{b.fighter1} vs {b.fighter2}" for b in main_bouts)
+
+
+@register_variable(
+    name="prelims_bouts",
+    category=Category.COMBAT,
+    suffix_rules=SuffixRules.ALL,
+    description="Prelims bouts only (newline-separated)",
+)
+def extract_prelims_bouts(ctx: TemplateContext, game_ctx: GameContext | None) -> str:
+    """Return prelims bouts only, formatted and newline-separated."""
+    if not game_ctx or not game_ctx.event:
+        return ""
+
+    event = game_ctx.event
+    if event.sport != "mma" or not event.bouts:
+        return ""
+
+    prelim_bouts = [b for b in event.bouts if b.segment == "prelims"]
+    return "\n".join(f"{b.fighter1} vs {b.fighter2}" for b in prelim_bouts)
+
+
+@register_variable(
+    name="early_prelims_bouts",
+    category=Category.COMBAT,
+    suffix_rules=SuffixRules.ALL,
+    description="Early prelims bouts only (newline-separated)",
+)
+def extract_early_prelims_bouts(ctx: TemplateContext, game_ctx: GameContext | None) -> str:
+    """Return early prelims bouts only, formatted and newline-separated."""
+    if not game_ctx or not game_ctx.event:
+        return ""
+
+    event = game_ctx.event
+    if event.sport != "mma" or not event.bouts:
+        return ""
+
+    early_bouts = [b for b in event.bouts if b.segment == "early_prelims"]
+    return "\n".join(f"{b.fighter1} vs {b.fighter2}" for b in early_bouts)

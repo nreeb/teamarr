@@ -43,6 +43,20 @@ class EventStatus:
     clock: str | None = None
 
 
+@dataclass(frozen=True)
+class Bout:
+    """A single bout/fight on a combat sports card.
+
+    Used for UFC, Boxing, and other combat sports events to track
+    all matchups on the card, not just the headline bout.
+    """
+
+    fighter1: str  # First fighter name
+    fighter2: str  # Second fighter name
+    segment: str  # "early_prelims", "prelims", "main_card"
+    order: int  # Position on card (0 = opener, higher = later)
+
+
 @dataclass
 class Event:
     """A single sporting event (game/match)."""
@@ -75,6 +89,9 @@ class Event:
     # Keys: "early_prelims", "prelims", "main_card"
     # Values: datetime of segment start
     segment_times: dict[str, datetime] = field(default_factory=dict)
+
+    # MMA-specific: all bouts on the card (ordered by position)
+    bouts: list["Bout"] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

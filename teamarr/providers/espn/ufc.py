@@ -6,7 +6,7 @@ No API calls, no date filtering - that's the provider's responsibility.
 
 import logging
 
-from teamarr.core import Event, EventStatus, Team
+from teamarr.core import Bout, Event, EventStatus, Team
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +51,8 @@ class UFCParserMixin:
         - 3 distinct times: early_prelims, prelims, main_card (PPV events)
         - 2 distinct times: prelims, main_card (Fight Night events)
         - 1 time: main_card only
+
+        Also extracts all bouts on the card with their segment assignments.
         """
         try:
             event_id = str(data.get("id", ""))
@@ -76,18 +78,26 @@ class UFCParserMixin:
 
             # Build segment_times dict based on number of distinct times
             segment_times: dict[str, any] = {}
+            time_to_segment: dict[str, str] = {}  # Map raw time strings to segment names
+
             if len(sorted_times) == 3:
                 # PPV format: Early Prelims, Prelims, Main Card
                 segment_times["early_prelims"] = self._parse_datetime(sorted_times[0])
                 segment_times["prelims"] = self._parse_datetime(sorted_times[1])
                 segment_times["main_card"] = self._parse_datetime(sorted_times[2])
+                time_to_segment[sorted_times[0]] = "early_prelims"
+                time_to_segment[sorted_times[1]] = "prelims"
+                time_to_segment[sorted_times[2]] = "main_card"
             elif len(sorted_times) == 2:
                 # Fight Night format: Prelims, Main Card
                 segment_times["prelims"] = self._parse_datetime(sorted_times[0])
                 segment_times["main_card"] = self._parse_datetime(sorted_times[1])
+                time_to_segment[sorted_times[0]] = "prelims"
+                time_to_segment[sorted_times[1]] = "main_card"
             else:
                 # Single segment: Main Card only
                 segment_times["main_card"] = self._parse_datetime(sorted_times[0])
+                time_to_segment[sorted_times[0]] = "main_card"
 
             # Remove any None values (failed datetime parsing)
             segment_times = {k: v for k, v in segment_times.items() if v is not None}
@@ -100,8 +110,37 @@ class UFCParserMixin:
             # Main card start for backwards compatibility
             main_card_start = segment_times.get("main_card")
 
+            # Parse all bouts on the card
+            # ESPN orders bouts chronologically, so we preserve that order
+            bouts: list[Bout] = []
+            for idx, comp in enumerate(competitions):
+                bout_competitors = comp.get("competitors", [])
+                if len(bout_competitors) < 2:
+                    continue
+
+                # Get fighter names
+                f1_athlete = bout_competitors[0].get("athlete", {})
+                f2_athlete = bout_competitors[1].get("athlete", {})
+                f1_name = f1_athlete.get("displayName", "")
+                f2_name = f2_athlete.get("displayName", "")
+
+                if not f1_name or not f2_name:
+                    continue
+
+                # Determine segment from bout time
+                bout_time = comp.get("date", "")
+                segment = time_to_segment.get(bout_time, "main_card")
+
+                bouts.append(
+                    Bout(
+                        fighter1=f1_name,
+                        fighter2=f2_name,
+                        segment=segment,
+                        order=idx,
+                    )
+                )
+
             # Find the main event (last bout = headline fight)
-            # ESPN orders bouts chronologically, so last bout is the main event
             main_event = competitions[-1]
 
             # Extract fighters as "teams"
@@ -116,9 +155,10 @@ class UFCParserMixin:
             status = self._parse_ufc_status(main_event.get("status", {}))
 
             logger.debug(
-                "[ESPN_UFC] Event %s segments: %s",
+                "[ESPN_UFC] Event %s segments: %s, bouts: %d",
                 event_id,
                 {k: v.isoformat() for k, v in segment_times.items()},
+                len(bouts),
             )
 
             return Event(
@@ -134,6 +174,7 @@ class UFCParserMixin:
                 sport="mma",  # Lowercase code; display name from sports table
                 main_card_start=main_card_start,
                 segment_times=segment_times,
+                bouts=bouts,
             )
         except Exception as e:
             logger.warning("[ESPN_UFC] Failed to parse event %s: %s", data.get("id", "unknown"), e)
