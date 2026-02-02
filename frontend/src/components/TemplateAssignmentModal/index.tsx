@@ -5,7 +5,7 @@
  * - leagues match (most specific) → sports match → default (fallback)
  */
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useMemo } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   Dialog,
@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button"
 import { Select } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import { SearchableMultiSelect } from "@/components/ui/searchable-multiselect"
 import {
   getGroupTemplates,
   addGroupTemplate,
@@ -127,6 +128,17 @@ export function TemplateAssignmentModal({
       .filter((l) => groupLeagues.includes(l.slug))
       .map((l) => l.sport)
   )]
+
+  // Build league options for searchable multiselect
+  const leagueOptions = useMemo(() => {
+    return groupLeagues.map((slug) => {
+      const league = allLeagues.find((l) => l.slug === slug)
+      return {
+        value: slug,
+        label: league?.name || slug,
+      }
+    }).sort((a, b) => a.label.localeCompare(b.label))
+  }, [groupLeagues, allLeagues])
 
   // Mutations (only used when not in local mode)
   const addMutation = useMutation({
@@ -255,18 +267,6 @@ export function TemplateAssignmentModal({
     )
   }, [])
 
-  const toggleLeague = useCallback((league: string) => {
-    setEditing((prev) =>
-      prev
-        ? {
-            ...prev,
-            leagues: prev.leagues.includes(league)
-              ? prev.leagues.filter((l) => l !== league)
-              : [...prev.leagues, league],
-          }
-        : null
-    )
-  }, [])
 
   const getSpecificityLabel = (assignment: GroupTemplate) => {
     if (assignment.leagues && assignment.leagues.length > 0) {
@@ -435,21 +435,14 @@ export function TemplateAssignmentModal({
                   {/* Leagues filter */}
                   <div className="space-y-2">
                     <Label>Leagues (optional - leave empty for all)</Label>
-                    <div className="flex flex-wrap gap-2">
-                      {groupLeagues.map((slug) => {
-                        const league = allLeagues.find((l) => l.slug === slug)
-                        return (
-                          <Badge
-                            key={slug}
-                            variant={editing.leagues.includes(slug) ? "default" : "outline"}
-                            className="cursor-pointer"
-                            onClick={() => toggleLeague(slug)}
-                          >
-                            {league?.name || slug}
-                          </Badge>
-                        )
-                      })}
-                    </div>
+                    <SearchableMultiSelect
+                      value={editing.leagues}
+                      onChange={(leagues) => setEditing({ ...editing, leagues })}
+                      options={leagueOptions}
+                      placeholder="Select leagues..."
+                      searchPlaceholder="Search leagues..."
+                      maxDisplayed={5}
+                    />
                   </div>
 
                   {/* Form actions */}

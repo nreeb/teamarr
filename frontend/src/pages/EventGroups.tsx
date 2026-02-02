@@ -18,6 +18,7 @@ import {
   RotateCcw,
   Library,
   Crown,
+  Layers,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -61,6 +62,7 @@ import { LeaguePicker } from "@/components/LeaguePicker"
 import { ChannelProfileSelector } from "@/components/ChannelProfileSelector"
 import { StreamProfileSelector } from "@/components/StreamProfileSelector"
 import { StreamTimezoneSelector } from "@/components/StreamTimezoneSelector"
+import { TemplateAssignmentModal } from "@/components/TemplateAssignmentModal"
 import { getLeagueDisplayName, SPORT_EMOJIS } from "@/lib/utils"
 
 // Fetch Dispatcharr channel groups for name lookup
@@ -176,6 +178,10 @@ export function EventGroups() {
   const [bulkEditSortOrder, setBulkEditSortOrder] = useState<string>("time")
   const [bulkEditOverlapHandlingEnabled, setBulkEditOverlapHandlingEnabled] = useState(false)
   const [bulkEditOverlapHandling, setBulkEditOverlapHandling] = useState<string>("add_stream")
+
+  // Template assignment modal for bulk/single selection
+  const [showTemplateAssignment, setShowTemplateAssignment] = useState(false)
+  const [templateAssignmentGroupId, setTemplateAssignmentGroupId] = useState<number | undefined>(undefined)
 
   // Column sorting state
   type SortColumn = "name" | "sport" | "template" | "matched" | "status" | null
@@ -555,6 +561,13 @@ export function EventGroups() {
     return modes.size > 1
   }, [data?.groups, selectedIds])
 
+  // Check if all selected groups are multi-league (for template assignment vs single template)
+  const allMultiMode = useMemo(() => {
+    if (!data?.groups || selectedIds.size === 0) return false
+    const selectedGroups = data.groups.filter(g => selectedIds.has(g.id))
+    return selectedGroups.every(g => g.group_mode === 'multi')
+  }, [data?.groups, selectedIds])
+
   // Reset bulk edit form state
   const resetBulkEditForm = () => {
     setBulkEditLeaguesEnabled(false)
@@ -926,6 +939,38 @@ export function EventGroups() {
                 >
                   <RotateCcw className="h-3 w-3 mr-1" />
                   Clear Cache
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // For single selection, open template assignment for that group
+                    // For multi-selection, open for first group (assignments will apply to pattern)
+                    const firstGroupId = Array.from(selectedIds)[0]
+                    const firstGroup = data?.groups?.find(g => g.id === firstGroupId)
+                    if (firstGroup && firstGroup.group_mode === 'multi') {
+                      setTemplateAssignmentGroupId(firstGroupId)
+                      setShowTemplateAssignment(true)
+                    }
+                  }}
+                  disabled={(() => {
+                    // Only enable for multi-league groups
+                    if (!data?.groups) return true
+                    const selectedGroups = data.groups.filter(g => selectedIds.has(g.id))
+                    // Enable only if all selected groups are multi-league
+                    return selectedGroups.length === 0 || selectedGroups.some(g => g.group_mode !== 'multi')
+                  })()}
+                  title={(() => {
+                    if (!data?.groups) return "Loading..."
+                    const selectedGroups = data.groups.filter(g => selectedIds.has(g.id))
+                    if (selectedGroups.some(g => g.group_mode !== 'multi')) {
+                      return "Template assignments only available for multi-league groups"
+                    }
+                    return selectedIds.size === 1 ? "Manage template assignments" : "Manage templates for first selected group"
+                  })()}
+                >
+                  <Layers className="h-3 w-3 mr-1" />
+                  Templates
                 </Button>
                 <Button
                   variant="outline"
@@ -1659,46 +1704,72 @@ export function EventGroups() {
 
             {/* Template */}
             <div className="space-y-2">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <Checkbox
-                  checked={bulkEditTemplateEnabled}
-                  onCheckedChange={(checked) => {
-                    setBulkEditTemplateEnabled(!!checked)
-                    if (!checked) {
-                      setBulkEditTemplateId(null)
-                      setBulkEditClearTemplate(false)
-                    }
-                  }}
-                />
-                <span className="text-sm font-medium">Template</span>
-              </label>
-              {bulkEditTemplateEnabled && (
+              {allMultiMode ? (
+                // Multi-league groups: use template assignments
                 <>
-                  <Select
-                    value={bulkEditClearTemplate ? "" : (bulkEditTemplateId?.toString() ?? "")}
-                    onChange={(e) => {
-                      setBulkEditTemplateId(e.target.value ? parseInt(e.target.value) : null)
-                      setBulkEditClearTemplate(false)
+                  <span className="text-sm font-medium">Template Assignments</span>
+                  <p className="text-xs text-muted-foreground">
+                    Multi-league groups use template assignments for sport/league-specific templates.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      // Open template assignment modal for first selected group
+                      const firstGroupId = Array.from(selectedIds)[0]
+                      setTemplateAssignmentGroupId(firstGroupId)
+                      setShowTemplateAssignment(true)
                     }}
-                    disabled={bulkEditClearTemplate}
                   >
-                    <option value="">Select template...</option>
-                    {eventTemplates.map((template) => (
-                      <option key={template.id} value={template.id.toString()}>
-                        {template.name}
-                      </option>
-                    ))}
-                  </Select>
+                    <Layers className="h-3 w-3 mr-1" />
+                    Manage Templates...
+                  </Button>
+                </>
+              ) : (
+                // Single-league groups: use single template dropdown
+                <>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <Checkbox
-                      checked={bulkEditClearTemplate}
+                      checked={bulkEditTemplateEnabled}
                       onCheckedChange={(checked) => {
-                        setBulkEditClearTemplate(!!checked)
-                        if (checked) setBulkEditTemplateId(null)
+                        setBulkEditTemplateEnabled(!!checked)
+                        if (!checked) {
+                          setBulkEditTemplateId(null)
+                          setBulkEditClearTemplate(false)
+                        }
                       }}
                     />
-                    <span className="text-xs text-muted-foreground">Clear (unassign template)</span>
+                    <span className="text-sm font-medium">Template</span>
                   </label>
+                  {bulkEditTemplateEnabled && (
+                    <>
+                      <Select
+                        value={bulkEditClearTemplate ? "" : (bulkEditTemplateId?.toString() ?? "")}
+                        onChange={(e) => {
+                          setBulkEditTemplateId(e.target.value ? parseInt(e.target.value) : null)
+                          setBulkEditClearTemplate(false)
+                        }}
+                        disabled={bulkEditClearTemplate}
+                      >
+                        <option value="">Select template...</option>
+                        {eventTemplates.map((template) => (
+                          <option key={template.id} value={template.id.toString()}>
+                            {template.name}
+                          </option>
+                        ))}
+                      </Select>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={bulkEditClearTemplate}
+                          onCheckedChange={(checked) => {
+                            setBulkEditClearTemplate(!!checked)
+                            if (checked) setBulkEditTemplateId(null)
+                          }}
+                        />
+                        <span className="text-xs text-muted-foreground">Clear (unassign template)</span>
+                      </label>
+                    </>
+                  )}
                 </>
               )}
             </div>
@@ -2144,6 +2215,20 @@ export function EventGroups() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Template Assignment Modal for bulk/single selection */}
+      {templateAssignmentGroupId && (
+        <TemplateAssignmentModal
+          open={showTemplateAssignment}
+          onOpenChange={(open) => {
+            setShowTemplateAssignment(open)
+            if (!open) setTemplateAssignmentGroupId(undefined)
+          }}
+          groupId={templateAssignmentGroupId}
+          groupName={data?.groups?.find(g => g.id === templateAssignmentGroupId)?.name || "Selected Group"}
+          groupLeagues={data?.groups?.find(g => g.id === templateAssignmentGroupId)?.leagues || []}
+        />
+      )}
     </div>
   )
 }
