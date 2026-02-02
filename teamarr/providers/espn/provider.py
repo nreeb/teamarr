@@ -5,7 +5,7 @@ Pure fetch + normalize - no caching (caching is in service layer).
 """
 
 import logging
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from teamarr.core import (
     Event,
@@ -185,27 +185,31 @@ class ESPNProvider(UFCParserMixin, TournamentParserMixin, SportsProvider):
         Returns all completed games from the season. More efficient than
         scanning scoreboards day by day, and works regardless of how long
         ago the last game was.
+
+        Note: Uses full datetime comparison (not just date) because ESPN returns
+        dates in UTC. A game at 10 PM EST on Jan 31 is 3 AM UTC on Feb 1, so
+        date-only comparison with local date.today() would incorrectly exclude it.
         """
         data = self._client.get_team_schedule(league, team_id, sport_league)
         if not data:
             return []
 
         events = []
-        today = date.today()
+        now_utc = datetime.now(UTC)
 
         for event_data in data.get("events", []):
-            # Parse the event date
-            event_date_str = event_data.get("date", "")[:10]  # "2026-01-05"
+            # Parse the full datetime (includes timezone)
+            event_date_str = event_data.get("date", "")
             if not event_date_str:
                 continue
 
-            try:
-                event_date = date.fromisoformat(event_date_str)
-            except ValueError:
+            event_datetime = self._parse_datetime(event_date_str)
+            if not event_datetime:
                 continue
 
-            # Only include past games (before today)
-            if event_date >= today:
+            # Only include past games (before current time)
+            # This correctly handles late-night games where UTC date differs from local date
+            if event_datetime >= now_utc:
                 continue
 
             event = self._parse_schedule_event(event_data, league)
