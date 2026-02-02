@@ -1196,6 +1196,15 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
         logger.info("[MIGRATE] Schema upgraded to version 50 (soccer selection modes)")
         current_version = 50
 
+    # v51: Add soccer_followed_teams for 'teams' mode
+    # Stores [{provider, team_id, name}] for teams the user wants to follow
+    # Leagues are auto-discovered from team_cache at processing time
+    if current_version < 51:
+        _add_column_if_not_exists(conn, "event_epg_groups", "soccer_followed_teams", "TEXT")
+        conn.execute("UPDATE settings SET schema_version = 51 WHERE id = 1")
+        logger.info("[MIGRATE] Schema upgraded to version 51 (soccer followed teams)")
+        current_version = 51
+
 
 # =============================================================================
 # LEGACY MIGRATION HELPER FUNCTIONS

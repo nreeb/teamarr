@@ -362,12 +362,27 @@ class EventGroupProcessor:
         Returns:
             List of league codes to use for event fetching/matching.
             - soccer_mode='all': All enabled soccer leagues
+            - soccer_mode='teams': Leagues discovered from followed teams
             - soccer_mode='manual' or NULL: group.leagues as-is
-            - soccer_mode='teams': DEFERRED (returns group.leagues for now)
         """
         if group.soccer_mode == "all":
             return get_enabled_soccer_leagues(conn)
-        # 'manual', 'teams' (deferred), or NULL use explicit leagues
+
+        if group.soccer_mode == "teams" and group.soccer_followed_teams:
+            # Discover leagues from followed teams using team_cache
+            from teamarr.consumers.cache.queries import CacheQueries
+
+            cache = CacheQueries(self._db_factory)
+            leagues: set[str] = set()
+            for team in group.soccer_followed_teams:
+                provider = team.get("provider", "espn")
+                team_id = team.get("team_id")
+                if team_id:
+                    team_leagues = cache.get_team_leagues(team_id, provider, sport="soccer")
+                    leagues.update(team_leagues)
+            return list(leagues) if leagues else group.leagues
+
+        # 'manual' or NULL use explicit leagues
         return group.leagues
 
     def process_group(

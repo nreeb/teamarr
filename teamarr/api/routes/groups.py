@@ -66,6 +66,17 @@ class TeamFilterEntry(BaseModel):
     name: str | None = None  # For display only, not used in matching
 
 
+class SoccerFollowedTeam(BaseModel):
+    """A soccer team to follow for teams mode.
+
+    Leagues are auto-discovered from team_cache at processing time.
+    """
+
+    provider: str = "espn"  # e.g., "espn", "tsdb"
+    team_id: str  # provider_team_id from team_cache
+    name: str | None = None  # For display only
+
+
 class GroupCreate(BaseModel):
     """Create event EPG group request."""
 
@@ -73,6 +84,7 @@ class GroupCreate(BaseModel):
     display_name: str | None = Field(None, max_length=100)  # Optional display name override
     leagues: list[str] = Field(..., min_length=1)
     soccer_mode: str | None = None  # 'all', 'teams', 'manual', or None (non-soccer)
+    soccer_followed_teams: list[SoccerFollowedTeam] | None = None  # Teams to follow
     group_mode: str = "single"  # "single" or "multi" - persisted to preserve user intent
     parent_group_id: int | None = None
     template_id: int | None = None
@@ -133,6 +145,7 @@ class GroupUpdate(BaseModel):
     display_name: str | None = Field(None, max_length=100)  # Optional display name override
     leagues: list[str] | None = None
     soccer_mode: str | None = None  # 'all', 'teams', 'manual', or None (non-soccer)
+    soccer_followed_teams: list[SoccerFollowedTeam] | None = None  # Teams to follow
     group_mode: str | None = None  # "single" or "multi" - persisted to preserve user intent
     parent_group_id: int | None = None
     template_id: int | None = None
@@ -202,6 +215,7 @@ class GroupUpdate(BaseModel):
     clear_include_teams: bool = False
     clear_exclude_teams: bool = False
     clear_soccer_mode: bool = False
+    clear_soccer_followed_teams: bool = False
 
     @field_validator("channel_profile_ids", mode="before")
     @classmethod
@@ -217,6 +231,7 @@ class GroupResponse(BaseModel):
     display_name: str | None = None  # Optional display name override for UI
     leagues: list[str]
     soccer_mode: str | None = None  # 'all', 'teams', 'manual', or None (non-soccer)
+    soccer_followed_teams: list[SoccerFollowedTeam] | None = None  # Teams to follow
     group_mode: str = "single"  # "single" or "multi" - persisted to preserve user intent
     parent_group_id: int | None = None
     template_id: int | None = None
@@ -336,6 +351,7 @@ class BulkGroupSettings(BaseModel):
     group_mode: str = "single"  # "single" or "multi"
     leagues: list[str] = Field(..., min_length=1)
     soccer_mode: str | None = None  # 'all', 'teams', 'manual', or None (non-soccer)
+    soccer_followed_teams: list[SoccerFollowedTeam] | None = None  # Teams to follow
     template_id: int | None = None
     channel_group_id: int | None = None
     channel_group_mode: str = "static"  # "static", "sport", "league"
@@ -392,6 +408,7 @@ class BulkGroupUpdateRequest(BaseModel):
     # Updateable fields (all optional - only provided fields are applied)
     leagues: list[str] | None = None
     soccer_mode: str | None = None  # 'all', 'teams', 'manual', or None (non-soccer)
+    soccer_followed_teams: list[SoccerFollowedTeam] | None = None  # Teams to follow
     template_id: int | None = None
     channel_group_id: int | None = None
     channel_group_mode: str | None = None
@@ -410,6 +427,7 @@ class BulkGroupUpdateRequest(BaseModel):
     clear_stream_profile_id: bool = False
     clear_stream_timezone: bool = False
     clear_soccer_mode: bool = False
+    clear_soccer_followed_teams: bool = False
 
     @field_validator("channel_profile_ids", mode="before")
     @classmethod
@@ -658,6 +676,9 @@ def create_group(request: GroupCreate):
             leagues=request.leagues,
             display_name=request.display_name,
             soccer_mode=request.soccer_mode,
+            soccer_followed_teams=[t.model_dump() for t in request.soccer_followed_teams]
+            if request.soccer_followed_teams
+            else None,
             group_mode=request.group_mode,
             parent_group_id=request.parent_group_id,
             template_id=request.template_id,
@@ -825,6 +846,11 @@ def create_groups_bulk(request: BulkGroupCreateRequest):
                     name=item.m3u_group_name,
                     leagues=request.settings.leagues,
                     soccer_mode=request.settings.soccer_mode,
+                    soccer_followed_teams=(
+                        [t.model_dump() for t in request.settings.soccer_followed_teams]
+                        if request.settings.soccer_followed_teams
+                        else None
+                    ),
                     group_mode=request.settings.group_mode,
                     template_id=request.settings.template_id,
                     channel_group_id=request.settings.channel_group_id,
@@ -920,6 +946,9 @@ def update_groups_bulk(request: BulkGroupUpdateRequest):
                     group_id,
                     leagues=request.leagues,
                     soccer_mode=request.soccer_mode,
+                    soccer_followed_teams=[t.model_dump() for t in request.soccer_followed_teams]
+                    if request.soccer_followed_teams
+                    else None,
                     template_id=request.template_id,
                     channel_group_id=request.channel_group_id,
                     channel_group_mode=request.channel_group_mode,
@@ -936,6 +965,7 @@ def update_groups_bulk(request: BulkGroupUpdateRequest):
                     clear_stream_profile_id=request.clear_stream_profile_id,
                     clear_stream_timezone=request.clear_stream_timezone,
                     clear_soccer_mode=request.clear_soccer_mode,
+                    clear_soccer_followed_teams=request.clear_soccer_followed_teams,
                 )
 
                 results.append(
@@ -1113,6 +1143,9 @@ def update_group_by_id(group_id: int, request: GroupUpdate):
                 display_name=request.display_name,
                 leagues=request.leagues,
                 soccer_mode=request.soccer_mode,
+                soccer_followed_teams=[t.model_dump() for t in request.soccer_followed_teams]
+                if request.soccer_followed_teams
+                else None,
                 group_mode=request.group_mode,
                 parent_group_id=request.parent_group_id,
                 template_id=request.template_id,
@@ -1180,6 +1213,7 @@ def update_group_by_id(group_id: int, request: GroupUpdate):
                 clear_include_teams=request.clear_include_teams,
                 clear_exclude_teams=request.clear_exclude_teams,
                 clear_soccer_mode=request.clear_soccer_mode,
+                clear_soccer_followed_teams=request.clear_soccer_followed_teams,
             )
         except ValueError as e:
             raise HTTPException(

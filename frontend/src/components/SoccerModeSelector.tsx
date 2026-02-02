@@ -1,17 +1,21 @@
-import { useMemo } from "react"
+import { useState, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { Globe2, ListChecks, Info } from "lucide-react"
+import { Globe2, ListChecks, Users, Info, Search, Loader2 } from "lucide-react"
 import { LeaguePicker } from "@/components/LeaguePicker"
+import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import { getLeagues } from "@/api/teams"
+import { getLeagues, searchTeams } from "@/api/teams"
+import type { SoccerFollowedTeam } from "@/api/types"
 
-export type SoccerMode = 'all' | 'manual' | null
+export type SoccerMode = 'all' | 'teams' | 'manual' | null
 
 interface SoccerModeSelectorProps {
   mode: SoccerMode
   onModeChange: (mode: SoccerMode) => void
   selectedLeagues: string[]
   onLeaguesChange: (leagues: string[]) => void
+  followedTeams: SoccerFollowedTeam[]
+  onFollowedTeamsChange: (teams: SoccerFollowedTeam[]) => void
   className?: string
 }
 
@@ -20,12 +24,24 @@ export function SoccerModeSelector({
   onModeChange,
   selectedLeagues,
   onLeaguesChange,
+  followedTeams,
+  onFollowedTeamsChange,
   className,
 }: SoccerModeSelectorProps) {
+  const [searchQuery, setSearchQuery] = useState("")
+
   // Fetch all leagues to filter for soccer
   const { data: leaguesResponse } = useQuery({
     queryKey: ["cached-leagues"],
     queryFn: () => getLeagues(),
+  })
+
+  // Search for soccer teams
+  const { data: searchResults, isLoading: isSearching } = useQuery({
+    queryKey: ["soccer-team-search", searchQuery],
+    queryFn: () => searchTeams(searchQuery, undefined, "soccer"),
+    enabled: searchQuery.length >= 2,
+    staleTime: 30 * 1000, // 30 seconds
   })
 
   // Get all soccer league slugs for display purposes
@@ -38,15 +54,44 @@ export function SoccerModeSelector({
 
   const soccerLeagueCount = allSoccerLeagues.length
 
-  const handleModeChange = (newMode: 'all' | 'manual') => {
+  const handleModeChange = (newMode: 'all' | 'teams' | 'manual') => {
+    onModeChange(newMode)
+    // Clear data when switching modes
     if (newMode === 'all') {
-      onModeChange('all')
-      // Clear explicit leagues when switching to all
+      onLeaguesChange([])
+      onFollowedTeamsChange([])
+    } else if (newMode === 'teams') {
       onLeaguesChange([])
     } else if (newMode === 'manual') {
-      onModeChange('manual')
+      onFollowedTeamsChange([])
     }
   }
+
+  const handleTeamSelect = (team: { provider: string; team_id: string; name: string }) => {
+    // Check if already followed
+    const exists = followedTeams.some(t => t.team_id === team.team_id && t.provider === team.provider)
+    if (exists) return
+
+    onFollowedTeamsChange([
+      ...followedTeams,
+      { provider: team.provider, team_id: team.team_id, name: team.name },
+    ])
+    setSearchQuery("") // Clear search after selection
+  }
+
+  const handleTeamRemove = (teamId: string, provider: string) => {
+    onFollowedTeamsChange(
+      followedTeams.filter(t => !(t.team_id === teamId && t.provider === provider))
+    )
+  }
+
+  // Filter out already followed teams from search results
+  const filteredResults = useMemo(() => {
+    if (!searchResults?.teams) return []
+    return searchResults.teams.filter(
+      team => !followedTeams.some(f => f.team_id === team.team_id && f.provider === team.provider)
+    )
+  }, [searchResults, followedTeams])
 
   return (
     <div className={cn("space-y-4", className)}>
@@ -72,6 +117,26 @@ export function SoccerModeSelector({
           </div>
         </label>
 
+        {/* Teams Mode */}
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="radio"
+            name="soccer-mode"
+            checked={mode === 'teams'}
+            onChange={() => handleModeChange('teams')}
+            className="mt-1.5 h-4 w-4 border-muted-foreground text-primary focus:ring-primary"
+          />
+          <div className="flex-1">
+            <span className="flex items-center gap-2 font-medium">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              Follow Teams
+            </span>
+            <p className="text-sm text-muted-foreground mt-1">
+              Follow specific teams. Their leagues are auto-discovered (EPL, Champions League, cups, etc).
+            </p>
+          </div>
+        </label>
+
         {/* Manual Mode */}
         <label className="flex items-start gap-3 cursor-pointer">
           <input
@@ -92,6 +157,95 @@ export function SoccerModeSelector({
           </div>
         </label>
       </div>
+
+      {/* Team Search - shown in teams mode */}
+      {mode === 'teams' && (
+        <div className="pl-7 border-l-2 border-muted ml-2 space-y-3">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Info className="h-4 w-4" />
+            <span>
+              {followedTeams.length === 0
+                ? "Search and select teams to follow"
+                : `Following ${followedTeams.length} team${followedTeams.length === 1 ? '' : 's'}`}
+            </span>
+          </div>
+
+          {/* Show followed teams */}
+          {followedTeams.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {followedTeams.map((team) => (
+                <span
+                  key={`${team.provider}-${team.team_id}`}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-secondary text-secondary-foreground rounded-md text-sm"
+                >
+                  {team.name || team.team_id}
+                  <button
+                    type="button"
+                    onClick={() => handleTeamRemove(team.team_id, team.provider)}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    &times;
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Team search input */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search for a soccer team..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+            {isSearching && (
+              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+            )}
+          </div>
+
+          {/* Search results dropdown */}
+          {searchQuery.length >= 2 && (
+            <div className="border rounded-md max-h-60 overflow-y-auto">
+              {isSearching ? (
+                <div className="p-3 text-center text-sm text-muted-foreground">
+                  Searching...
+                </div>
+              ) : filteredResults.length > 0 ? (
+                <div className="divide-y">
+                  {filteredResults.map((team) => (
+                    <button
+                      key={`${team.provider}-${team.team_id}`}
+                      type="button"
+                      onClick={() => handleTeamSelect({
+                        provider: team.provider,
+                        team_id: team.team_id,
+                        name: team.name,
+                      })}
+                      className="w-full text-left px-3 py-2 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="font-medium">{team.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {team.league.toUpperCase()}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : searchResults?.teams.length === followedTeams.length ? (
+                <div className="p-3 text-center text-sm text-muted-foreground">
+                  All matching teams already followed
+                </div>
+              ) : (
+                <div className="p-3 text-center text-sm text-muted-foreground">
+                  No teams found
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* League Picker - only shown in manual mode */}
       {mode === 'manual' && (

@@ -21,6 +21,7 @@ class EventEPGGroup:
     display_name: str | None = None  # Optional display name override for UI
     leagues: list[str] = field(default_factory=list)
     soccer_mode: str | None = None  # NULL (non-soccer), 'all', 'teams', 'manual'
+    soccer_followed_teams: list[dict] | None = None  # [{provider, team_id, name}] for teams mode
     group_mode: str = "single"  # "single" or "multi" - persisted to preserve user intent
     template_id: int | None = None
     channel_start_number: int | None = None
@@ -124,6 +125,9 @@ def _row_to_group(row) -> EventEPGGroup:
         display_name=row["display_name"] if "display_name" in row.keys() else None,
         leagues=leagues,
         soccer_mode=row["soccer_mode"] if "soccer_mode" in row.keys() else None,
+        soccer_followed_teams=json.loads(row["soccer_followed_teams"])
+        if "soccer_followed_teams" in row.keys() and row["soccer_followed_teams"]
+        else None,
         group_mode=row["group_mode"] if "group_mode" in row.keys() else "single",
         template_id=row["template_id"],
         channel_start_number=row["channel_start_number"],
@@ -336,6 +340,7 @@ def create_group(
     leagues: list[str],
     display_name: str | None = None,
     soccer_mode: str | None = None,
+    soccer_followed_teams: list[dict] | None = None,
     group_mode: str = "single",
     template_id: int | None = None,
     channel_start_number: int | None = None,
@@ -417,7 +422,7 @@ def create_group(
 
     cursor = conn.execute(
         """INSERT INTO event_epg_groups (
-            name, display_name, leagues, soccer_mode, group_mode, template_id,
+            name, display_name, leagues, soccer_mode, soccer_followed_teams, group_mode, template_id,
             channel_start_number, channel_group_id, channel_group_mode, channel_profile_ids,
             stream_profile_id, stream_timezone, duplicate_event_handling,
             channel_assignment_mode, sort_order, total_stream_count, parent_group_id,
@@ -433,12 +438,13 @@ def create_group(
             skip_builtin_filter,
             include_teams, exclude_teams, team_filter_mode,
             channel_sort_order, overlap_handling, enabled
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",  # noqa: E501
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",  # noqa: E501
         (
             name,
             display_name,
             json.dumps(leagues),
             soccer_mode,
+            json.dumps(soccer_followed_teams) if soccer_followed_teams else None,
             group_mode,
             template_id,
             channel_start_number,
@@ -498,6 +504,7 @@ def update_group(
     display_name: str | None = None,
     leagues: list[str] | None = None,
     soccer_mode: str | None = None,
+    soccer_followed_teams: list[dict] | None = None,
     group_mode: str | None = None,
     template_id: int | None = None,
     channel_start_number: int | None = None,
@@ -566,6 +573,7 @@ def update_group(
     clear_include_teams: bool = False,
     clear_exclude_teams: bool = False,
     clear_soccer_mode: bool = False,
+    clear_soccer_followed_teams: bool = False,
 ) -> bool:
     """Update an event EPG group.
 
@@ -618,6 +626,12 @@ def update_group(
         values.append(soccer_mode)
     elif clear_soccer_mode:
         updates.append("soccer_mode = NULL")
+
+    if soccer_followed_teams is not None:
+        updates.append("soccer_followed_teams = ?")
+        values.append(json.dumps(soccer_followed_teams))
+    elif clear_soccer_followed_teams:
+        updates.append("soccer_followed_teams = NULL")
 
     if group_mode is not None:
         updates.append("group_mode = ?")

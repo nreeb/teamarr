@@ -108,6 +108,8 @@ export function EventGroupForm() {
 
   // Soccer mode state (for soccer-only groups)
   const [soccerMode, setSoccerMode] = useState<SoccerMode>(null)
+  // Soccer followed teams (for teams mode)
+  const [soccerFollowedTeams, setSoccerFollowedTeams] = useState<Array<{ provider: string; team_id: string; name?: string | null }>>([])
 
   // Fetch existing group if editing
   const { data: group, isLoading: isLoadingGroup } = useGroup(
@@ -302,6 +304,10 @@ export function EventGroupForm() {
       if (group.soccer_mode) {
         setSoccerMode(group.soccer_mode as SoccerMode)
       }
+      // Set soccer followed teams if present
+      if (group.soccer_followed_teams) {
+        setSoccerFollowedTeams(group.soccer_followed_teams)
+      }
     }
   }, [group, cachedLeagues])
 
@@ -366,9 +372,15 @@ export function EventGroupForm() {
       }
     }
 
-    // Validate leagues (allow empty for soccer_mode='all' which resolves dynamically)
-    if (leagues.length === 0 && soccerMode !== 'all') {
+    // Validate leagues (allow empty for soccer_mode='all' or 'teams' which resolve dynamically)
+    if (leagues.length === 0 && soccerMode !== 'all' && soccerMode !== 'teams') {
       toast.error("At least one league is required")
+      return
+    }
+
+    // Validate teams mode requires at least one followed team
+    if (soccerMode === 'teams' && soccerFollowedTeams.length === 0) {
+      toast.error("At least one team must be followed in teams mode")
       return
     }
 
@@ -380,6 +392,8 @@ export function EventGroupForm() {
         ...(groupMode && { group_mode: groupMode }),
         // Include soccer_mode for soccer groups
         soccer_mode: soccerMode,
+        // Include followed teams for teams mode
+        soccer_followed_teams: soccerMode === 'teams' ? soccerFollowedTeams : null,
       }
 
       if (isEdit) {
@@ -412,6 +426,10 @@ export function EventGroupForm() {
           }
           if (shouldClear(group.soccer_mode, soccerMode)) {
             updateData.clear_soccer_mode = true
+          }
+          // Clear followed teams when switching away from teams mode
+          if (group.soccer_followed_teams?.length && soccerMode !== 'teams') {
+            updateData.clear_soccer_followed_teams = true
           }
         }
 
@@ -624,6 +642,8 @@ export function EventGroupForm() {
                     setSelectedLeagues(new Set(leagues))
                     setFormData(prev => ({ ...prev, leagues }))
                   }}
+                  followedTeams={soccerFollowedTeams}
+                  onFollowedTeamsChange={setSoccerFollowedTeams}
                 />
               </CardContent>
             </Card>

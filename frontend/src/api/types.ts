@@ -8,12 +8,20 @@ export interface TeamFilterEntry {
   name?: string | null  // For display only, not used in matching
 }
 
+// Soccer team to follow (for teams mode)
+export interface SoccerFollowedTeam {
+  provider: string      // e.g., "espn"
+  team_id: string       // provider_team_id from team_cache
+  name?: string | null  // For display only
+}
+
 export interface EventGroup {
   id: number
   name: string
   display_name: string | null  // Optional display name override for UI
   leagues: string[]
   soccer_mode: 'all' | 'teams' | 'manual' | null  // Soccer selection mode (null for non-soccer)
+  soccer_followed_teams: SoccerFollowedTeam[] | null  // Teams to follow (for teams mode)
   group_mode: string  // "single" or "multi" - persisted to preserve user intent
   parent_group_id: number | null
   template_id: number | null
@@ -85,6 +93,7 @@ export interface EventGroupCreate {
   display_name?: string | null  // Optional display name override
   leagues: string[]
   soccer_mode?: 'all' | 'teams' | 'manual' | null  // Soccer selection mode (null for non-soccer)
+  soccer_followed_teams?: SoccerFollowedTeam[] | null  // Teams to follow (for teams mode)
   group_mode?: string  // "single" or "multi" - persisted to preserve user intent
   parent_group_id?: number | null
   template_id?: number | null
@@ -159,6 +168,7 @@ export interface EventGroupUpdate extends Partial<EventGroupCreate> {
   clear_include_teams?: boolean
   clear_exclude_teams?: boolean
   clear_soccer_mode?: boolean
+  clear_soccer_followed_teams?: boolean
 }
 
 export interface EventGroupListResponse {

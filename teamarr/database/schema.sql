@@ -336,6 +336,7 @@ CREATE TABLE IF NOT EXISTS event_epg_groups (
     leagues JSON NOT NULL,                   -- ["nfl", "nba"] - leagues to scan for events
     soccer_mode TEXT DEFAULT NULL            -- NULL (non-soccer), 'all' (auto-subscribe), 'teams' (follow teams), 'manual' (explicit)
         CHECK(soccer_mode IS NULL OR soccer_mode IN ('all', 'teams', 'manual')),
+    soccer_followed_teams JSON DEFAULT NULL, -- [{provider, team_id, name}] for teams mode - auto-discovers their competitions
 
     -- Template
     template_id INTEGER,
