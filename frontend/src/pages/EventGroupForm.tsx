@@ -130,33 +130,8 @@ export function EventGroupForm() {
   })
   const cachedLeagues = leaguesResponse?.leagues
 
-  // Get set of soccer league slugs for quick lookup
-  const soccerLeagueSlugs = useMemo(() => {
-    if (!cachedLeagues) return new Set<string>()
-    return new Set(
-      cachedLeagues
-        .filter(l => l.sport?.toLowerCase() === 'soccer')
-        .map(l => l.slug)
-    )
-  }, [cachedLeagues])
-
-  // Detect if current leagues are all soccer (for showing SoccerModeSelector)
-  const isAllSoccer = useMemo(() => {
-    const currentLeagues = isEdit ? formData.leagues : Array.from(selectedLeagues)
-    if (currentLeagues.length === 0) return false
-    return currentLeagues.every(slug => soccerLeagueSlugs.has(slug))
-  }, [formData.leagues, selectedLeagues, soccerLeagueSlugs, isEdit])
-
-  // Show soccer mode UI when:
-  // 1. Editing a group with soccer_mode set, OR
-  // 2. Group has multi-league and all leagues are soccer
-  const showSoccerMode = useMemo(() => {
-    if (groupMode !== 'multi') return false
-    // If soccer_mode is already set, show the selector
-    if (soccerMode) return true
-    // If all leagues are soccer, show the selector
-    return isAllSoccer
-  }, [groupMode, soccerMode, isAllSoccer])
+  // Show soccer mode UI for all multi-league groups
+  const showSoccerMode = groupMode === 'multi'
 
   // Fetch channel groups from Dispatcharr
   const { data: channelGroups, refetch: refetchChannelGroups, isError: channelGroupsError, error: channelGroupsErrorMsg } = useQuery({
