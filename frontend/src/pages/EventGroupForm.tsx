@@ -593,7 +593,10 @@ export function EventGroupForm() {
           {/* Group Type Indicator - hidden for child groups */}
           {!isChildGroup && (
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Group Type</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-muted-foreground">Group Type</Label>
+                <span className="text-xs text-muted-foreground/70">Set at creation, cannot be changed</span>
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div
                   className={cn(
