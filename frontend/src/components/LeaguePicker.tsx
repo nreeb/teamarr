@@ -20,6 +20,8 @@ interface LeaguePickerProps {
   maxBadges?: number
   /** Filter to show only leagues from a specific sport (e.g., "soccer") */
   sportFilter?: string
+  /** Exclude leagues from a specific sport (e.g., "soccer" when using SoccerModeSelector) */
+  excludeSport?: string
 }
 
 export function LeaguePicker({
@@ -31,6 +33,7 @@ export function LeaguePicker({
   showSelectedBadges = true,
   maxBadges = 10,
   sportFilter,
+  excludeSport,
 }: LeaguePickerProps) {
   const [search, setSearch] = useState("")
   const [expandedSports, setExpandedSports] = useState<Set<string>>(new Set())
@@ -53,6 +56,7 @@ export function LeaguePicker({
 
   // Group leagues by sport (normalize to lowercase for consistent grouping)
   // When sportFilter is provided, only include leagues from that sport
+  // When excludeSport is provided, exclude leagues from that sport
   const leaguesBySport = useMemo(() => {
     if (!cachedLeagues) return {}
     const grouped: Record<string, CachedLeague[]> = {}
@@ -60,6 +64,8 @@ export function LeaguePicker({
       const sport = (league.sport || "other").toLowerCase()
       // Skip if sportFilter is set and doesn't match
       if (sportFilter && sport !== sportFilter.toLowerCase()) continue
+      // Skip if excludeSport is set and matches
+      if (excludeSport && sport === excludeSport.toLowerCase()) continue
       if (!grouped[sport]) grouped[sport] = []
       grouped[sport].push(league)
     }
@@ -68,7 +74,7 @@ export function LeaguePicker({
       grouped[sport].sort((a, b) => a.name.localeCompare(b.name))
     }
     return grouped
-  }, [cachedLeagues, sportFilter])
+  }, [cachedLeagues, sportFilter, excludeSport])
 
   const sports = Object.keys(leaguesBySport).sort()
 

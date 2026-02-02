@@ -592,38 +592,6 @@ export function EventGroupForm() {
             </div>
           )}
 
-          {/* Soccer Mode Selector - shown for soccer-only multi-league groups */}
-          {showSoccerMode && !isChildGroup && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Soccer League Selection</CardTitle>
-                <CardDescription>
-                  Choose how to select soccer leagues for this group
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <SoccerModeSelector
-                  mode={soccerMode}
-                  onModeChange={(mode) => {
-                    setSoccerMode(mode)
-                    // When switching to 'all' mode, clear the manual leagues selection
-                    if (mode === 'all') {
-                      setSelectedLeagues(new Set())
-                      setFormData(prev => ({ ...prev, leagues: [] }))
-                    }
-                  }}
-                  selectedLeagues={Array.from(selectedLeagues)}
-                  onLeaguesChange={(leagues) => {
-                    setSelectedLeagues(new Set(leagues))
-                    setFormData(prev => ({ ...prev, leagues }))
-                  }}
-                  followedTeams={soccerFollowedTeams}
-                  onFollowedTeamsChange={setSoccerFollowedTeams}
-                />
-              </CardContent>
-            </Card>
-          )}
-
           {/* Child Group Basic Settings - only name and enabled */}
           {isChildGroup && (
             <Card>
@@ -819,18 +787,6 @@ export function EventGroupForm() {
                 </div>
               )}
 
-              {/* Full league picker for multi-league groups in edit mode */}
-              {isEdit && groupMode === "multi" && (
-                <div className="space-y-2">
-                  <Label>Matching Leagues</Label>
-                  <LeaguePicker
-                    selectedLeagues={formData.leagues}
-                    onSelectionChange={(leagues) => setFormData({ ...formData, leagues })}
-                    maxHeight="max-h-72"
-                  />
-                </div>
-              )}
-
               <div className="flex items-center gap-2">
                 <Switch
                   checked={formData.enabled}
@@ -840,6 +796,79 @@ export function EventGroupForm() {
               </div>
             </CardContent>
           </Card>}
+
+          {/* League Selection - combined soccer mode + other sports for multi-league groups */}
+          {showSoccerMode && !isChildGroup && (
+            <Card>
+              <CardHeader>
+                <CardTitle>League Selection</CardTitle>
+                <CardDescription>
+                  Configure which leagues this group will match
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Non-Soccer Sports Section */}
+                <div className="space-y-3">
+                  <Label className="text-base font-medium">Non-Soccer Sports</Label>
+                  <LeaguePicker
+                    selectedLeagues={Array.from(selectedLeagues).filter(slug => {
+                      // Only show non-soccer leagues in this picker
+                      const league = cachedLeagues?.find(l => l.slug === slug)
+                      return league?.sport?.toLowerCase() !== 'soccer'
+                    })}
+                    onSelectionChange={(otherLeagues) => {
+                      // Merge with soccer leagues
+                      const soccerLeagues = Array.from(selectedLeagues).filter(slug => {
+                        const league = cachedLeagues?.find(l => l.slug === slug)
+                        return league?.sport?.toLowerCase() === 'soccer'
+                      })
+                      const allLeagues = [...soccerLeagues, ...otherLeagues]
+                      setSelectedLeagues(new Set(allLeagues))
+                      setFormData(prev => ({ ...prev, leagues: allLeagues }))
+                    }}
+                    excludeSport="soccer"
+                    maxHeight="max-h-64"
+                    showSearch={true}
+                    showSelectedBadges={true}
+                    maxBadges={5}
+                  />
+                </div>
+
+                {/* Divider */}
+                <div className="border-t" />
+
+                {/* Soccer Mode Section */}
+                <div className="space-y-3">
+                  <Label className="text-base font-medium">Soccer Leagues</Label>
+                  <SoccerModeSelector
+                    mode={soccerMode}
+                    onModeChange={(mode) => {
+                      setSoccerMode(mode)
+                      // When switching to 'all' or 'teams' mode, soccer leagues are auto-managed
+                      // Keep any non-soccer leagues the user has selected
+                    }}
+                    selectedLeagues={Array.from(selectedLeagues).filter(slug => {
+                      // Only pass soccer leagues to SoccerModeSelector
+                      const league = cachedLeagues?.find(l => l.slug === slug)
+                      return league?.sport?.toLowerCase() === 'soccer'
+                    })}
+                    onLeaguesChange={(soccerLeagues) => {
+                      // Merge soccer leagues with existing non-soccer leagues
+                      const nonSoccerLeagues = Array.from(selectedLeagues).filter(slug => {
+                        const league = cachedLeagues?.find(l => l.slug === slug)
+                        return league?.sport?.toLowerCase() !== 'soccer'
+                      })
+                      const allLeagues = [...nonSoccerLeagues, ...soccerLeagues]
+                      setSelectedLeagues(new Set(allLeagues))
+                      setFormData(prev => ({ ...prev, leagues: allLeagues }))
+                    }}
+                    followedTeams={soccerFollowedTeams}
+                    onFollowedTeamsChange={setSoccerFollowedTeams}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Stream Timezone */}
           <Card>
