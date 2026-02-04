@@ -592,6 +592,7 @@ def list_groups(
                 group_template_count=group_template_counts.get(g.id, 0),
                 channel_start_number=g.channel_start_number,
                 channel_group_id=g.channel_group_id,
+                channel_group_mode=g.channel_group_mode,
                 channel_profile_ids=g.channel_profile_ids,
                 duplicate_event_handling=g.duplicate_event_handling,
                 channel_assignment_mode=g.channel_assignment_mode,

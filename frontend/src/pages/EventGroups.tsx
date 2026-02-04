@@ -1521,6 +1521,14 @@ export function EventGroups() {
                         >
                           ↳
                         </Badge>
+                      ) : group.channel_group_mode && group.channel_group_mode !== "static" ? (
+                        <Badge
+                          variant="outline"
+                          className="bg-blue-500/15 text-blue-400 border-blue-500/30 text-xs font-mono"
+                          title="Dynamic channel group"
+                        >
+                          {group.channel_group_mode}
+                        </Badge>
                       ) : group.channel_group_id ? (
                         <Badge variant="secondary" className="text-xs" title={`ID: ${group.channel_group_id}`}>
                           {channelGroupNames[group.channel_group_id] || `#${group.channel_group_id}`}
