@@ -560,6 +560,11 @@ def _clean_team_name(name: str) -> str:
     if " // " in name:
         name = name.split(" // ")[0]
 
+    #Truncate at "(" whcih is often after team name to indicate specific conditions
+    #I.E. Ottawa @ Carolina (Available outside Senators region
+    if "(" in name:
+        name = name.split("(")[0]
+    
     # Remove datetime masks
     name = re.sub(r"\bDATE_MASK\b", "", name)
     name = re.sub(r"\bTIME_MASK\b", "", name)
