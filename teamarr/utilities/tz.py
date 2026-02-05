@@ -7,6 +7,7 @@ Display settings (time_format, show_timezone) are read from user configuration.
 """
 
 from datetime import UTC, datetime
+import platform
 
 from teamarr.config import (
     get_show_timezone,
@@ -89,7 +90,8 @@ def format_time(dt: datetime, include_tz: bool | None = None) -> str:
         time_str = local_dt.strftime("%H:%M")
     else:
         # 12-hour format
-        time_str = local_dt.strftime("%-I:%M %p")
+        str_format="%#I:%M %p" if platform.system() == "Windows" else "%-I:%M %p"
+        time_str = local_dt.strftime(str_format)
 
     # Determine if we should show timezone
     show_tz = include_tz if include_tz is not None else get_show_timezone()
@@ -110,7 +112,8 @@ def format_date(dt: datetime) -> str:
         Formatted date string
     """
     local_dt = to_user_tz(dt)
-    return local_dt.strftime("%B %-d, %Y")
+    str_format="%B %#d, %Y" if platform.system() == "Windows" else "%B %-d, %Y"
+    return local_dt.strftime(str_format)
 
 
 def format_date_short(dt: datetime) -> str:
@@ -123,7 +126,8 @@ def format_date_short(dt: datetime) -> str:
         Formatted short date string
     """
     local_dt = to_user_tz(dt)
-    return local_dt.strftime("%b %-d")
+    str_format="%b %#d" if platform.system() == "Windows" else "%b %-d"
+    return local_dt.strftime(str_format)
 
 
 def format_datetime_xmltv(dt: datetime) -> str:
