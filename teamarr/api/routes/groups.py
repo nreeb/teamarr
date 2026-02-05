@@ -1008,6 +1008,116 @@ def update_groups_bulk(request: BulkGroupUpdateRequest):
     )
 
 
+# =============================================================================
+# Bulk Template Assignments
+# =============================================================================
+
+
+class BulkTemplateAssignment(BaseModel):
+    """A single template assignment in a bulk request."""
+
+    template_id: int
+    sports: list[str] | None = None
+    leagues: list[str] | None = None
+
+
+class BulkTemplatesRequest(BaseModel):
+    """Request to set template assignments for multiple groups."""
+
+    group_ids: list[int]
+    assignments: list[BulkTemplateAssignment]
+
+
+class BulkTemplatesResponse(BaseModel):
+    """Response from bulk template assignment."""
+
+    success: bool
+    groups_updated: int
+    assignments_per_group: int
+    message: str
+
+
+@router.put("/bulk-templates", response_model=BulkTemplatesResponse)
+def bulk_set_group_templates(request: BulkTemplatesRequest):
+    """Replace template assignments for multiple groups.
+
+    This replaces ALL existing template assignments for each group
+    with the new set of assignments. Useful for applying the same
+    template configuration to multiple groups at once.
+    """
+    from teamarr.database.groups import (
+        add_group_template as db_add_template,
+    )
+    from teamarr.database.groups import (
+        delete_group_templates as db_delete_templates,
+    )
+
+    if not request.group_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No group IDs provided",
+        )
+
+    if not request.assignments:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No template assignments provided",
+        )
+
+    with get_db() as conn:
+        # Verify all groups exist
+        placeholders = ",".join("?" * len(request.group_ids))
+        rows = conn.execute(
+            f"SELECT id FROM event_epg_groups WHERE id IN ({placeholders})",
+            request.group_ids,
+        ).fetchall()
+        found_ids = {row["id"] for row in rows}
+        missing = set(request.group_ids) - found_ids
+        if missing:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Groups not found: {sorted(missing)}",
+            )
+
+        # Verify all templates exist
+        template_ids = list({a.template_id for a in request.assignments})
+        placeholders = ",".join("?" * len(template_ids))
+        rows = conn.execute(
+            f"SELECT id FROM templates WHERE id IN ({placeholders})",
+            template_ids,
+        ).fetchall()
+        found_template_ids = {row["id"] for row in rows}
+        missing_templates = set(template_ids) - found_template_ids
+        if missing_templates:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Templates not found: {sorted(missing_templates)}",
+            )
+
+        # For each group: delete existing assignments, add new ones
+        for group_id in request.group_ids:
+            db_delete_templates(conn, group_id)
+
+            for assignment in request.assignments:
+                db_add_template(
+                    conn,
+                    group_id,
+                    assignment.template_id,
+                    assignment.sports,
+                    assignment.leagues,
+                )
+
+    return BulkTemplatesResponse(
+        success=True,
+        groups_updated=len(request.group_ids),
+        assignments_per_group=len(request.assignments),
+        message=(
+            f"Applied {len(request.assignments)} template assignment(s) "
+            f"to {len(request.group_ids)} group(s)"
+        ),
+    )
+
+
 @router.get("/{group_id}", response_model=GroupResponse)
 def get_group_by_id(group_id: int):
     """Get a single event EPG group."""
