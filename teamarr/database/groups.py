@@ -1508,6 +1508,11 @@ def add_group_template(
            VALUES (?, ?, ?, ?)""",
         (group_id, template_id, sports_json, leagues_json),
     )
+    # Clear legacy template_id so it doesn't conflict with group_templates
+    conn.execute(
+        "UPDATE event_epg_groups SET template_id = NULL WHERE id = ? AND template_id IS NOT NULL",
+        (group_id,),
+    )
     conn.commit()
     logger.debug(
         "[GROUP_TEMPLATES] Added template %d to group %d (sports=%s, leagues=%s)",

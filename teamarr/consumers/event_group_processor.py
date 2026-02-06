@@ -2029,7 +2029,7 @@ class EventGroupProcessor:
         from teamarr.database.channels import get_managed_channels_for_group
 
         # Get effective team filter (group -> parent -> global)
-        include_teams, exclude_teams, mode = self._get_effective_team_filter(group, conn)
+        include_teams, exclude_teams, mode, _bypass = self._get_effective_team_filter(group, conn)
 
         if not include_teams and not exclude_teams:
             return 0  # No filter configured
