@@ -1034,6 +1034,11 @@ class ChannelLifecycleService:
                     f"Channel '{channel_name}' profile assignment: "
                     f"configured={channel_profile_ids}, effective={effective_profile_ids}"
                 )
+                logger.info(
+                    "[LIFECYCLE] Creating channel '%s' with stream_profile_id=%s",
+                    channel_name,
+                    stream_profile_id,
+                )
                 create_result = self._channel_manager.create_channel(
                     name=channel_name,
                     channel_number=channel_number,
@@ -1610,12 +1615,28 @@ class ChannelLifecycleService:
                 expected_stream_profile = dispatcharr_settings.default_stream_profile_id
 
             current_stream_profile = current_channel.stream_profile_id
+            logger.info(
+                "[LIFECYCLE] Stream profile for '%s': group_config=%s, global_default=%s, "
+                "dispatcharr_current=%s, expected=%s",
+                existing.channel_name,
+                group_config.get("stream_profile_id"),
+                expected_stream_profile if group_config.get("stream_profile_id") is None else "N/A",
+                current_stream_profile,
+                expected_stream_profile,
+            )
             if expected_stream_profile != current_stream_profile:
                 with self._dispatcharr_lock:
-                    self._channel_manager.update_channel(
+                    update_result = self._channel_manager.update_channel(
                         existing.dispatcharr_channel_id,
                         {"stream_profile_id": expected_stream_profile},
                     )
+                logger.info(
+                    "[LIFECYCLE] Stream profile PATCH for '%s': %s → %s (success=%s)",
+                    existing.channel_name,
+                    current_stream_profile,
+                    expected_stream_profile,
+                    update_result.success if update_result else "no_result",
+                )
                 changes_made.append(
                     f"stream_profile: {current_stream_profile} → {expected_stream_profile}"
                 )
