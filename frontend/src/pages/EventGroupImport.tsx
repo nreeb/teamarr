@@ -94,8 +94,7 @@ async function fetchEnabledGroups(): Promise<EnabledGroup[]> {
 }
 
 async function fetchTemplates(): Promise<Template[]> {
-  const response = await api.get<{ templates: Template[] }>("/templates")
-  return response.templates
+  return api.get("/templates")
 }
 
 async function fetchChannelGroups(): Promise<ChannelGroup[]> {
