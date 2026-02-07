@@ -2523,7 +2523,7 @@ class EventGroupProcessor:
             if template_config:
                 options.template = template_config
 
-            # Load raw template for filler config
+            # Load raw template for filler config (used as fallback)
             from teamarr.database.templates import get_template
 
             template_db = get_template(conn, default_template_id)
@@ -2533,6 +2533,12 @@ class EventGroupProcessor:
         # Resolve per-event templates based on sport/league specificity
         # This allows different templates for different sports/leagues in multi-sport groups
         template_cache: dict = {}  # {template_id: EventTemplateConfig}
+        filler_cache: dict[int, EventFillerConfig | None] = {}  # {template_id: filler_config}
+
+        # Load exception keywords for stream annotation (used by EPG generator)
+        from teamarr.database.channels import check_exception_keyword, get_exception_keywords
+
+        exception_keywords = get_exception_keywords(conn)
 
         # Log template resolution context for multi-template groups
         from teamarr.database.groups import get_group_templates
@@ -2572,6 +2578,9 @@ class EventGroupProcessor:
                     default_template_id,
                 )
 
+            # Store resolved template ID on each match for filler lookup
+            match["_event_template_id"] = event_template_id
+
             if event_template_id and event_template_id != default_template_id:
                 # Use cached template if already loaded
                 if event_template_id not in template_cache:
@@ -2587,6 +2596,27 @@ class EventGroupProcessor:
                         event_sport,
                         event_league,
                     )
+
+            # Build per-event filler config cache
+            if event_template_id and event_template_id not in filler_cache:
+                from teamarr.database.templates import get_template
+
+                tmpl = get_template(conn, event_template_id)
+                if tmpl and (tmpl.pregame_enabled or tmpl.postgame_enabled):
+                    filler_cache[event_template_id] = template_to_event_filler_config(tmpl)
+                else:
+                    filler_cache[event_template_id] = None
+
+            # Annotate match with its per-event filler config
+            if event_template_id and event_template_id in filler_cache:
+                match["_event_filler_config"] = filler_cache[event_template_id]
+
+            # Annotate match with exception keyword for EPG channel name parity
+            stream_name = match.get("stream", {}).get("name", "")
+            if stream_name and exception_keywords:
+                keyword_label, _ = check_exception_keyword(stream_name, exception_keywords)
+                if keyword_label:
+                    match["_exception_keyword"] = keyword_label
 
         # Load sport durations and lookback from settings
         options.sport_durations = self._load_sport_durations(conn)
@@ -2605,8 +2635,11 @@ class EventGroupProcessor:
         pregame_count = 0
         postgame_count = 0
 
-        # Generate filler if enabled in template
-        if filler_config:
+        # Generate filler if any template (default or per-event) has filler enabled
+        any_filler = filler_config or any(
+            fc for fc in filler_cache.values() if fc is not None
+        )
+        if any_filler:
             filler_result = self._generate_filler_for_streams(
                 matched_streams,
                 filler_config,
@@ -2703,6 +2736,11 @@ class EventGroupProcessor:
             if not event:
                 continue
 
+            # Use per-event filler config if available, fall back to default
+            stream_filler_config = stream_match.get("_event_filler_config") or filler_config
+            if not stream_filler_config:
+                continue  # No filler config for this event's template
+
             # UFC segment support: extract segment info if present
             segment = stream_match.get("segment")
             segment_start = stream_match.get("segment_start")
@@ -2739,7 +2777,7 @@ class EventGroupProcessor:
                 filler_result = filler_generator.generate_with_counts(
                     event=use_event,
                     channel_id=channel_id,
-                    config=filler_config,
+                    config=stream_filler_config,
                     options=use_options,
                 )
                 result.programmes.extend(filler_result.programmes)
