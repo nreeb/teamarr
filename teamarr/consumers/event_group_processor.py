@@ -2779,6 +2779,7 @@ class EventGroupProcessor:
                     channel_id=channel_id,
                     config=stream_filler_config,
                     options=use_options,
+                    card_segment=segment,
                 )
                 result.programmes.extend(filler_result.programmes)
                 result.pregame_count += filler_result.pregame_count
